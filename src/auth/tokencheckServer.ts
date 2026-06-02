@@ -12,6 +12,6 @@ export async function sendItToSignup() {
 export async function senditToMain() {
   const { data } = await readUserSession();
   if (data.session) {
-    return redirect("/tasks");
+    return redirect("/dashboard");
   }
 }

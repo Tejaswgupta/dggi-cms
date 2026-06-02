@@ -68,7 +68,7 @@ export default function LoginForm() {
         setrequest(false);
       } else {
         localStorage.setItem("VotumUserDetails", JSON.stringify(result.data));
-        const redirectTo = searchParams.get("redirectTo") || "/tasks";
+        const redirectTo = searchParams.get("redirectTo") || "/dashboard";
         router.push(redirectTo);
       }
     } catch (error) {
