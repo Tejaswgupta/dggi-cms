@@ -25,7 +25,6 @@ import {
   Eye,
   EyeOff,
   FilePlus2,
-  Loader2,
   Pencil,
   Plus,
   Search,
@@ -37,6 +36,11 @@ import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
+import {
+  DGGIRecordDialog,
+  EMPTY_RECORD,
+  type DGGIRecord,
+} from "./DGGIComponent";
 import {
   REGISTER_PREFIXES,
   exportRegisterToExcel,
@@ -92,12 +96,12 @@ const RAPID_COLS: RegisterColumn[] = [
     width: "140px",
     readOnly: true,
   },
-  {
-    key: "linked_case_id",
-    label: "Linked Case",
-    type: "caselink",
-    width: "180px",
-  },
+  // {
+  //   key: "linked_case_id",
+  //   label: "Linked Case",
+  //   type: "caselink",
+  //   width: "180px",
+  // },
   { key: "rapid_id", label: "Rapid ID", type: "text", width: "140px" },
   {
     key: "file_no_ref_id",
@@ -136,6 +140,7 @@ const RAPID_COLS: RegisterColumn[] = [
     label: "Last Updated On",
     type: "datepicker",
     width: "150px",
+    readOnly: true,
   },
   {
     key: "action_taken",
@@ -243,12 +248,12 @@ const OTHER_COLS: RegisterColumn[] = [
     width: "140px",
     readOnly: true,
   },
-  {
-    key: "linked_case_id",
-    label: "Linked Case",
-    type: "caselink",
-    width: "180px",
-  },
+  // {
+  //   key: "linked_case_id",
+  //   label: "Linked Case",
+  //   type: "caselink",
+  //   width: "180px",
+  // },
   {
     key: "source_name",
     label: "Source",
@@ -398,12 +403,12 @@ const STR_COLS: RegisterColumn[] = [
     width: "140px",
     readOnly: true,
   },
-  {
-    key: "linked_case_id",
-    label: "Linked Case",
-    type: "caselink",
-    width: "180px",
-  },
+  // {
+  //   key: "linked_case_id",
+  //   label: "Linked Case",
+  //   type: "caselink",
+  //   width: "180px",
+  // },
   {
     key: "str_reference_no",
     label: "STR Reference No.",
@@ -453,6 +458,7 @@ const STR_COLS: RegisterColumn[] = [
     label: "Last Updated On",
     type: "datepicker",
     width: "150px",
+    readOnly: true,
   },
   { key: "entity_name", label: "Trade Name", type: "text", width: "180px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
@@ -882,6 +888,18 @@ const IntelligenceAllocationComponent = () => {
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
 
+  // NON-IR generation dialog
+  const [nonIrDialogOpen, setNonIrDialogOpen] = useState(false);
+  const [nonIrDialogDraft, setNonIrDialogDraft] = useState<Partial<DGGIRecord>>(
+    {},
+  );
+  const [nonIrSaving, setNonIrSaving] = useState(false);
+  const [nonIrSourceTable, setNonIrSourceTable] = useState<string>("");
+  const [nonIrSourceId, setNonIrSourceId] = useState<string>("");
+  const [nonIrSetRecords, setNonIrSetRecords] = useState<React.Dispatch<
+    React.SetStateAction<any[]>
+  > | null>(null);
+
   useEffect(() => {
     const init = async () => {
       const wid = await getWorkspaceId();
@@ -1102,11 +1120,9 @@ const IntelligenceAllocationComponent = () => {
     EMPTY_STR,
   );
 
-  // ── Generate NON-IR Case ────────────────────────────────────────────────────
+  // ── Generate NON-IR Case (opens dialog for manual review before saving) ───────
 
-  const [generatingNonIr, setGeneratingNonIr] = useState<string | null>(null);
-
-  const generateNonIrCase = async <
+  const openNonIrDialog = <
     T extends {
       id: string;
       record_id: string;
@@ -1122,9 +1138,33 @@ const IntelligenceAllocationComponent = () => {
     intelSource?: string,
     group?: string,
   ) => {
-    if (!workspaceId || record.non_ir_no) return;
-    setGeneratingNonIr(record.id);
-    const today = new Date().toISOString().split("T")[0];
+    if (record.non_ir_no) return;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const draft: Partial<DGGIRecord> = {
+      ...EMPTY_RECORD,
+      is_ir: false,
+      taxpayer_name: entityName || "",
+      gstins: gstin || "",
+      intel_source: intelSource || "",
+      date_of_non_ir: todayStr,
+      date_of_receipt: todayStr,
+      handling_io_sio: currentUserId || "",
+      group: group || "Group A",
+    };
+    setNonIrDialogDraft(draft);
+    setNonIrSourceTable(sourceTable);
+    setNonIrSourceId(record.id);
+    setNonIrSetRecords(
+      () => setRecords as React.Dispatch<React.SetStateAction<any[]>>,
+    );
+    setNonIrDialogOpen(true);
+  };
+
+  const saveNonIrCase = async () => {
+    if (!workspaceId || !nonIrSourceId || !nonIrSourceTable || !nonIrSetRecords)
+      return;
+    setNonIrSaving(true);
+    const draft = nonIrDialogDraft as Omit<DGGIRecord, "id">;
     const nonIrRecordId = await generateWorkspaceRecordId(
       supabase,
       "dggi_records",
@@ -1132,39 +1172,38 @@ const IntelligenceAllocationComponent = () => {
       workspaceId,
       { filter: { is_ir: false }, separator: "-" },
     );
+    const todayStr = new Date().toISOString().split("T")[0];
     const payload = {
+      ...draft,
       record_id: nonIrRecordId,
       is_ir: false,
-      taxpayer_name: entityName || "",
-      gstins: gstin || "",
-      intel_source: intelSource || "",
-      date_of_non_ir: today,
-      date_of_receipt: today,
-      handling_io_sio: currentUserId || "",
-      group: group || "Group A",
+      mode_of_initiation: draft.mode_of_initiation || null,
+      date_of_receipt: draft.date_of_receipt || null,
+      date_of_initiation: draft.date_of_initiation || null,
+      intel_approved_date: draft.intel_approved_date || null,
+      intelligence_action_date: draft.intelligence_action_date || null,
+      due_date: draft.due_date || null,
+      date_of_ir: null,
+      date_of_non_ir: draft.date_of_non_ir || todayStr,
       workspace_id: workspaceId,
     };
-    const { data, error } = await supabase
-      .from("dggi_records")
-      .insert(payload)
-      .select()
-      .single();
+    const { error } = await supabase.from("dggi_records").insert(payload);
     if (error) {
       toast.error("Failed to generate NON-IR case: " + error.message);
-      setGeneratingNonIr(null);
+      setNonIrSaving(false);
       return;
     }
     const { error: linkErr } = await supabase
-      .from(sourceTable)
-      .update({ non_ir_no: nonIrRecordId, non_ir_date: today })
-      .eq("id", record.id);
+      .from(nonIrSourceTable)
+      .update({ non_ir_no: nonIrRecordId, non_ir_date: todayStr })
+      .eq("id", nonIrSourceId);
     if (linkErr) {
       toast.error("NON-IR created but failed to link: " + linkErr.message);
     } else {
-      setRecords((prev) =>
-        prev.map((r) =>
-          r.id === record.id
-            ? { ...r, non_ir_no: nonIrRecordId, non_ir_date: today }
+      nonIrSetRecords((prev: any[]) =>
+        prev.map((r: any) =>
+          r.id === nonIrSourceId
+            ? { ...r, non_ir_no: nonIrRecordId, non_ir_date: todayStr }
             : r,
         ),
       );
@@ -1172,14 +1211,15 @@ const IntelligenceAllocationComponent = () => {
         ...prev,
         {
           record_id: nonIrRecordId,
-          taxpayer_name: entityName || "",
+          taxpayer_name: draft.taxpayer_name || "",
           file_no: "",
           is_ir: false,
         },
       ]);
       toast.success(`NON-IR case ${nonIrRecordId} generated`);
+      setNonIrDialogOpen(false);
     }
-    setGeneratingNonIr(null);
+    setNonIrSaving(false);
   };
 
   const handleRapidExport = () => {
@@ -1332,9 +1372,8 @@ const IntelligenceAllocationComponent = () => {
                       size="sm"
                       variant="outline"
                       className="h-7 rounded-lg border-[#EDEDEA] text-[#4A5FD4] hover:bg-[#EEF2FF] text-xs shadow-none px-2"
-                      disabled={generatingNonIr === r.id}
                       onClick={() =>
-                        generateNonIrCase(
+                        openNonIrDialog(
                           r,
                           "dggi_intel_rapid_records",
                           setRapidRecords,
@@ -1345,11 +1384,7 @@ const IntelligenceAllocationComponent = () => {
                         )
                       }
                     >
-                      {generatingNonIr === r.id ? (
-                        <Loader2 size={12} className="animate-spin mr-1" />
-                      ) : (
-                        <FilePlus2 size={12} className="mr-1" />
-                      )}
+                      <FilePlus2 size={12} className="mr-1" />
                       Generate NON-IR
                     </Button>
                   ),
@@ -1407,9 +1442,8 @@ const IntelligenceAllocationComponent = () => {
                       size="sm"
                       variant="outline"
                       className="h-7 rounded-lg border-[#EDEDEA] text-[#4A5FD4] hover:bg-[#EEF2FF] text-xs shadow-none px-2"
-                      disabled={generatingNonIr === r.id}
                       onClick={() =>
-                        generateNonIrCase(
+                        openNonIrDialog(
                           r,
                           "dggi_intel_other_source_records",
                           setOtherRecords,
@@ -1420,11 +1454,7 @@ const IntelligenceAllocationComponent = () => {
                         )
                       }
                     >
-                      {generatingNonIr === r.id ? (
-                        <Loader2 size={12} className="animate-spin mr-1" />
-                      ) : (
-                        <FilePlus2 size={12} className="mr-1" />
-                      )}
+                      <FilePlus2 size={12} className="mr-1" />
                       Generate NON-IR
                     </Button>
                   ),
@@ -1476,9 +1506,8 @@ const IntelligenceAllocationComponent = () => {
                       size="sm"
                       variant="outline"
                       className="h-7 rounded-lg border-[#EDEDEA] text-[#4A5FD4] hover:bg-[#EEF2FF] text-xs shadow-none px-2"
-                      disabled={generatingNonIr === r.id}
                       onClick={() =>
-                        generateNonIrCase(
+                        openNonIrDialog(
                           r,
                           "dggi_str_records",
                           setStrRecords,
@@ -1489,11 +1518,7 @@ const IntelligenceAllocationComponent = () => {
                         )
                       }
                     >
-                      {generatingNonIr === r.id ? (
-                        <Loader2 size={12} className="animate-spin mr-1" />
-                      ) : (
-                        <FilePlus2 size={12} className="mr-1" />
-                      )}
+                      <FilePlus2 size={12} className="mr-1" />
                       Generate NON-IR
                     </Button>
                   ),
@@ -1577,6 +1602,28 @@ const IntelligenceAllocationComponent = () => {
         saving={strSaving}
         users={workspaceUsers}
         caseOptions={caseOptions}
+      />
+
+      {/* NON-IR generation dialog */}
+      <DGGIRecordDialog
+        open={nonIrDialogOpen}
+        onOpenChange={(v) => {
+          if (!v) setNonIrDialogOpen(false);
+        }}
+        mode="add"
+        draft={nonIrDialogDraft}
+        onDraftChange={(k, v) =>
+          setNonIrDialogDraft((prev) => {
+            const next = { ...prev, [k]: v };
+            if (k === "is_ir" && v === false && !prev.date_of_non_ir) {
+              next.date_of_non_ir = new Date().toISOString().split("T")[0];
+            }
+            return next;
+          })
+        }
+        onSave={saveNonIrCase}
+        saving={nonIrSaving}
+        users={workspaceUsers}
       />
     </div>
   );

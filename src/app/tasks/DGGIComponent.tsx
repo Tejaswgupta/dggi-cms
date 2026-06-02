@@ -187,7 +187,7 @@ const ISSUE_INVOLVED_OPTIONS = [
   "Misclassification",
 ];
 
-const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
+export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   record_id: "",
   group: "Group A",
   intel_source: "",
@@ -286,6 +286,12 @@ const COLUMNS: {
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   {
+    key: "handling_io_sio",
+    label: "Handling IO/SIO",
+    type: "usercombobox",
+    width: "170px",
+  },
+  {
     key: "date_of_initiation",
     label: "Date of Initiation of File",
     type: "datepicker",
@@ -309,12 +315,6 @@ const COLUMNS: {
     label: "Intelligence Action Date",
     type: "datepicker",
     width: "150px",
-  },
-  {
-    key: "handling_io_sio",
-    label: "Handling IO/SIO",
-    type: "usercombobox",
-    width: "170px",
   },
   {
     key: "issue_involved",
@@ -1428,7 +1428,7 @@ function CreateFromIntelDialog({
 
 // ─── DGGIRecordDialog ─────────────────────────────────────────────────────────
 
-interface DGGIRecordDialogProps {
+export interface DGGIRecordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "add" | "edit";
@@ -1939,7 +1939,7 @@ const NON_IR_STAGES: {
   },
 ];
 
-function DGGIRecordDialog({
+export function DGGIRecordDialog({
   open,
   onOpenChange,
   mode,
