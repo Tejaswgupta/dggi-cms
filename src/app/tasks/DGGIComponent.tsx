@@ -272,12 +272,6 @@ const COLUMNS: {
     width: "120px",
   },
   {
-    key: "date_of_receipt",
-    label: "Date of Receipt",
-    type: "datepicker",
-    width: "150px",
-  },
-  {
     key: "taxpayer_name",
     label: "Taxpayer Name",
     type: "text",
@@ -552,7 +546,7 @@ function UserCombobox({
             onValueChange={setQuery}
             className="text-base"
           />
-          <CommandList>
+          <CommandList className="max-h-[200px] overflow-y-auto">
             <CommandEmpty className="py-3 text-center text-base text-[#9a9a96]">
               No users found.
             </CommandEmpty>
@@ -2641,6 +2635,7 @@ const DGGIComponent = () => {
       .from("dggi_records")
       .update({
         ...dialogDraft,
+        handling_io_sio: dialogDraft.handling_io_sio || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
         date_of_initiation: dialogDraft.date_of_initiation || null,
@@ -2714,6 +2709,7 @@ const DGGIComponent = () => {
         workspaceId,
         { filter: { is_ir: draft.is_ir }, separator: "-" },
       ),
+      handling_io_sio: draft.handling_io_sio || null,
       mode_of_initiation: draft.mode_of_initiation || null,
       due_date: draft.due_date || null,
       date_of_ir: draft.date_of_ir || null,
