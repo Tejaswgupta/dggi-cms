@@ -522,7 +522,7 @@ function UserCombobox({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <button
           className={`flex h-8 items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate ${className ?? "w-[160px]"}`}
@@ -2626,16 +2626,14 @@ const DGGIComponent = () => {
   const saveEdit = async () => {
     if (!dialogEditingId) return;
     setSavingRow(true);
-    const isConvertingToIr =
-      dialogDraft.closure_by === "Converted to IR" && !dialogDraft.is_ir;
-    const closingRecord = isConvertingToIr
-      ? records.find((r) => r.id === dialogEditingId)
-      : null;
+    // A NON-IR record that gets closure_by="Converted to IR" must stay is_ir=false.
+    // The conversion creates a separate new IR record; the source NIR record is just closed.
+    const isClosedAsConverted = dialogDraft.closure_by === "Converted to IR";
     const { error } = await supabase
       .from("dggi_records")
       .update({
         ...dialogDraft,
-        ...(isConvertingToIr ? { is_ir: true, date_of_ir: today() } : {}),
+        ...(isClosedAsConverted ? { is_ir: false } : {}),
         handling_io_sio: dialogDraft.handling_io_sio || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
@@ -2651,37 +2649,13 @@ const DGGIComponent = () => {
     } else {
       setRecords((prev) =>
         prev.map((r) =>
-          r.id === dialogEditingId ? { ...r, ...dialogDraft } : r,
+          r.id === dialogEditingId
+            ? { ...r, ...dialogDraft, ...(isClosedAsConverted ? { is_ir: false } : {}) }
+            : r,
         ),
       );
-      if (isConvertingToIr && closingRecord) {
-        cancelDialog();
-        const irDraft: Omit<DGGIRecord, "id"> = {
-          ...EMPTY_RECORD,
-          is_ir: true,
-          group: closingRecord.group,
-          intel_source: closingRecord.intel_source,
-          taxpayer_name: closingRecord.taxpayer_name,
-          gstins: closingRecord.gstins,
-          file_no: closingRecord.file_no,
-          handling_io_sio: closingRecord.handling_io_sio,
-          issue_involved: closingRecord.issue_involved,
-          mode_of_initiation: closingRecord.mode_of_initiation,
-          date_of_receipt: closingRecord.date_of_receipt,
-          date_of_initiation: today(),
-          date_of_ir: today(),
-          converted_from_non_ir: closingRecord.record_id,
-        };
-        setDialogDraft(irDraft);
-        setDialogMode("add");
-        setDialogOpen(true);
-        toast.info(
-          "NON-IR closed — review and save the new IR case below.",
-        );
-      } else {
-        toast.success("Record saved");
-        cancelDialog();
-      }
+      toast.success("Record saved");
+      cancelDialog();
     }
     setSavingRow(false);
   };

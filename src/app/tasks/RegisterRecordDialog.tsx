@@ -114,7 +114,7 @@ function DialogUserCombobox({
       u.email?.toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <button className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate">
           <span className="truncate">
@@ -136,7 +136,7 @@ function DialogUserCombobox({
             onValueChange={setQuery}
             className="text-base"
           />
-          <CommandList>
+          <CommandList className="max-h-[200px] overflow-y-auto">
             <CommandEmpty className="py-3 text-center text-base text-[#9a9a96]">
               No users found.
             </CommandEmpty>
