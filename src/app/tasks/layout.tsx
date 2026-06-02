@@ -1,5 +1,3 @@
-"use client";
-
 import GlobalNav from "@/components/GlobalNav";
 import { Suspense, type ReactNode } from "react";
 import RecordHighlighter from "./RecordHighlighter";
