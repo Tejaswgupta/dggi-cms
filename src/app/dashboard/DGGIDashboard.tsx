@@ -381,21 +381,21 @@ const DEADLINE_RULES: TableDeadlineConfig[] = [
 
 const DEADLINE_TABLE_COLUMNS: Record<string, string> = {
   dggi_scn_records:
-    "id,record_id,workspace_id,last_date_oio,date_of_scn,noticee_name,adjudication_formation,group,sio",
+    "id,record_id,workspace_id,last_date_oio,date_of_scn,noticee_name,adjudication_formation:votum_users(name),group,sio",
   dggi_provisional_attachment_records:
-    "id,record_id,workspace_id,date_of_attachment,person_name,group_sio,scn_issued,date_of_scn_issuance,date_of_release,out_of_monitoring,group,sio",
+    "id,record_id,workspace_id,date_of_attachment,person_name,group_sio:votum_users(name),scn_issued,date_of_scn_issuance,date_of_release,out_of_monitoring,group,sio",
   dggi_prosecution_arrest_records:
     "id,record_id,workspace_id,date_of_arrest,arrested_person_name,entity_name,prosecution_complaint_status,bail_status,date_of_filing,group,sio",
   dggi_prosecution_non_arrest_records:
     "id,record_id,workspace_id,date_of_order,remarks,group,sio",
   dggi_seizure_records:
-    "id,record_id,workspace_id,date_of_seizure,entity_name,seized_by,scn_issued,scn_issue_date,extended_by_commissioner,group,sio",
+    "id,record_id,workspace_id,date_of_seizure,entity_name,seized_by:votum_users(name),scn_issued,scn_issue_date,extended_by_commissioner,group,sio",
   dggi_intel_rapid_records:
     "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
   dggi_str_records:
     "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
   dggi_records:
-    "id,record_id,workspace_id,created_at,intelligence_action_date,intel_approved_date,taxpayer_name,handling_io_sio,is_ir,date_of_ir,date_of_non_ir,group",
+    "id,record_id,workspace_id,created_at,intelligence_action_date,intel_approved_date,taxpayer_name,handling_io_sio:votum_users(name),is_ir,date_of_ir,date_of_non_ir,group",
   dggi_dfl_records:
     "id,record_id,workspace_id,date_of_request,report_received_date,entity_name,dfl_request_no,group,sio",
 };
@@ -719,8 +719,11 @@ function computeDeadlinesForTable(
             : daysUntil <= rule.warning_days
               ? "warning"
               : "safe";
-      const officer = officerField
-        ? ((record[officerField] as string | undefined) ?? "")
+      const officerRaw = officerField ? record[officerField] : undefined;
+      const officer = officerRaw
+        ? typeof officerRaw === "object" && officerRaw !== null
+          ? ((officerRaw as { name?: string }).name ?? "")
+          : String(officerRaw)
         : "";
       items.push({
         ruleId: rule.rule_id,
