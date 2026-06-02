@@ -3,14 +3,13 @@ import { newCreateNewTask } from "@/apiReq/newAPIs/Task";
 import TaskModal from "@/components/tasks/TaskModal";
 import { Button } from "@/components/ui/button";
 import useWorkspaceUsers from "@/hooks/useWorkspaceUsers";
-import { cn } from "@/lib/utils";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import NewTaskFromDocument from "./new-task-from-document";
 
 const NewTask: React.FC<any> = (props) => {
   const {
@@ -47,19 +46,28 @@ const NewTask: React.FC<any> = (props) => {
 
   const [taskStatus, setTaskStatus] = useState<string>("0");
   const [priority, setPriority] = useState<string>("Low");
-  const [startDate, setStartDate] = useState<Date | null>(buildDefaultDates().start);
+  const [startDate, setStartDate] = useState<Date | null>(
+    buildDefaultDates().start,
+  );
   const [dueDate, setDueDate] = useState<Date | null>(buildDefaultDates().due);
 
-  const [selectedAssignees, setSelectedAssignees] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [autoAssignEnabled, setAutoAssignEnabled] = useState<boolean>(false);
 
-  const [selectedCase, setSelectedCase] = useState<{ id: string; trade_name: string }>({
+  const [selectedCase, setSelectedCase] = useState<{
+    id: string;
+    trade_name: string;
+  }>({
     id: initialCaseId || "",
     trade_name: "",
   });
 
   const [documentList, setDocumentList] = useState<File[]>([]);
-  const [ccUsers, setCcUsers] = useState<Array<{ id: string; name: string }>>([]);
+  const [ccUsers, setCcUsers] = useState<Array<{ id: string; name: string }>>(
+    [],
+  );
 
   // Single assignee compat for API (first selected)
   const assignee = selectedAssignees[0] ?? null;
@@ -77,7 +85,9 @@ const NewTask: React.FC<any> = (props) => {
   useEffect(() => {
     const fetchData = async () => {
       if (localStorage.getItem("mailTask")) {
-        const { task, attachments }: any = JSON.parse(localStorage.getItem("mailTask")!);
+        const { task, attachments }: any = JSON.parse(
+          localStorage.getItem("mailTask")!,
+        );
         setTaskName(task.task_title);
         setEmailMessageId(task.email_message_id);
         setTaskDescription(task.task_content || "");
@@ -87,7 +97,11 @@ const NewTask: React.FC<any> = (props) => {
             const uniqueFilenames = new Set<string>();
             const blobs = await Promise.all(
               attachments.map(async (element: any) => {
-                const file = await base64ToBlob(element.downloadLink, element.mimeType, element.filename);
+                const file = await base64ToBlob(
+                  element.downloadLink,
+                  element.mimeType,
+                  element.filename,
+                );
                 if (!uniqueFilenames.has(file.name)) {
                   uniqueFilenames.add(file.name);
                   return file;
@@ -184,7 +198,10 @@ const NewTask: React.FC<any> = (props) => {
 
     if (props.suggestedTaskId) {
       const supabase = clientConnectionWithSupabase();
-      await supabase.from("votum_suggested_tasks").delete().eq("id", props.suggestedTaskId);
+      await supabase
+        .from("votum_suggested_tasks")
+        .delete()
+        .eq("id", props.suggestedTaskId);
     }
 
     setListTasks([result.resultOftaskCreation.data[0], ...ListTasks]);
@@ -207,7 +224,12 @@ const NewTask: React.FC<any> = (props) => {
     <div className={cn("flex items-center gap-2", containerClassName)}>
       {taskSaveLoader && (
         <div className="fixed inset-0 bg-black/10 z-[1000000000] flex justify-center items-center">
-          <ClipLoader color={"#6680ff"} loading={true} size={70} aria-label="Loading Spinner" />
+          <ClipLoader
+            color={"#6680ff"}
+            loading={true}
+            size={70}
+            aria-label="Loading Spinner"
+          />
         </div>
       )}
 
@@ -221,7 +243,9 @@ const NewTask: React.FC<any> = (props) => {
         }}
       >
         <Plus size={18} />
-        <h2 className="tracking-wide text-sm font-semibold">{newButtonLabel}</h2>
+        <h2 className="tracking-wide text-sm font-semibold">
+          {newButtonLabel}
+        </h2>
       </Button>
 
       <TaskModal
@@ -256,11 +280,26 @@ const NewTask: React.FC<any> = (props) => {
         onRemoveSubtask={async () => {}}
         selectedCase={selectedCase.id ? selectedCase : null}
         onCaseChange={(c) => setSelectedCase(c ?? { id: "", trade_name: "" })}
-        documents={documentList.map((f) => ({ name: f.name, size: f.size, type: f.type }))}
+        documents={documentList.map((f) => ({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+        }))}
         onDocumentAdd={async (file) => {
-          const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp"];
+          const allowedTypes = [
+            "application/pdf",
+            "image/png",
+            "image/jpeg",
+            "image/jpg",
+            "image/gif",
+            "image/webp",
+          ];
           if (!allowedTypes.includes(file.type)) {
-            toast.error(`Unsupported file type: ${file.name}`, { position: "top-right", autoClose: 5000, theme: "colored" });
+            toast.error(`Unsupported file type: ${file.name}`, {
+              position: "top-right",
+              autoClose: 5000,
+              theme: "colored",
+            });
             return Promise.reject();
           }
           setDocumentList((prev) => [...prev, file]);
@@ -276,15 +315,6 @@ const NewTask: React.FC<any> = (props) => {
           setNewTaskCreateBox(false);
         }}
         isLoading={taskSaveLoader}
-      />
-
-      <NewTaskFromDocument
-        refreshTasks={refreshTasks}
-        buttonClassName={cn(
-          "h-10 rounded-full border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.4)] transition hover:-translate-y-[1px] hover:bg-slate-50",
-          fromDocumentButtonClassName,
-        )}
-        buttonVariant={fromDocumentButtonVariant}
       />
     </div>
   );

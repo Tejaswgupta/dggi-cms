@@ -3,7 +3,7 @@
 import GlobalNav from "@/components/GlobalNav";
 import { type ReactNode } from "react";
 
-export default function TasksLayout({ children }: { children: ReactNode }) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full w-full">
       <GlobalNav />
