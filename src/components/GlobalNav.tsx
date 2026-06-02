@@ -13,13 +13,15 @@ import {
   Gift,
   HardDrive,
   LayoutDashboard,
+  LogOut,
   MessageSquare,
   Package,
   Paperclip,
   Scale,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { signOut } from "@/auth/client";
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -55,35 +57,54 @@ const NAV_SECTIONS = [
 
 export default function GlobalNav() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    localStorage.removeItem("VotumUserDetails");
+    router.push("/auth/signin");
+  };
+
   return (
     <aside className="hidden md:flex flex-col w-[200px] shrink-0 border-r border-[#EDEDEA] bg-white h-full pt-5 pb-4 px-2 overflow-y-auto">
-      {NAV_SECTIONS.map((section) => (
-        <div key={section.label} className="mb-4">
-          <p className="px-3 pb-2 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
-            {section.label}
-          </p>
-          <div className="flex flex-col gap-0.5">
-            {section.items.map((item) => {
-              const active = pathname.startsWith(item.href);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all ${
-                    active
-                      ? "bg-[#EEF2FF] text-[#4A5FD4] font-medium"
-                      : "text-[#6b6b6b] hover:bg-[#F3F2EF] hover:text-[#1a1a1a]"
-                  }`}
-                >
-                  <Icon size={15} className="shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              );
-            })}
+      <div className="flex-1">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label} className="mb-4">
+            <p className="px-3 pb-2 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+              {section.label}
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {section.items.map((item) => {
+                const active = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all ${
+                      active
+                        ? "bg-[#EEF2FF] text-[#4A5FD4] font-medium"
+                        : "text-[#6b6b6b] hover:bg-[#F3F2EF] hover:text-[#1a1a1a]"
+                    }`}
+                  >
+                    <Icon size={15} className="shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <div className="border-t border-[#EDEDEA] pt-2">
+        <button
+          onClick={handleSignOut}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#6b6b6b] transition-all hover:bg-[#FEF2F2] hover:text-[#EF4444]"
+        >
+          <LogOut size={15} className="shrink-0" />
+          <span>Sign out</span>
+        </button>
+      </div>
     </aside>
   );
 }
