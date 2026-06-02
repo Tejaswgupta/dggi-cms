@@ -2,8 +2,12 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 
+type SupabaseClient = ReturnType<typeof createBrowserClient>;
+let _client: SupabaseClient | null = null;
+
 export default function clientConnectionWithSupabase() {
-  const supabase = createBrowserClient(
+  if (_client) return _client;
+  _client = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -13,6 +17,5 @@ export default function clientConnectionWithSupabase() {
       },
     }
   );
-
-  return supabase;
+  return _client;
 }

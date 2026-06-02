@@ -18,6 +18,7 @@ import {
   Package,
   Paperclip,
   Scale,
+  ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -49,8 +50,13 @@ const MONITORING_ITEMS: SidebarItem[] = [
   { href: "/tasks/evidence-room", label: "Evidence Room", icon: Package },
 ];
 
+const INVESTIGATION_ITEMS: SidebarItem[] = [
+  { href: "/tasks/investigation-cases", label: "Investigation Cases", icon: ShieldAlert },
+];
+
 const NAV_SECTIONS = [
   { label: "Dashboard", items: DASHBOARD_ITEMS },
+  { label: "Investigation", items: INVESTIGATION_ITEMS },
   { label: "Registers", items: REGISTER_ITEMS },
   { label: "Monitoring & Compliance", items: MONITORING_ITEMS },
 ];

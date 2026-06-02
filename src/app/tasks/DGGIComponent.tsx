@@ -113,7 +113,7 @@ const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface DGGIRecord {
+export interface DGGIRecord {
   id: string;
   record_id: string;
   group: GroupName;
