@@ -2635,6 +2635,7 @@ const DGGIComponent = () => {
       .from("dggi_records")
       .update({
         ...dialogDraft,
+        ...(isConvertingToIr ? { is_ir: true, date_of_ir: today() } : {}),
         handling_io_sio: dialogDraft.handling_io_sio || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
@@ -2642,7 +2643,6 @@ const DGGIComponent = () => {
         intel_approved_date: dialogDraft.intel_approved_date || null,
         intelligence_action_date: dialogDraft.intelligence_action_date || null,
         due_date: dialogDraft.due_date || null,
-        date_of_ir: dialogDraft.date_of_ir || null,
         date_of_non_ir: dialogDraft.date_of_non_ir || null,
       })
       .eq("id", dialogEditingId);
