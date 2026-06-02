@@ -1,0 +1,29 @@
+.bn-editor {
+  background-color: transparent;
+  padding-inline: 10px;
+  border-width: 1px;
+  color: #000;
+}
+
+.comment-view > .bn-editor{
+  background-color: transparent;
+  padding-inline: 10px;
+  border: none !important;
+  color: #000;
+  font-size: 0.9rem;
+}
+
+.comment-view > .bn-block-outer {
+  font-size: 0.9rem;
+}
+
+.comment-editor > .bn-block-outer {
+  font-size: 0.9rem;
+}
+
+.main-editor > .bn-editor{
+  background-color: transparent;
+  padding-inline: 10px;
+  border: none !important;
+  color: #000;
+}
