@@ -20,8 +20,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense } from "react";
-import RecordHighlighter from "@/app/tasks/RecordHighlighter";
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -58,10 +56,6 @@ const NAV_SECTIONS = [
 export default function GlobalNav() {
   const pathname = usePathname();
   return (
-    <>
-    <Suspense>
-      <RecordHighlighter />
-    </Suspense>
     <aside className="hidden md:flex flex-col w-[200px] shrink-0 border-r border-[#EDEDEA] bg-white h-full pt-5 pb-4 px-2 overflow-y-auto">
       {NAV_SECTIONS.map((section) => (
         <div key={section.label} className="mb-4">
@@ -91,6 +85,5 @@ export default function GlobalNav() {
         </div>
       ))}
     </aside>
-    </>
   );
 }
