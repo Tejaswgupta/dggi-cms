@@ -71,7 +71,7 @@ function DialogDatePicker({
 }) {
   const parsed = value && isValid(parseISO(value)) ? parseISO(value) : undefined;
   return (
-    <Popover>
+    <Popover modal={true}>
       <PopoverTrigger asChild>
         <button className="flex h-9 w-full items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
           <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />

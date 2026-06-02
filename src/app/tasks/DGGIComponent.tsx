@@ -473,7 +473,7 @@ function DatePickerCell({
   const parsed =
     value && isValid(parseISO(value)) ? parseISO(value) : undefined;
   return (
-    <Popover>
+    <Popover modal={true}>
       <PopoverTrigger asChild>
         <button
           className={`flex h-8 items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] ${className ?? "w-[150px]"}`}
