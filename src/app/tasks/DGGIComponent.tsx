@@ -351,6 +351,30 @@ const COLUMNS: {
   },
 ];
 
+// ─── NON-IR table column definitions (yellow + green from non-IR02.xlsx) ─────
+
+type ColDef = (typeof COLUMNS)[number];
+
+// Fields used in the NON-IR form but not shown as table columns
+const NON_IR_FORM_EXTRA: ColDef[] = [
+  { key: "date_of_receipt", label: "Date of Receipt", type: "datepicker", width: "150px" },
+];
+
+const NON_IR_COLUMNS: ColDef[] = [
+  { key: "record_id", label: "NON-IR No.", type: "text", width: "140px", readOnly: true },
+  { key: "date_of_non_ir", label: "Date of NON-IR", type: "datepicker", width: "150px", readOnly: true },
+  { key: "group", label: "Group", type: "select", options: [...GROUPS], width: "120px" },
+  { key: "intel_source", label: "Source", type: "select", options: SOURCE_OPTIONS, width: "120px" },
+  { key: "taxpayer_name", label: "Taxpayer Name", type: "text", width: "150px" },
+  { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
+  { key: "file_no", label: "File No.", type: "text", width: "110px" },
+  { key: "handling_io_sio", label: "Handling IO/SIO", type: "usercombobox", width: "170px" },
+  { key: "latest_status", label: "Action Taken", type: "text", width: "160px" },
+  { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
+  { key: "date_of_ir", label: "Date of IR", type: "datepicker", width: "150px", readOnly: true },
+  { key: "due_date", label: "Date of Closure", type: "datepicker", width: "150px" },
+];
+
 const LS_HIDDEN_COLS_KEY = "dggi_hidden_columns";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -1874,17 +1898,8 @@ const NON_IR_STAGES: {
       "gstins",
       "file_no",
       "handling_io_sio",
-      "issue_involved",
     ],
     requiredFields: ["group", "taxpayer_name", "file_no", "handling_io_sio"],
-  },
-  {
-    label: "Intelligence Action",
-    fields: [
-      "intelligence_action_date",
-      "mode_of_initiation",
-    ],
-    requiredFields: ["mode_of_initiation"],
   },
   {
     label: "Related Registers",
@@ -1914,18 +1929,8 @@ export function DGGIRecordDialog({
   onEditSCN,
 }: DGGIRecordDialogProps) {
   const isIr = draft.is_ir ?? true;
-  const NON_IR_HIDDEN_FIELDS: (keyof DGGIRecord)[] = [
-    "detection_amount",
-    "recovery_itc",
-    "recovery_cash",
-    "digit_id",
-    "bo_id",
-  ];
-  const editableColumns = COLUMNS.filter(
-    (col) =>
-      !col.readOnly &&
-      (isIr || !NON_IR_HIDDEN_FIELDS.includes(col.key)),
-  );
+  const formColumns = isIr ? COLUMNS : NON_IR_COLUMNS;
+  const editableColumns = formColumns.filter((col) => !col.readOnly && col.key !== "is_ir");
   const [otherActiveFields, setOtherActiveFields] = useState<Set<string>>(
     new Set(),
   );
@@ -1945,7 +1950,7 @@ export function DGGIRecordDialog({
     return isStageComplete(stageIdx - 1);
   };
 
-  const renderField = (col: (typeof COLUMNS)[number], disabled?: boolean) => {
+  const renderField = (col: ColDef, disabled?: boolean) => {
     const rawValue = (draft as any)[col.key];
     const value = rawValue ?? "";
 
@@ -2186,9 +2191,10 @@ export function DGGIRecordDialog({
         {NON_IR_STAGES.map((stage, idx) => {
           const unlocked = isStageUnlocked(idx);
           const complete = isStageComplete(idx);
+          const allFormCols = [...NON_IR_COLUMNS, ...NON_IR_FORM_EXTRA];
           const stageCols = stage.fields
-            .map((f) => COLUMNS.find((c) => c.key === f))
-            .filter(Boolean) as (typeof COLUMNS)[number][];
+            .map((f) => allFormCols.find((c) => c.key === f))
+            .filter(Boolean) as ColDef[];
 
           return (
             <div
@@ -2384,12 +2390,8 @@ const DGGIComponent = () => {
     });
   };
 
-  const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key)).map(
-    (c) =>
-      c.key === "record_id"
-        ? { ...c, label: topFilter === "ir" ? "IR No." : "NON-IR No." }
-        : c,
-  );
+  const activeColumns = topFilter === "ir" ? COLUMNS : NON_IR_COLUMNS;
+  const visibleColumns = activeColumns.filter((c) => !hiddenColumns.has(c.key));
   const totalCols = visibleColumns.length + 1; // +1 for Actions
 
   // ── Related registers state ────────────────────────────────────────────────
@@ -3083,13 +3085,7 @@ const DGGIComponent = () => {
               <EditableCell
                 value={(record as any)[col.key] ?? ""}
                 type={col.type}
-                options={
-                  col.key === "closure_by"
-                    ? record.is_ir
-                      ? IR_CLOSURE_OPTIONS
-                      : NON_IR_CLOSURE_OPTIONS
-                    : col.options
-                }
+                options={col.options}
                 editing={false}
                 users={workspaceUsers}
                 readOnly={col.readOnly}
@@ -3294,7 +3290,7 @@ const DGGIComponent = () => {
                     )}
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    {COLUMNS.map((col) => {
+                    {activeColumns.map((col) => {
                       const visible = !hiddenColumns.has(col.key);
                       return (
                         <button
@@ -3317,13 +3313,7 @@ const DGGIComponent = () => {
                               <Check size={10} className="text-white" />
                             )}
                           </span>
-                          <span className="truncate">
-                            {col.key === "record_id"
-                              ? topFilter === "ir"
-                                ? "IR No."
-                                : "NON-IR No."
-                              : col.label}
-                          </span>
+                          <span className="truncate">{col.label}</span>
                         </button>
                       );
                     })}
