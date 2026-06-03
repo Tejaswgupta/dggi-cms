@@ -258,6 +258,20 @@ const COLUMNS: {
     readOnly: true,
   },
   {
+    key: "date_of_ir",
+    label: "Date of IR",
+    type: "datepicker",
+    width: "150px",
+    readOnly: true,
+  },
+  {
+    key: "converted_from_non_ir",
+    label: "Non-IR Ref No.",
+    type: "text",
+    width: "150px",
+    readOnly: true,
+  },
+  {
     key: "group",
     label: "Group",
     type: "select",
@@ -280,24 +294,6 @@ const COLUMNS: {
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   {
-    key: "handling_io_sio",
-    label: "Handling IO/SIO",
-    type: "usercombobox",
-    width: "170px",
-  },
-  {
-    key: "date_of_initiation",
-    label: "Date of Initiation of File",
-    type: "datepicker",
-    width: "150px",
-  },
-  {
-    key: "intel_approved_date",
-    label: "Intel Approved Date",
-    type: "datepicker",
-    width: "150px",
-  },
-  {
     key: "mode_of_initiation",
     label: "Mode of Initiation",
     type: "select",
@@ -309,6 +305,12 @@ const COLUMNS: {
     label: "Intelligence Action Date",
     type: "datepicker",
     width: "150px",
+  },
+  {
+    key: "handling_io_sio",
+    label: "Handling IO/SIO",
+    type: "usercombobox",
+    width: "170px",
   },
   {
     key: "issue_involved",
@@ -346,40 +348,6 @@ const COLUMNS: {
     label: "BO ID",
     type: "text",
     width: "120px",
-  },
-  {
-    key: "latest_status",
-    label: "Latest Updated Status",
-    type: "text",
-    width: "160px",
-  },
-  {
-    key: "pr_adg_comments",
-    label: "Pr ADG's Comments/Direction",
-    type: "text",
-    width: "180px",
-  },
-  {
-    key: "due_date",
-    label: "Due Date",
-    type: "datepicker",
-    width: "150px",
-  },
-  { key: "closure_by", label: "Closure By", type: "select", width: "180px" },
-  { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
-  {
-    key: "date_of_ir",
-    label: "Date of IR",
-    type: "datepicker",
-    width: "150px",
-    readOnly: true,
-  },
-  {
-    key: "date_of_non_ir",
-    label: "Date of NON-IR",
-    type: "datepicker",
-    width: "150px",
-    readOnly: true,
   },
 ];
 
@@ -1905,30 +1873,22 @@ const NON_IR_STAGES: {
       "taxpayer_name",
       "gstins",
       "file_no",
-      "date_of_initiation",
       "handling_io_sio",
       "issue_involved",
-      "pr_adg_comments",
     ],
     requiredFields: ["group", "taxpayer_name", "file_no", "handling_io_sio"],
   },
   {
     label: "Intelligence Action",
     fields: [
-      "intel_approved_date",
       "intelligence_action_date",
       "mode_of_initiation",
     ],
-    requiredFields: ["intel_approved_date", "mode_of_initiation"],
+    requiredFields: ["mode_of_initiation"],
   },
   {
     label: "Related Registers",
     fields: [],
-    requiredFields: [],
-  },
-  {
-    label: "Closure",
-    fields: ["closure_by", "date_of_non_ir"],
     requiredFields: [],
   },
 ];
@@ -1964,7 +1924,6 @@ export function DGGIRecordDialog({
   const editableColumns = COLUMNS.filter(
     (col) =>
       !col.readOnly &&
-      col.key !== "is_ir" &&
       (isIr || !NON_IR_HIDDEN_FIELDS.includes(col.key)),
   );
   const [otherActiveFields, setOtherActiveFields] = useState<Set<string>>(
