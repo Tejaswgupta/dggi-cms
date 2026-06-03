@@ -96,12 +96,12 @@ const RAPID_COLS: RegisterColumn[] = [
     width: "140px",
     readOnly: true,
   },
-  // {
-  //   key: "linked_case_id",
-  //   label: "Linked Case",
-  //   type: "caselink",
-  //   width: "180px",
-  // },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
   { key: "rapid_id", label: "Rapid ID", type: "text", width: "140px" },
   {
     key: "file_no_ref_id",
@@ -121,26 +121,6 @@ const RAPID_COLS: RegisterColumn[] = [
     label: "Nature/Gist of Reference",
     type: "text",
     width: "220px",
-  },
-  {
-    key: "sender_email_mobile",
-    label: "Email/Mobile",
-    type: "text",
-    width: "160px",
-  },
-  {
-    key: "group_allocation_date",
-    label: "Group Allocation Date",
-    type: "datepicker",
-    width: "180px",
-    readOnly: true,
-  },
-  {
-    key: "last_updated_on",
-    label: "Last Updated On",
-    type: "datepicker",
-    width: "150px",
-    readOnly: true,
   },
   {
     key: "action_taken",
@@ -185,14 +165,6 @@ const RAPID_COLS: RegisterColumn[] = [
     width: "150px",
     readOnly: true,
   },
-  {
-    key: "sio",
-    label: "SIO",
-    type: "usercombobox",
-    width: "160px",
-    showWhen: { field: "action_taken", values: ["Allocated"] },
-  },
-  { key: "remarks", label: "Remarks", type: "text", width: "220px" },
 ];
 
 const EMPTY_RAPID: Omit<RapidRecord, "id"> = {
