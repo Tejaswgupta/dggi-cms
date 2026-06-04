@@ -75,7 +75,8 @@ interface RapidRecord {
   receipt_mode: string;
   received_against_entity: string;
   nature_gist: string;
-  sender_email_mobile: string;
+  sender_email: string;
+  sender_mobile: string;
   assigned_group: string;
   transferred_to: string;
   group_allocation_date: string;
@@ -121,6 +122,18 @@ const RAPID_COLS: RegisterColumn[] = [
     label: "Nature/Gist of Reference",
     type: "text",
     width: "220px",
+  },
+  {
+    key: "sender_email",
+    label: "Email",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "sender_mobile",
+    label: "Mobile",
+    type: "text",
+    width: "140px",
   },
   {
     key: "action_taken",
@@ -175,7 +188,8 @@ const EMPTY_RAPID: Omit<RapidRecord, "id"> = {
   receipt_mode: "",
   received_against_entity: "",
   nature_gist: "",
-  sender_email_mobile: "",
+  sender_email: "",
+  sender_mobile: "",
   assigned_group: "",
   transferred_to: "",
   group_allocation_date: "",
