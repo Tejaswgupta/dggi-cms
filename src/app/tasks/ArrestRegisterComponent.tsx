@@ -57,7 +57,6 @@ interface ArrestRecord {
   amount_crore: string;
   role_evidence: string;
   relative_intimation: string;
-  signature: string;
   sio: string;
   group: string;
 }
@@ -89,7 +88,6 @@ const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   amount_crore: "",
   role_evidence: "",
   relative_intimation: "",
-  signature: "",
   sio: "",
   group: "",
 };
@@ -99,7 +97,7 @@ const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
 const COLUMNS: {
   key: keyof Omit<ArrestRecord, "id">;
   label: string;
-  type: "text" | "datepicker" | "caselink" | "usercombobox" | "select";
+  type: "text" | "number" | "datepicker" | "caselink" | "usercombobox" | "select";
   width?: string;
   options?: string[];
   readOnly?: boolean;
@@ -139,7 +137,7 @@ const COLUMNS: {
   {
     key: "amount_crore",
     label: "Amount (Rs. in Crore)",
-    type: "text",
+    type: "number",
     width: "170px",
   },
   {
@@ -153,12 +151,6 @@ const COLUMNS: {
     label: "Name, Address, Tel. of Relatives Intimated",
     type: "text",
     width: "250px",
-  },
-  {
-    key: "signature",
-    label: "Signature of Arrested Person",
-    type: "text",
-    width: "200px",
   },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
@@ -227,7 +219,7 @@ function EditableCell({
   users,
 }: {
   value: string;
-  type: "text" | "datepicker" | "caselink" | "usercombobox" | "select";
+  type: "text" | "number" | "datepicker" | "caselink" | "usercombobox" | "select";
   onChange: (v: string) => void;
   editing: boolean;
   readOnly?: boolean;
@@ -250,6 +242,7 @@ function EditableCell({
     <Input
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      inputMode={type === "number" ? "decimal" : undefined}
       className="h-8 min-w-[120px] border-[#EDEDEA] text-base rounded-lg"
     />
   );

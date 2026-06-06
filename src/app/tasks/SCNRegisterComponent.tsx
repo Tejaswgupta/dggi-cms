@@ -125,6 +125,25 @@ const APPEAL_STAGE_OPTIONS = [
   "Lower Court",
 ];
 
+const ADJUDICATION_FORMATION_OPTIONS = [
+  "DC/AC (Adjudication)",
+  "JC/ADC (Adjudication)",
+  "Commissioner (Adjudication)",
+  "Principal Commissioner (Adjudication)",
+  "CESTAT",
+];
+
+const ADJUDICATION_STATUS_OPTIONS = [
+  "Pending",
+  "OIO Issued",
+  "Dropped",
+  "Partly Confirmed",
+  "Fully Confirmed",
+  "Remanded Back",
+  "Appeal Pending",
+  "Disposed",
+];
+
 const COLUMNS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
@@ -132,17 +151,17 @@ const COLUMNS: RegisterColumn[] = [
   { key: "date_of_scn", label: "Date of SCN", type: "datepicker", width: "150px" },
   { key: "noticee_name", label: "Name of Noticee", type: "text", width: "160px" },
   { key: "gstin_pan", label: "GSTIN/PAN", type: "text", width: "150px" },
-  { key: "demand_tax", label: "Demand - Tax (Rs.)", type: "text", width: "150px" },
-  { key: "demand_interest", label: "Demand - Interest (Rs.)", type: "text", width: "170px" },
-  { key: "demand_penalty", label: "Demand - Penalty (Rs.)", type: "text", width: "170px" },
+  { key: "demand_tax", label: "Demand - Tax (Rs.)", type: "number", width: "150px" },
+  { key: "demand_interest", label: "Demand - Interest (Rs.)", type: "number", width: "170px" },
+  { key: "demand_penalty", label: "Demand - Penalty (Rs.)", type: "number", width: "170px" },
   { key: "period_involved", label: "Period Involved (From-To)", type: "text", width: "180px" },
   { key: "last_date_oio", label: "Last Date of OIO", type: "datepicker", width: "150px" },
   { key: "issue", label: "Issue (Classification/Valuation/etc.)", type: "text", width: "220px" },
-  { key: "adjudication_formation", label: "Adjudication Formation", type: "text", width: "180px" },
+  { key: "adjudication_formation", label: "Adjudication Formation", type: "select", options: ADJUDICATION_FORMATION_OPTIONS, allowOther: true, width: "200px" },
   { key: "file_no", label: "File No.", type: "text", width: "120px" },
   { key: "din_no", label: "DIN No.", type: "text", width: "130px" },
   { key: "date_uploading_bo", label: "Date of Uploading on BO Portal", type: "datepicker", width: "200px" },
-  { key: "adjudication_status", label: "Adjudication Status", type: "text", width: "170px" },
+  { key: "adjudication_status", label: "Adjudication Status", type: "select", options: ADJUDICATION_STATUS_OPTIONS, allowOther: true, width: "180px" },
   { key: "appeal_stage", label: "Appeal Stage", type: "select", options: APPEAL_STAGE_OPTIONS, width: "170px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },

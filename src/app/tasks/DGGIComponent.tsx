@@ -349,6 +349,31 @@ const COLUMNS: {
     type: "text",
     width: "120px",
   },
+  {
+    key: "due_date",
+    label: "Due Date / Closure Date",
+    type: "datepicker",
+    width: "160px",
+  },
+  {
+    key: "closure_by",
+    label: "Closure Reason",
+    type: "select",
+    options: IR_CLOSURE_OPTIONS,
+    width: "160px",
+  },
+  {
+    key: "latest_status",
+    label: "Latest Status",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "pr_adg_comments",
+    label: "PR/ADG Comments",
+    type: "text",
+    width: "200px",
+  },
 ];
 
 // ─── NON-IR table column definitions (yellow + green from non-IR02.xlsx) ─────
@@ -1450,7 +1475,6 @@ interface ArrestSubRecord {
   amount_crore: string;
   role_evidence: string;
   relative_intimation: string;
-  signature: string;
   sio: string;
   group: string;
 }
@@ -1563,12 +1587,6 @@ const ARREST_COLUMNS: RegisterColumn[] = [
     label: "Relatives Intimated (Name/Addr/Tel)",
     type: "text",
     width: "250px",
-  },
-  {
-    key: "signature",
-    label: "Signature of Arrested Person",
-    type: "text",
-    width: "200px",
   },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   {
@@ -1764,8 +1782,16 @@ const SCN_COLUMNS: RegisterColumn[] = [
   {
     key: "adjudication_formation",
     label: "Adjudication Formation",
-    type: "text",
-    width: "180px",
+    type: "select",
+    options: [
+      "DC/AC (Adjudication)",
+      "JC/ADC (Adjudication)",
+      "Commissioner (Adjudication)",
+      "Principal Commissioner (Adjudication)",
+      "CESTAT",
+    ],
+    allowOther: true,
+    width: "200px",
   },
   { key: "file_no", label: "File No.", type: "text", width: "120px" },
   { key: "din_no", label: "DIN No.", type: "text", width: "130px" },
@@ -1778,8 +1804,19 @@ const SCN_COLUMNS: RegisterColumn[] = [
   {
     key: "adjudication_status",
     label: "Adjudication Status",
-    type: "text",
-    width: "170px",
+    type: "select",
+    options: [
+      "Pending",
+      "OIO Issued",
+      "Dropped",
+      "Partly Confirmed",
+      "Fully Confirmed",
+      "Remanded Back",
+      "Appeal Pending",
+      "Disposed",
+    ],
+    allowOther: true,
+    width: "180px",
   },
   {
     key: "appeal_stage",
@@ -1947,6 +1984,8 @@ export function DGGIRecordDialog({
 
   const isStageUnlocked = (stageIdx: number): boolean => {
     if (stageIdx === 0) return true;
+    // In edit mode, all stages are accessible regardless of completion status
+    if (mode === "edit") return true;
     return isStageComplete(stageIdx - 1);
   };
 
@@ -1963,10 +2002,16 @@ export function DGGIRecordDialog({
     }
 
     if (col.type === "text") {
+      const isAmountField = ["detection_amount", "recovery_itc", "recovery_cash"].includes(col.key);
       return (
         <Input
           value={value as string}
-          onChange={(e) => onDraftChange(col.key, e.target.value)}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (isAmountField && v !== "" && !/^-?\d*\.?\d*$/.test(v)) return;
+            onDraftChange(col.key, v);
+          }}
+          inputMode={isAmountField ? "decimal" : undefined}
           className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
         />
       );
@@ -2090,22 +2135,33 @@ export function DGGIRecordDialog({
   const renderCaseTypeSelector = () => (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-[#6b6b6b]">Case Type</label>
-      <div className="flex rounded-lg border border-[#EDEDEA] overflow-hidden w-fit">
-        {([true, false] as const).map((val) => (
-          <button
-            key={String(val)}
-            type="button"
-            onClick={() => onDraftChange("is_ir", val)}
-            className={`px-5 py-2 text-base transition-all ${
-              isIr === val
-                ? "bg-[#4A5FD4] text-white font-medium"
-                : "bg-white text-[#6b6b6b] hover:bg-[#F3F2EF]"
-            }`}
-          >
-            {val ? "IR" : "NON-IR"}
-          </button>
-        ))}
-      </div>
+      {mode === "edit" ? (
+        // In edit mode, case type is locked to prevent accidental IR/NON-IR toggling.
+        // To convert NON-IR → IR, set closure_by = "Converted to IR" instead.
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center rounded-lg border px-4 py-2 text-base font-medium ${isIr ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]" : "border-[#EDEDEA] bg-[#F9F9F8] text-[#6b6b6b]"}`}>
+            {isIr ? "IR" : "NON-IR"}
+          </span>
+          <span className="text-sm text-[#9a9a96]">(locked — use &ldquo;Closure&rdquo; to convert)</span>
+        </div>
+      ) : (
+        <div className="flex rounded-lg border border-[#EDEDEA] overflow-hidden w-fit">
+          {([true, false] as const).map((val) => (
+            <button
+              key={String(val)}
+              type="button"
+              onClick={() => onDraftChange("is_ir", val)}
+              className={`px-5 py-2 text-base transition-all ${
+                isIr === val
+                  ? "bg-[#4A5FD4] text-white font-medium"
+                  : "bg-white text-[#6b6b6b] hover:bg-[#F3F2EF]"
+              }`}
+            >
+              {val ? "IR" : "NON-IR"}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 
@@ -2789,8 +2845,10 @@ const DGGIComponent = () => {
       unit_name_reg: [rec?.taxpayer_name, rec?.gstins]
         .filter(Boolean)
         .join(" / "),
-      // Detection amount carries to amount field
-      amount_crore: rec?.detection_amount ?? "",
+      // Convert detection amount from Rs to Crores (1 Crore = 10,000,000)
+      amount_crore: rec?.detection_amount
+        ? String(parseFloat(rec.detection_amount) / 10000000 || "")
+        : "",
       // Handling IO/SIO pre-fills the record-level SIO.
       sio: rec?.handling_io_sio ?? "",
       group: rec?.group ?? "",
@@ -2798,7 +2856,6 @@ const DGGIComponent = () => {
       commissionerate: "",
       role_evidence: "",
       relative_intimation: "",
-      signature: "",
     });
     setArrestDialogOpen(true);
   };
@@ -2883,9 +2940,11 @@ const DGGIComponent = () => {
       person_name: rec?.taxpayer_name ?? "",
       gstin_pan: rec?.gstins ?? "",
       entity_gstin: rec?.gstins ?? "",
-      // Investigation context
+      // Investigation context — convert detection amount Rs → Crores
       issue_involved: rec?.issue_involved ?? "",
-      expected_liability: rec?.detection_amount ?? "",
+      expected_liability: rec?.detection_amount
+        ? String(parseFloat(rec.detection_amount) / 10000000 || "")
+        : "",
       // Handling officer pre-fill
       sio: rec?.handling_io_sio ?? "",
       group: rec?.group ?? "",

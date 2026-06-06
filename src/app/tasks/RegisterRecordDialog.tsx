@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Command,
   CommandEmpty,
@@ -26,8 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format, isValid, parseISO } from "date-fns";
-import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { DateInput } from "@/components/ui/date-input";
 import { useState } from "react";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 
@@ -41,7 +40,7 @@ export interface RegisterColumn {
   key: string;
   label: string;
   dialogLabel?: string;
-  type: "text" | "datepicker" | "select" | "usercombobox" | "caselink";
+  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink";
   options?: string[];
   allowOther?: boolean;
   readOnly?: boolean;
@@ -62,40 +61,6 @@ interface RegisterRecordDialogProps {
   caseOptions?: DGGICaseOption[];
 }
 
-function DialogDatePicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const parsed = value && isValid(parseISO(value)) ? parseISO(value) : undefined;
-  return (
-    <Popover modal={true}>
-      <PopoverTrigger asChild>
-        <button className="flex h-9 w-full items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
-          <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
-          {parsed ? (
-            format(parsed, "dd/MM/yyyy")
-          ) : (
-            <span className="text-[#9a9a96]">Pick date</span>
-          )}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-auto p-0 border border-[#EDEDEA] shadow-none rounded-xl"
-        align="start"
-      >
-        <Calendar
-          mode="single"
-          selected={parsed}
-          onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : "")}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 function DialogUserCombobox({
   value,
@@ -206,7 +171,7 @@ export function RegisterRecordDialog({
       );
     }
     if (col.type === "datepicker") {
-      return <DialogDatePicker value={value} onChange={onChange} />;
+      return <DateInput value={value} onChange={onChange} />;
     }
     if (col.type === "usercombobox") {
       return (
@@ -240,6 +205,20 @@ export function RegisterRecordDialog({
             />
           )}
         </div>
+      );
+    }
+    if (col.type === "number") {
+      return (
+        <Input
+          value={value}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "" || /^-?\d*\.?\d*$/.test(v)) onChange(v);
+          }}
+          inputMode="decimal"
+          className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+          placeholder="0"
+        />
       );
     }
     return (
