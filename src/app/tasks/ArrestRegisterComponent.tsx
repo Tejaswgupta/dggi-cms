@@ -61,14 +61,18 @@ interface ArrestRecord {
   id: string;
   record_id: string;
   linked_case_id: string;
-  person_details: string;
+  arrested_name: string;
+  arrested_designation: string;
+  arrested_age: string;
   date_of_arrest: string;
   financial_year: string;
   commissionerate: string;
   unit_name_reg: string;
   amount_crore: string;
   role_evidence: string;
-  relative_intimation: string;
+  relative_name: string;
+  relative_address: string;
+  relative_tel: string;
   sio: string;
   group: string;
 }
@@ -92,14 +96,18 @@ const today = () => format(new Date(), "yyyy-MM-dd");
 const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   record_id: "",
   linked_case_id: "",
-  person_details: "",
+  arrested_name: "",
+  arrested_designation: "",
+  arrested_age: "",
   date_of_arrest: today(),
   financial_year: "",
   commissionerate: "",
   unit_name_reg: "",
   amount_crore: "",
   role_evidence: "",
-  relative_intimation: "",
+  relative_name: "",
+  relative_address: "",
+  relative_tel: "",
   sio: "",
   group: "",
 };
@@ -116,12 +124,9 @@ const COLUMNS: {
 }[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  {
-    key: "person_details",
-    label: "Name, Designation, Age of Arrested Person",
-    type: "text",
-    width: "230px",
-  },
+  { key: "arrested_name", label: "Name of Arrested Person", type: "text", width: "180px" },
+  { key: "arrested_designation", label: "Designation", type: "text", width: "160px" },
+  { key: "arrested_age", label: "Age", type: "text", width: "80px" },
   {
     key: "date_of_arrest",
     label: "Date of Arrest",
@@ -158,12 +163,9 @@ const COLUMNS: {
     type: "text",
     width: "240px",
   },
-  {
-    key: "relative_intimation",
-    label: "Name, Address, Tel. of Relatives Intimated",
-    type: "text",
-    width: "250px",
-  },
+  { key: "relative_name", label: "Relative Name", type: "text", width: "160px" },
+  { key: "relative_address", label: "Relative Address", type: "text", width: "200px" },
+  { key: "relative_tel", label: "Relative Tel.", type: "text", width: "140px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
 ];
@@ -383,7 +385,8 @@ const ArrestRegisterComponent = () => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
         const hit = [
-          r.person_details,
+          r.arrested_name,
+          r.arrested_designation,
           r.commissionerate,
           r.unit_name_reg,
         ].some((v) => v?.toLowerCase().includes(q));
@@ -426,17 +429,30 @@ const ArrestRegisterComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = async (id: string) => {
-    const { error } = await supabase
-      .from("dggi_arrest_records")
-      .delete()
-      .eq("id", id);
-    if (error) {
-      toast.error("Delete failed: " + error.message);
-    } else {
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Record deleted");
-    }
+  const deleteRecord = (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    let toastId: ReturnType<typeof toast.info>;
+    const timerId = setTimeout(async () => {
+      const { error } = await supabase.from("dggi_arrest_records").delete().eq("id", id);
+      if (error) {
+        setRecords((prev) => [...prev, record]);
+        toast.error("Delete failed: " + error.message);
+      }
+    }, 5000);
+    toastId = toast.info(
+      <div className="flex items-center justify-between gap-3 w-full">
+        <span>{record.record_id} deleted</span>
+        <button
+          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          className="font-medium underline underline-offset-2 shrink-0"
+        >
+          Undo
+        </button>
+      </div>,
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   const saveNew = async () => {

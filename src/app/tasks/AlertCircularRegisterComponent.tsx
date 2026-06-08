@@ -295,14 +295,30 @@ const AlertCircularRegisterComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = async (id: string) => {
-    const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
-    if (error) {
-      toast.error("Delete failed: " + error.message);
-    } else {
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Record deleted");
-    }
+  const deleteRecord = (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    let toastId: ReturnType<typeof toast.info>;
+    const timerId = setTimeout(async () => {
+      const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
+      if (error) {
+        setRecords((prev) => [...prev, record]);
+        toast.error("Delete failed: " + error.message);
+      }
+    }, 5000);
+    toastId = toast.info(
+      <div className="flex items-center justify-between gap-3 w-full">
+        <span>{record.record_id} deleted</span>
+        <button
+          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          className="font-medium underline underline-offset-2 shrink-0"
+        >
+          Undo
+        </button>
+      </div>,
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   const saveNew = async () => {

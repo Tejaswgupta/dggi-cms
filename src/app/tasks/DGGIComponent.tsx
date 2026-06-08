@@ -76,7 +76,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import {
   exportRegisterToExcel,
@@ -87,6 +87,7 @@ import {
   RegisterRecordDialog,
   type RegisterColumn,
 } from "./RegisterRecordDialog";
+import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { DGGI_GROUPS, type GroupName } from "@/lib/dggi-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1483,14 +1484,18 @@ interface ArrestSubRecord {
   id?: string;
   record_id?: string;
   linked_case_id: string;
-  person_details: string;
+  arrested_name: string;
+  arrested_designation: string;
+  arrested_age: string;
   date_of_arrest: string;
   financial_year: string;
   commissionerate: string;
   unit_name_reg: string;
   amount_crore: string;
   role_evidence: string;
-  relative_intimation: string;
+  relative_name: string;
+  relative_address: string;
+  relative_tel: string;
   sio: string;
   group: string;
 }
@@ -1556,12 +1561,10 @@ interface SCNSubRecord {
 // ─── Register column definitions (inline, no external deps) ──────────────────
 
 const ARREST_COLUMNS: RegisterColumn[] = [
-  {
-    key: "person_details",
-    label: "Name, Designation, Age of Arrested Person",
-    type: "text",
-    width: "230px",
-  },
+  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
+  { key: "arrested_name", label: "Name of Arrested Person", type: "text", width: "180px" },
+  { key: "arrested_designation", label: "Designation", type: "text", width: "160px" },
+  { key: "arrested_age", label: "Age", type: "text", width: "80px" },
   {
     key: "date_of_arrest",
     label: "Date of Arrest",
@@ -1598,12 +1601,9 @@ const ARREST_COLUMNS: RegisterColumn[] = [
     type: "text",
     width: "240px",
   },
-  {
-    key: "relative_intimation",
-    label: "Relatives Intimated (Name/Addr/Tel)",
-    type: "text",
-    width: "250px",
-  },
+  { key: "relative_name", label: "Relative Name", type: "text", width: "160px" },
+  { key: "relative_address", label: "Relative Address", type: "text", width: "200px" },
+  { key: "relative_tel", label: "Relative Tel.", type: "text", width: "140px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   {
     key: "group",
@@ -1615,6 +1615,7 @@ const ARREST_COLUMNS: RegisterColumn[] = [
 ];
 
 const PROVISIONAL_COLUMNS: RegisterColumn[] = [
+  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
   {
     key: "person_name",
     label: "Name of Person (Sec. 83)",
@@ -1750,6 +1751,7 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
 ];
 
 const SCN_COLUMNS: RegisterColumn[] = [
+  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
   { key: "scn_no", label: "SCN No.", type: "text", width: "200px" },
   {
     key: "date_of_scn",
@@ -2461,6 +2463,10 @@ const DGGIComponent = () => {
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [records, setRecords] = useState<DGGIRecord[]>([]);
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const caseOptions = useMemo<DGGICaseOption[]>(
+    () => records.map((r) => ({ record_id: r.record_id, taxpayer_name: r.taxpayer_name, file_no: r.file_no, is_ir: r.is_ir })),
+    [records],
+  );
   const [loading, setLoading] = useState(true);
 
   const [topFilter, setTopFilter] = useState<TopFilter>("ir");
@@ -2733,14 +2739,30 @@ const DGGIComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = async (id: string) => {
-    const { error } = await supabase.from("dggi_records").delete().eq("id", id);
-    if (error) {
-      toast.error("Delete failed: " + error.message);
-    } else {
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Record deleted");
-    }
+  const deleteRecord = (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    let toastId: ReturnType<typeof toast.info>;
+    const timerId = setTimeout(async () => {
+      const { error } = await supabase.from("dggi_records").delete().eq("id", id);
+      if (error) {
+        setRecords((prev) => [...prev, record]);
+        toast.error("Delete failed: " + error.message);
+      }
+    }, 5000);
+    toastId = toast.info(
+      <div className="flex items-center justify-between gap-3 w-full">
+        <span>{record.record_id} deleted</span>
+        <button
+          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          className="font-medium underline underline-offset-2 shrink-0"
+        >
+          Undo
+        </button>
+      </div>,
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   const saveNew = async () => {
@@ -2759,7 +2781,7 @@ const DGGIComponent = () => {
       handling_io_sio: draft.handling_io_sio || null,
       mode_of_initiation: draft.mode_of_initiation || null,
       due_date: draft.due_date || null,
-      date_of_ir: draft.date_of_ir || null,
+      date_of_ir: (draft.is_ir && !draft.date_of_ir) ? today() : (draft.date_of_ir || null),
       date_of_non_ir: draft.date_of_non_ir || null,
       converted_from_non_ir: draft.converted_from_non_ir || null,
       workspace_id: workspaceId,
@@ -2908,10 +2930,14 @@ const DGGIComponent = () => {
       // Handling IO/SIO pre-fills the record-level SIO.
       sio: rec?.handling_io_sio ?? "",
       group: rec?.group ?? "",
-      person_details: "",
+      arrested_name: "",
+      arrested_designation: "",
+      arrested_age: "",
       commissionerate: "",
       role_evidence: "",
-      relative_intimation: "",
+      relative_name: "",
+      relative_address: "",
+      relative_tel: "",
     });
     setArrestDialogOpen(true);
   };
@@ -3168,37 +3194,112 @@ const DGGIComponent = () => {
     setSavingSCN(false);
   };
 
-  const deleteArrestRecord = async (id: string) => {
-    const { error } = await supabase.from("dggi_arrest_records").delete().eq("id", id);
-    if (error) { toast.error("Delete failed: " + error.message); return; }
+  const deleteArrestRecord = (id: string) => {
+    let found: ArrestSubRecord | undefined;
+    let foundKey: string | undefined;
+    for (const [k, v] of arrestRecordsMap) {
+      const r = v.find((x) => x.id === id);
+      if (r) { found = r; foundKey = k; break; }
+    }
+    if (!found || !foundKey) return;
+    const record = found; const key = foundKey;
     setArrestRecordsMap((prev) => {
       const next = new Map(prev);
       for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
       return next;
     });
-    toast.success("Arrest record deleted");
+    let toastId: ReturnType<typeof toast.info>;
+    const timerId = setTimeout(async () => {
+      const { error } = await supabase.from("dggi_arrest_records").delete().eq("id", id);
+      if (error) {
+        setArrestRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; });
+        toast.error("Delete failed: " + error.message);
+      }
+    }, 5000);
+    toastId = toast.info(
+      <div className="flex items-center justify-between gap-3 w-full">
+        <span>{record.record_id ?? "Arrest record"} deleted</span>
+        <button
+          onClick={() => { clearTimeout(timerId); setArrestRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; }); toast.dismiss(toastId); }}
+          className="font-medium underline underline-offset-2 shrink-0"
+        >
+          Undo
+        </button>
+      </div>,
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
-  const deleteProvisionalRecord = async (id: string) => {
-    const { error } = await supabase.from("dggi_provisional_attachment_records").delete().eq("id", id);
-    if (error) { toast.error("Delete failed: " + error.message); return; }
+  const deleteProvisionalRecord = (id: string) => {
+    let found: ProvisionalSubRecord | undefined;
+    let foundKey: string | undefined;
+    for (const [k, v] of provisionalRecordsMap) {
+      const r = v.find((x) => x.id === id);
+      if (r) { found = r; foundKey = k; break; }
+    }
+    if (!found || !foundKey) return;
+    const record = found; const key = foundKey;
     setProvisionalRecordsMap((prev) => {
       const next = new Map(prev);
       for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
       return next;
     });
-    toast.success("Provisional attachment deleted");
+    let toastId: ReturnType<typeof toast.info>;
+    const timerId = setTimeout(async () => {
+      const { error } = await supabase.from("dggi_provisional_attachment_records").delete().eq("id", id);
+      if (error) {
+        setProvisionalRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; });
+        toast.error("Delete failed: " + error.message);
+      }
+    }, 5000);
+    toastId = toast.info(
+      <div className="flex items-center justify-between gap-3 w-full">
+        <span>{record.record_id ?? "Provisional attachment"} deleted</span>
+        <button
+          onClick={() => { clearTimeout(timerId); setProvisionalRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; }); toast.dismiss(toastId); }}
+          className="font-medium underline underline-offset-2 shrink-0"
+        >
+          Undo
+        </button>
+      </div>,
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
-  const deleteScnRecord = async (id: string) => {
-    const { error } = await supabase.from("dggi_scn_records").delete().eq("id", id);
-    if (error) { toast.error("Delete failed: " + error.message); return; }
+  const deleteScnRecord = (id: string) => {
+    let found: SCNSubRecord | undefined;
+    let foundKey: string | undefined;
+    for (const [k, v] of scnRecordsMap) {
+      const r = v.find((x) => x.id === id);
+      if (r) { found = r; foundKey = k; break; }
+    }
+    if (!found || !foundKey) return;
+    const record = found; const key = foundKey;
     setScnRecordsMap((prev) => {
       const next = new Map(prev);
       for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
       return next;
     });
-    toast.success("SCN record deleted");
+    let toastId: ReturnType<typeof toast.info>;
+    const timerId = setTimeout(async () => {
+      const { error } = await supabase.from("dggi_scn_records").delete().eq("id", id);
+      if (error) {
+        setScnRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; });
+        toast.error("Delete failed: " + error.message);
+      }
+    }, 5000);
+    toastId = toast.info(
+      <div className="flex items-center justify-between gap-3 w-full">
+        <span>{record.record_id ?? "SCN record"} deleted</span>
+        <button
+          onClick={() => { clearTimeout(timerId); setScnRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; }); toast.dismiss(toastId); }}
+          className="font-medium underline underline-offset-2 shrink-0"
+        >
+          Undo
+        </button>
+      </div>,
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   // ── Row renderer (shared between flat and grouped views) ───────────────────
@@ -3356,6 +3457,7 @@ const DGGIComponent = () => {
         onSave={arrestDialogMode === "edit" ? saveEditArrest : saveNewArrest}
         saving={savingArrest}
         users={workspaceUsers}
+        caseOptions={caseOptions}
       />
 
       {/* ── Provisional Attachment sub-dialog ─────────────────────────────── */}
@@ -3375,6 +3477,7 @@ const DGGIComponent = () => {
         }
         saving={savingProvisional}
         users={workspaceUsers}
+        caseOptions={caseOptions}
       />
 
       {/* ── SCN sub-dialog ────────────────────────────────────────────────── */}
@@ -3390,6 +3493,7 @@ const DGGIComponent = () => {
         onSave={scnDialogMode === "edit" ? saveEditSCN : saveNewSCN}
         saving={savingSCN}
         users={workspaceUsers}
+        caseOptions={caseOptions}
       />
       <div className="px-3 sm:px-6 space-y-5">
         {/* ── Header ─────────────────────────────────────────────────────── */}
