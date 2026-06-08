@@ -18,6 +18,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -398,6 +410,7 @@ const NON_IR_COLUMNS: ColDef[] = [
   { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
   { key: "date_of_ir", label: "Date of IR", type: "datepicker", width: "150px", readOnly: true },
   { key: "due_date", label: "Date of Closure", type: "datepicker", width: "150px" },
+  { key: "closure_by", label: "Closure Reason", type: "select", options: NON_IR_CLOSURE_OPTIONS, width: "160px" },
 ];
 
 const LS_HIDDEN_COLS_KEY = "dggi_hidden_columns";
@@ -1459,6 +1472,9 @@ export interface DGGIRecordDialogProps {
   onEditArrest?: (rec: ArrestSubRecord) => void;
   onEditProvisional?: (rec: ProvisionalSubRecord) => void;
   onEditSCN?: (rec: SCNSubRecord) => void;
+  onDeleteArrest?: (id: string) => void;
+  onDeleteProvisional?: (id: string) => void;
+  onDeleteSCN?: (id: string) => void;
 }
 
 // ─── Register sub-record types ────────────────────────────────────────────────
@@ -1573,7 +1589,7 @@ const ARREST_COLUMNS: RegisterColumn[] = [
   {
     key: "amount_crore",
     label: "Amount (Rs. in Crore)",
-    type: "text",
+    type: "number",
     width: "170px",
   },
   {
@@ -1615,7 +1631,7 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
   {
     key: "expected_liability",
     label: "Expected Liability (Cr.)",
-    type: "text",
+    type: "number",
     width: "160px",
   },
   {
@@ -1646,43 +1662,43 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
   {
     key: "value_immovable",
     label: "Value – Immovable (Cr.)",
-    type: "text",
+    type: "number",
     width: "180px",
   },
   {
     key: "value_movable",
     label: "Value – Movable (Cr.)",
-    type: "text",
+    type: "number",
     width: "170px",
   },
   {
     key: "value_shares",
     label: "Value – Shares/FD (Cr.)",
-    type: "text",
+    type: "number",
     width: "170px",
   },
   {
     key: "value_bank",
     label: "Value – Bank A/c (Cr.)",
-    type: "text",
+    type: "number",
     width: "160px",
   },
   {
     key: "value_third_party",
     label: "Value – Third Party (Cr.)",
-    type: "text",
+    type: "number",
     width: "170px",
   },
   {
     key: "value_others",
     label: "Value – Others (Cr.)",
-    type: "text",
+    type: "number",
     width: "150px",
   },
   {
     key: "value_total",
     label: "Value – Total (Cr.)",
-    type: "text",
+    type: "number",
     width: "150px",
   },
   {
@@ -1751,24 +1767,25 @@ const SCN_COLUMNS: RegisterColumn[] = [
   {
     key: "demand_tax",
     label: "Demand - Tax (Rs.)",
-    type: "text",
+    type: "number",
     width: "150px",
   },
   {
     key: "demand_interest",
     label: "Demand - Interest (Rs.)",
-    type: "text",
+    type: "number",
     width: "170px",
   },
   {
     key: "demand_penalty",
     label: "Demand - Penalty (Rs.)",
-    type: "text",
+    type: "number",
     width: "170px",
   },
   {
     key: "period_involved",
-    label: "Period Involved",
+    label: "Period Involved (YY-YY)",
+    dialogLabel: "Period Involved (YY-YY, e.g. 23-24)",
     type: "text",
     width: "180px",
   },
@@ -1778,7 +1795,7 @@ const SCN_COLUMNS: RegisterColumn[] = [
     type: "datepicker",
     width: "150px",
   },
-  { key: "issue", label: "Issue", type: "text", width: "200px" },
+  { key: "issue", label: "Issue", type: "select", options: ["Classification", "Valuation", "ITC", "Fake Invoices", "Exports", "Refund", "Registration", "Short Payment", "Non-Payment", "Others"], allowOther: true, width: "200px" },
   {
     key: "adjudication_formation",
     label: "Adjudication Formation",
@@ -1852,6 +1869,7 @@ function RegisterSummaryTile({
   onAdd,
   records,
   onEdit,
+  onDelete,
 }: {
   title: string;
   count: number;
@@ -1859,6 +1877,7 @@ function RegisterSummaryTile({
   onAdd: () => void;
   records?: Array<{ id?: string; record_id?: string; [key: string]: any }>;
   onEdit?: (record: any) => void;
+  onDelete?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -1901,15 +1920,44 @@ function RegisterSummaryTile({
               <span className="text-sm font-medium text-[#4A5FD4]">
                 {rec.record_id || `Record ${i + 1}`}
               </span>
-              {onEdit && (
-                <button
-                  onClick={() => onEdit(rec)}
-                  className="flex items-center gap-1 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-[#F3F2EF] rounded-lg px-2 py-1 transition-all"
-                >
-                  <Pencil size={12} />
-                  Edit
-                </button>
-              )}
+              <div className="flex items-center gap-1">
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(rec)}
+                    className="flex items-center gap-1 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-[#F3F2EF] rounded-lg px-2 py-1 transition-all"
+                  >
+                    <Pencil size={12} />
+                    Edit
+                  </button>
+                )}
+                {onDelete && rec.id && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="flex items-center gap-1 text-sm text-[#C0432A] hover:bg-[#FEE2E2] rounded-lg px-2 py-1 transition-all">
+                        <Trash2 size={12} />
+                        Delete
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete record?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete {rec.record_id || "this record"} and cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-[#C0432A] hover:bg-[#a83823] text-white"
+                          onClick={() => onDelete(rec.id!)}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -1964,6 +2012,9 @@ export function DGGIRecordDialog({
   onEditArrest,
   onEditProvisional,
   onEditSCN,
+  onDeleteArrest,
+  onDeleteProvisional,
+  onDeleteSCN,
 }: DGGIRecordDialogProps) {
   const isIr = draft.is_ir ?? true;
   const formColumns = isIr ? COLUMNS : NON_IR_COLUMNS;
@@ -2019,10 +2070,10 @@ export function DGGIRecordDialog({
 
     if (col.type === "datepicker") {
       return (
-        <DatePickerCell
+        <DateInput
           value={value as string}
           onChange={(v) => onDraftChange(col.key, v)}
-          className="w-full h-9"
+          className="w-full"
         />
       );
     }
@@ -2214,6 +2265,7 @@ export function DGGIRecordDialog({
                 onAdd={onAddArrest ?? (() => {})}
                 records={arrestRecords}
                 onEdit={onEditArrest}
+                onDelete={onDeleteArrest}
               />
               <RegisterSummaryTile
                 title="Provisional Attachment"
@@ -2222,6 +2274,7 @@ export function DGGIRecordDialog({
                 onAdd={onAddProvisional ?? (() => {})}
                 records={provisionalRecords}
                 onEdit={onEditProvisional}
+                onDelete={onDeleteProvisional}
               />
               <RegisterSummaryTile
                 title="SCN Register"
@@ -2230,6 +2283,7 @@ export function DGGIRecordDialog({
                 onAdd={onAddSCN ?? (() => {})}
                 records={scnRecords}
                 onEdit={onEditSCN}
+                onDelete={onDeleteSCN}
               />
             </>
           )}
@@ -2309,6 +2363,7 @@ export function DGGIRecordDialog({
                           onAdd={onAddArrest ?? (() => {})}
                           records={arrestRecords}
                           onEdit={onEditArrest}
+                          onDelete={onDeleteArrest}
                         />
                         <RegisterSummaryTile
                           title="Provisional Attachment"
@@ -2317,6 +2372,7 @@ export function DGGIRecordDialog({
                           onAdd={onAddProvisional ?? (() => {})}
                           records={provisionalRecords}
                           onEdit={onEditProvisional}
+                          onDelete={onDeleteProvisional}
                         />
                       </>
                     )}
@@ -3112,6 +3168,39 @@ const DGGIComponent = () => {
     setSavingSCN(false);
   };
 
+  const deleteArrestRecord = async (id: string) => {
+    const { error } = await supabase.from("dggi_arrest_records").delete().eq("id", id);
+    if (error) { toast.error("Delete failed: " + error.message); return; }
+    setArrestRecordsMap((prev) => {
+      const next = new Map(prev);
+      for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
+      return next;
+    });
+    toast.success("Arrest record deleted");
+  };
+
+  const deleteProvisionalRecord = async (id: string) => {
+    const { error } = await supabase.from("dggi_provisional_attachment_records").delete().eq("id", id);
+    if (error) { toast.error("Delete failed: " + error.message); return; }
+    setProvisionalRecordsMap((prev) => {
+      const next = new Map(prev);
+      for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
+      return next;
+    });
+    toast.success("Provisional attachment deleted");
+  };
+
+  const deleteScnRecord = async (id: string) => {
+    const { error } = await supabase.from("dggi_scn_records").delete().eq("id", id);
+    if (error) { toast.error("Delete failed: " + error.message); return; }
+    setScnRecordsMap((prev) => {
+      const next = new Map(prev);
+      for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
+      return next;
+    });
+    toast.success("SCN record deleted");
+  };
+
   // ── Row renderer (shared between flat and grouped views) ───────────────────
 
   const renderRow = (record: DGGIRecord) => {
@@ -3163,14 +3252,34 @@ const DGGIComponent = () => {
             >
               <Pencil size={13} />
             </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-              onClick={() => deleteRecord(record.id)}
-            >
-              <Trash2 size={13} />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                >
+                  <Trash2 size={13} />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete record?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete {record.record_id} and cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-[#C0432A] hover:bg-[#a83823] text-white"
+                    onClick={() => deleteRecord(record.id)}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </TableCell>
       </TableRow>
@@ -3229,6 +3338,9 @@ const DGGIComponent = () => {
         onEditArrest={openEditArrest}
         onEditProvisional={openEditProvisional}
         onEditSCN={openEditSCN}
+        onDeleteArrest={deleteArrestRecord}
+        onDeleteProvisional={deleteProvisionalRecord}
+        onDeleteSCN={deleteScnRecord}
       />
 
       {/* ── Arrest sub-dialog ─────────────────────────────────────────────── */}

@@ -2,6 +2,17 @@
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -133,6 +144,19 @@ const ADJUDICATION_FORMATION_OPTIONS = [
   "CESTAT",
 ];
 
+const ISSUE_OPTIONS = [
+  "Classification",
+  "Valuation",
+  "ITC",
+  "Fake Invoices",
+  "Exports",
+  "Refund",
+  "Registration",
+  "Short Payment",
+  "Non-Payment",
+  "Others",
+];
+
 const ADJUDICATION_STATUS_OPTIONS = [
   "Pending",
   "OIO Issued",
@@ -154,9 +178,9 @@ const COLUMNS: RegisterColumn[] = [
   { key: "demand_tax", label: "Demand - Tax (Rs.)", type: "number", width: "150px" },
   { key: "demand_interest", label: "Demand - Interest (Rs.)", type: "number", width: "170px" },
   { key: "demand_penalty", label: "Demand - Penalty (Rs.)", type: "number", width: "170px" },
-  { key: "period_involved", label: "Period Involved (From-To)", type: "text", width: "180px" },
+  { key: "period_involved", label: "Period Involved (YY-YY)", type: "text", width: "180px", dialogLabel: "Period Involved (YY-YY, e.g. 23-24)" },
   { key: "last_date_oio", label: "Last Date of OIO", type: "datepicker", width: "150px" },
-  { key: "issue", label: "Issue (Classification/Valuation/etc.)", type: "text", width: "220px" },
+  { key: "issue", label: "Issue", type: "select", options: ISSUE_OPTIONS, allowOther: true, width: "220px" },
   { key: "adjudication_formation", label: "Adjudication Formation", type: "select", options: ADJUDICATION_FORMATION_OPTIONS, allowOther: true, width: "200px" },
   { key: "file_no", label: "File No.", type: "text", width: "120px" },
   { key: "din_no", label: "DIN No.", type: "text", width: "130px" },
@@ -243,6 +267,8 @@ const SCNRegisterComponent = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<SCNRecord>>({});
+  // Map record_id → case details for auto-populating SCN fields
+  const [caseDetailsMap, setCaseDetailsMap] = useState<Map<string, { taxpayer_name: string; gstins: string; date_of_receipt: string; handling_io_sio: string; group: string }>>(new Map());
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -259,12 +285,18 @@ const SCNRegisterComponent = () => {
       const role = userRow?.dggi_role ?? "";
       const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
 
-      const [cases, , usersRes] = await Promise.all([
+      const [cases, caseDetails, , usersRes] = await Promise.all([
         fetchCaseOptions(supabase, wid),
+        supabase.from("dggi_records").select("record_id,taxpayer_name,gstins,date_of_receipt,handling_io_sio,group").eq("workspace_id", wid),
         fetchRecords(wid, role, groups, uid!),
         getAllUsers(),
       ]);
       setCaseOptions(cases);
+      if (caseDetails.data) {
+        const map = new Map<string, { taxpayer_name: string; gstins: string; date_of_receipt: string; handling_io_sio: string; group: string }>();
+        for (const row of caseDetails.data) map.set(row.record_id, row);
+        setCaseDetailsMap(map);
+      }
       if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setLoading(false);
     };
@@ -392,6 +424,31 @@ const SCNRegisterComponent = () => {
       toast.success("Record added");
     }
     setSavingRow(false);
+  };
+
+  const fyFromDate = (iso: string): string => {
+    const d = iso ? new Date(iso) : new Date();
+    if (isNaN(d.getTime())) return "";
+    const yr = d.getFullYear();
+    const start = d.getMonth() >= 3 ? yr : yr - 1;
+    return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+  };
+
+  const handleDraftChange = (key: string, value: string) => {
+    setDialogDraft((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "linked_case_id" && dialogMode === "add") {
+        const caseRow = caseDetailsMap.get(value);
+        if (caseRow) {
+          if (!prev.noticee_name) next.noticee_name = caseRow.taxpayer_name ?? "";
+          if (!prev.gstin_pan) next.gstin_pan = caseRow.gstins ?? "";
+          if (!prev.period_involved) next.period_involved = fyFromDate(caseRow.date_of_receipt ?? "");
+          if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
+          if (!prev.group) next.group = caseRow.group ?? "";
+        }
+      }
+      return next;
+    });
   };
 
   const toggleSort = (col: string) => {
@@ -630,14 +687,34 @@ const SCNRegisterComponent = () => {
                         >
                           <Pencil size={13} />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-                          onClick={() => deleteRecord(record.id)}
-                        >
-                          <Trash2 size={13} />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                            >
+                              <Trash2 size={13} />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete SCN record?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete {record.record_id} and cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-[#C0432A] hover:bg-[#a83823] text-white"
+                                onClick={() => deleteRecord(record.id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -673,7 +750,7 @@ const SCNRegisterComponent = () => {
         mode={dialogMode}
         columns={COLUMNS}
         draft={dialogDraft as Record<string, string>}
-        onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
+        onDraftChange={handleDraftChange}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}

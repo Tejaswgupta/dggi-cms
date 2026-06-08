@@ -2,6 +2,18 @@
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -235,13 +247,17 @@ function EditableCell({
   }
 
   if (type === "datepicker") {
-    return <DatePickerCell value={value} onChange={onChange} />;
+    return <DateInput value={value} onChange={onChange} className="min-w-[180px]" />;
   }
 
   return (
     <Input
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v)) return;
+        onChange(v);
+      }}
       inputMode={type === "number" ? "decimal" : undefined}
       className="h-8 min-w-[120px] border-[#EDEDEA] text-base rounded-lg"
     />
@@ -492,14 +508,34 @@ const ArrestRegisterComponent = () => {
           >
             <Pencil size={13} />
           </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-            onClick={() => deleteRecord(record.id)}
-          >
-            <Trash2 size={13} />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+              >
+                <Trash2 size={13} />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete arrest record?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete {record.record_id} and cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-[#C0432A] hover:bg-[#a83823] text-white"
+                  onClick={() => deleteRecord(record.id)}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </TableCell>
     </TableRow>
