@@ -2427,76 +2427,72 @@ export function DGGIRecordDialog({
           ))}
         </div>
 
-        {/* Closure section */}
-        <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
-              <Check size={12} />
-            </span>
-            <span className="text-base font-medium text-[#1a1a1a]">
-              Closure
-            </span>
+        {/* Closure section — edit only */}
+        {mode === "edit" && (
+          <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
+                <Check size={12} />
+              </span>
+              <span className="text-base font-medium text-[#1a1a1a]">
+                Closure
+              </span>
+            </div>
+            <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-4">
+              {closureCols.map((col) => (
+                <div key={col.key} className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#6b6b6b]">
+                    {col.label}
+                  </label>
+                  {renderField(col)}
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-4">
-            {closureCols.map((col) => (
-              <div key={col.key} className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-[#6b6b6b]">
-                  {col.label}
-                </label>
-                {renderField(col)}
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
 
-        {/* Related Registers section for IR */}
-        <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
-              <Layers size={12} />
-            </span>
-            <span className="text-base font-medium text-[#1a1a1a]">
-              Related Registers
-            </span>
+        {/* Related Registers section for IR — edit only */}
+        {mode === "edit" && (
+          <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
+                <Layers size={12} />
+              </span>
+              <span className="text-base font-medium text-[#1a1a1a]">
+                Related Registers
+              </span>
+            </div>
+            <div className="px-4 py-3 space-y-2">
+              <RegisterSummaryTile
+                title="Arrest Register"
+                count={arrestRecords.length}
+                icon={<Layers size={14} />}
+                onAdd={onAddArrest ?? (() => {})}
+                records={arrestRecords}
+                onEdit={onEditArrest}
+                onDelete={onDeleteArrest}
+              />
+              <RegisterSummaryTile
+                title="Provisional Attachment"
+                count={provisionalRecords.length}
+                icon={<Layers size={14} />}
+                onAdd={onAddProvisional ?? (() => {})}
+                records={provisionalRecords}
+                onEdit={onEditProvisional}
+                onDelete={onDeleteProvisional}
+              />
+              <RegisterSummaryTile
+                title="SCN Register"
+                count={scnRecords.length}
+                icon={<Layers size={14} />}
+                onAdd={onAddSCN ?? (() => {})}
+                records={scnRecords}
+                onEdit={onEditSCN}
+                onDelete={onDeleteSCN}
+              />
+            </div>
           </div>
-          <div className="px-4 py-3 space-y-2">
-            {mode === "add" ? (
-              <p className="text-sm text-[#9a9a96] italic py-2">
-                Save the record first to link related registers.
-              </p>
-            ) : (
-              <>
-                <RegisterSummaryTile
-                  title="Arrest Register"
-                  count={arrestRecords.length}
-                  icon={<Layers size={14} />}
-                  onAdd={onAddArrest ?? (() => {})}
-                  records={arrestRecords}
-                  onEdit={onEditArrest}
-                  onDelete={onDeleteArrest}
-                />
-                <RegisterSummaryTile
-                  title="Provisional Attachment"
-                  count={provisionalRecords.length}
-                  icon={<Layers size={14} />}
-                  onAdd={onAddProvisional ?? (() => {})}
-                  records={provisionalRecords}
-                  onEdit={onEditProvisional}
-                  onDelete={onDeleteProvisional}
-                />
-                <RegisterSummaryTile
-                  title="SCN Register"
-                  count={scnRecords.length}
-                  icon={<Layers size={14} />}
-                  onAdd={onAddSCN ?? (() => {})}
-                  records={scnRecords}
-                  onEdit={onEditSCN}
-                  onDelete={onDeleteSCN}
-                />
-              </>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -2507,7 +2503,9 @@ export function DGGIRecordDialog({
 
       {/* Staged layout */}
       <div className="space-y-3">
-        {NON_IR_STAGES.map((stage, idx) => {
+        {NON_IR_STAGES.filter((stage) =>
+          mode === "edit" || (stage.label !== "Closure" && stage.label !== "Related Registers")
+        ).map((stage, idx) => {
           const unlocked = isStageUnlocked(idx);
           const complete = isStageComplete(idx);
           const allFormCols = [...NON_IR_COLUMNS, ...NON_IR_FORM_EXTRA];
