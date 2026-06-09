@@ -396,6 +396,11 @@ type ColDef = (typeof COLUMNS)[number];
 // Fields used in the NON-IR form but not shown as table columns
 const NON_IR_FORM_EXTRA: ColDef[] = [
   { key: "date_of_receipt", label: "Date of Receipt", type: "datepicker", width: "150px" },
+  { key: "date_of_initiation", label: "Date of Initiation of File", type: "datepicker", width: "150px" },
+  { key: "intel_approved_date", label: "Intel Approved Date", type: "datepicker", width: "150px" },
+  { key: "mode_of_initiation", label: "Mode of Initiation", type: "select", options: MODE_OPTIONS, width: "140px" },
+  { key: "intelligence_action_date", label: "Intelligence Action Date", type: "datepicker", width: "150px" },
+  { key: "issue_involved", label: "Issue Involved", type: "select-with-other", options: ISSUE_INVOLVED_OPTIONS, width: "160px" },
 ];
 
 const NON_IR_COLUMNS: ColDef[] = [
@@ -408,6 +413,7 @@ const NON_IR_COLUMNS: ColDef[] = [
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   { key: "handling_io_sio", label: "Handling IO/SIO", type: "usercombobox", width: "170px" },
   { key: "latest_status", label: "Action Taken", type: "text", width: "160px" },
+  { key: "pr_adg_comments", label: "PR/ADG Comments", type: "text", width: "200px" },
   { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
   { key: "date_of_ir", label: "Date of IR", type: "datepicker", width: "150px", readOnly: true },
   { key: "due_date", label: "Date of Closure", type: "datepicker", width: "150px" },
@@ -1985,8 +1991,26 @@ const NON_IR_STAGES: {
       "gstins",
       "file_no",
       "handling_io_sio",
+      "date_of_initiation",
+      "intel_approved_date",
+      "mode_of_initiation",
+      "issue_involved",
     ],
     requiredFields: ["group", "taxpayer_name", "file_no", "handling_io_sio"],
+  },
+  {
+    label: "Intelligence Action",
+    fields: [
+      "intelligence_action_date",
+      "latest_status",
+      "pr_adg_comments",
+    ],
+    requiredFields: [],
+  },
+  {
+    label: "Closure",
+    fields: ["due_date", "closure_by"],
+    requiredFields: [],
   },
   {
     label: "Related Registers",
@@ -2218,7 +2242,12 @@ export function DGGIRecordDialog({
     </div>
   );
 
-  const renderIrForm = () => (
+  const renderIrForm = () => {
+    const CLOSURE_KEYS = ["due_date", "closure_by"];
+    const mainCols = editableColumns.filter((col) => !CLOSURE_KEYS.includes(col.key));
+    const closureCols = editableColumns.filter((col) => CLOSURE_KEYS.includes(col.key));
+
+    return (
     <div className="space-y-4 py-2">
       {renderCaseTypeSelector()}
       {draft.converted_from_non_ir && (
@@ -2233,7 +2262,7 @@ export function DGGIRecordDialog({
         </div>
       )}
       <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-        {editableColumns.map((col) => (
+        {mainCols.map((col) => (
           <div key={col.key} className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-[#6b6b6b]">
               {col.label}
@@ -2241,6 +2270,26 @@ export function DGGIRecordDialog({
             {renderField(col)}
           </div>
         ))}
+      </div>
+
+      {/* Closure section */}
+      <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
+            <Check size={12} />
+          </span>
+          <span className="text-base font-medium text-[#1a1a1a]">Closure</span>
+        </div>
+        <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-4">
+          {closureCols.map((col) => (
+            <div key={col.key} className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-[#6b6b6b]">
+                {col.label}
+              </label>
+              {renderField(col)}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Related Registers section for IR */}
@@ -2293,6 +2342,7 @@ export function DGGIRecordDialog({
       </div>
     </div>
   );
+  };
 
   const renderNonIrForm = () => (
     <div className="space-y-4 py-2">
@@ -2463,6 +2513,9 @@ const DGGIComponent = () => {
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [records, setRecords] = useState<DGGIRecord[]>([]);
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const [userRole, setUserRole] = useState<string>("");
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   const caseOptions = useMemo<DGGICaseOption[]>(
     () => records.map((r) => ({ record_id: r.record_id, taxpayer_name: r.taxpayer_name, file_no: r.file_no, is_ir: r.is_ir })),
     [records],
@@ -2556,8 +2609,22 @@ const DGGIComponent = () => {
     const init = async () => {
       const wid = await getWorkspaceId();
       setWorkspaceId(wid);
+
+      const { data: authData } = await supabase.auth.getUser();
+      const uid = authData?.user?.id ?? "";
+      setCurrentUserId(uid);
+
+      const [userRow, groupRows] = await Promise.all([
+        supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
+        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
+      ]);
+      const role = userRow.data?.dggi_role ?? "";
+      const groups = (groupRows.data ?? []).map((g: { group_name: string }) => g.group_name);
+      setUserRole(role);
+      setUserGroups(groups);
+
       const [, usersRes] = await Promise.all([
-        fetchRecords(wid),
+        fetchRecords(wid, role, groups, uid),
         getAllUsers(),
       ]);
       if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
@@ -2573,11 +2640,20 @@ const DGGIComponent = () => {
     init();
   }, []);
 
-  const fetchRecords = async (wid: string) => {
-    const { data, error } = await supabase
-      .from("dggi_records")
-      .select("*")
-      .eq("workspace_id", wid);
+  const fetchRecords = async (wid: string, role?: string, groups?: string[], uid?: string) => {
+    let query = supabase.from("dggi_records").select("*").eq("workspace_id", wid);
+
+    if (role && role !== "ADG" && role !== "DD_INT") {
+      if (role === "IO" || role === "SIO") {
+        query = query.eq("handling_io_sio", uid ?? "__none__");
+      } else if (groups && groups.length > 0) {
+        query = query.in("group", groups);
+      } else {
+        query = query.eq("group", "__none__");
+      }
+    }
+
+    const { data, error } = await query;
     if (error) {
       console.error("fetchRecords error:", error);
       return;
