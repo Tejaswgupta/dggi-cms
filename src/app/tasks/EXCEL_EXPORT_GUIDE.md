@@ -5,6 +5,7 @@ This guide explains how to add Excel export functionality to register components
 ## Overview
 
 Excel export functionality has been added to task register components using the `xlsx` library. The implementation provides:
+
 - ✅ One-click export to Excel (.xlsx) format
 - ✅ Automatic date formatting for Indian locale
 - ✅ Auto-sized columns based on content
@@ -21,7 +22,7 @@ Excel export functionality has been added to task register components using the 
    - `exportMultipleSheets()` - Export multiple sheets to one workbook
    - Type definitions for columns and options
 
-2. **`src/app/home/tasks/register-utils.ts`** - Register-specific helper
+2. **`src/app/tasks/register-utils.ts`** - Register-specific helper
    - `exportRegisterToExcel()` - Simplified wrapper for register components
 
 ### Dependencies
@@ -48,10 +49,10 @@ Add this function inside your component (after other handlers like `saveEdit`, `
 ```tsx
 const handleExport = () => {
   exportRegisterToExcel(
-    tableRecords,        // Your filtered/sorted records
-    COLUMNS,             // Your COLUMNS definition
-    "RegisterName",      // Short name (e.g., "STR", "DFL", "CPGRAM")
-    (msg) => toast.success(msg)
+    tableRecords, // Your filtered/sorted records
+    COLUMNS, // Your COLUMNS definition
+    "RegisterName", // Short name (e.g., "STR", "DFL", "CPGRAM")
+    (msg) => toast.success(msg),
   );
 };
 ```
@@ -61,6 +62,7 @@ const handleExport = () => {
 Replace the single "Add Record" button with a button group:
 
 **Before:**
+
 ```tsx
 <Button onClick={() => { setAddingNew(true); ... }}>
   <Plus size={15} />Add Record
@@ -68,21 +70,22 @@ Replace the single "Add Record" button with a button group:
 ```
 
 **After:**
+
 ```tsx
 <div className="flex items-center gap-2">
-  <Button 
-    size="sm" 
-    variant="outline" 
-    className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" 
-    onClick={handleExport} 
+  <Button
+    size="sm"
+    variant="outline"
+    className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
+    onClick={handleExport}
     disabled={tableRecords.length === 0}
   >
     <Download size={15} className="mr-1" />
     Export to Excel
   </Button>
-  <Button 
-    size="sm" 
-    className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4" 
+  <Button
+    size="sm"
+    className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
     onClick={() => { setAddingNew(true); ... }}
   >
     <Plus size={15} className="mr-1" />
@@ -98,6 +101,7 @@ That's it! Your register component now has Excel export functionality.
 ### Already Implemented
 
 The following register components already have Excel export:
+
 - ✅ **STRRegisterComponent** (`STRRegisterComponent.tsx`)
 - ✅ **DFLRegisterComponent** (`DFLRegisterComponent.tsx`)
 - ✅ **CPGRAMRegisterComponent** (`CPGRAMRegisterComponent.tsx`)
@@ -105,6 +109,7 @@ The following register components already have Excel export:
 ### Pending Implementation
 
 These components can follow the same pattern:
+
 - ArrestRegisterComponent
 - NonIRCaseRegisterComponent
 - ProsecutionRegisterComponent
@@ -132,9 +137,10 @@ const customColumns: ExcelColumn<YourRecordType>[] = COLUMNS.map((col) => ({
   key: col.key,
   label: col.label,
   type: col.type === "datepicker" ? "date" : "text",
-  format: col.key === "special_date" 
-    ? (value) => new Date(value).toLocaleDateString("en-US") 
-    : undefined
+  format:
+    col.key === "special_date"
+      ? (value) => new Date(value).toLocaleDateString("en-US")
+      : undefined,
 }));
 
 exportToExcel(records, customColumns, {
@@ -152,26 +158,29 @@ To export multiple registers to a single Excel file:
 import { exportMultipleSheets } from "@/lib/excel-export";
 
 const handleMultiSheetExport = () => {
-  exportMultipleSheets([
-    {
-      name: "STR Records",
-      data: strRecords,
-      columns: STR_COLUMNS.map(col => ({
-        key: col.key,
-        label: col.label,
-        type: col.type === "datepicker" ? "date" : "text",
-      }))
-    },
-    {
-      name: "DFL Records",
-      data: dflRecords,
-      columns: DFL_COLUMNS.map(col => ({
-        key: col.key,
-        label: col.label,
-        type: col.type === "datepicker" ? "date" : "text",
-      }))
-    }
-  ], "Combined_Registers");
+  exportMultipleSheets(
+    [
+      {
+        name: "STR Records",
+        data: strRecords,
+        columns: STR_COLUMNS.map((col) => ({
+          key: col.key,
+          label: col.label,
+          type: col.type === "datepicker" ? "date" : "text",
+        })),
+      },
+      {
+        name: "DFL Records",
+        data: dflRecords,
+        columns: DFL_COLUMNS.map((col) => ({
+          key: col.key,
+          label: col.label,
+          type: col.type === "datepicker" ? "date" : "text",
+        })),
+      },
+    ],
+    "Combined_Registers",
+  );
 };
 ```
 
@@ -196,17 +205,21 @@ const handleMultiSheetExport = () => {
 ### Common Issues
 
 **Export button doesn't appear**
+
 - Verify you imported `Download` icon from `lucide-react`
 - Check that you imported `exportRegisterToExcel` from `./register-utils`
 
 **Dates not formatting correctly**
+
 - Ensure your date columns use `type: "datepicker"` in the COLUMNS array
 - Verify dates are stored in ISO format (YYYY-MM-DD) in the database
 
 **Column widths too narrow/wide**
+
 - The library auto-sizes with max 50 chars. To customize, use the advanced `exportToExcel` function directly
 
 **TypeScript errors**
+
 - Ensure your record interface matches the COLUMNS keys
 - Use `ExcelColumn<YourRecordType>` for type safety
 
@@ -219,6 +232,7 @@ const handleMultiSheetExport = () => {
 ## Future Enhancements
 
 Potential improvements to consider:
+
 - [ ] PDF export option
 - [ ] CSV export for simpler data
 - [ ] Batch export (export all registers at once)
@@ -229,6 +243,7 @@ Potential improvements to consider:
 ## Support
 
 For issues or questions:
+
 - Check existing register implementations (STR, DFL, CPGRAM)
 - Review `src/lib/excel-export.ts` for API details
 - Refer to `xlsx` library documentation: https://docs.sheetjs.com/

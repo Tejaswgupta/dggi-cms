@@ -45,7 +45,7 @@ export function CaseIdCombobox({
       <div className="flex items-center gap-1">
         <Link2 size={11} className="text-[#4A5FD4] shrink-0" />
         <a
-          href={`/home/tasks/investigation-cases?caseId=${encodeURIComponent(value)}`}
+          href={`/tasks/investigation-cases?caseId=${encodeURIComponent(value)}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-base text-[#4A5FD4] font-medium hover:underline hover:text-[#3B4EC5] transition-colors"

@@ -108,7 +108,7 @@ export function TaskAutomationDialog({
         });
         onClose();
         if (onSuccess) onSuccess();
-        router.push(`/home/tasks/${taskId}/automation-status`);
+        router.push(`/tasks/${taskId}/automation-status`);
       } else {
         throw new Error(res.message || "Failed to start automation");
       }

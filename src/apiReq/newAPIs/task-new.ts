@@ -698,7 +698,7 @@ export const updateTaskAssignee = async (task: any, updateObj: any) => {
     // Notify the newly assigned user (skip if unassigning or self-assigning)
     const newAssigneeId = updateObj.assigned_to;
     if (newAssigneeId && newAssigneeId !== user.id) {
-      const redirectUri = `${window.location.origin}/home/tasks/${taskId}`;
+      const redirectUri = `${window.location.origin}/tasks/${taskId}`;
       await supabase.from("votum_notifications").insert([
         {
           id: crypto.randomUUID(),

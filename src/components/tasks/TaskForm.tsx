@@ -1371,7 +1371,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     variant="outline"
                     size="sm"
                     onClick={() =>
-                      (window.location.href = `/home/tasks/${taskId}/automation-status`)
+                      (window.location.href = `/tasks/${taskId}/automation-status`)
                     }
                   >
                     View Details

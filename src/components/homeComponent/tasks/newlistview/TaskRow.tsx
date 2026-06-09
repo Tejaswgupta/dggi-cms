@@ -363,7 +363,7 @@ const TaskRow: React.FC<TaskRowProps> = React.memo(
             checkList[index] ? "bg-[#EEF2FF]" : "bg-white"
           )}
           onClick={() => {
-            router.push(`/home/tasks/${task.id}`);
+            router.push(`/tasks/${task.id}`);
             // setIsSideSheetOpen(true);
           }}
         >
@@ -639,7 +639,7 @@ const TaskRow: React.FC<TaskRowProps> = React.memo(
               <DropdownMenuContent className="w-[200px] rounded-xl border border-[#EDEDEA] bg-white shadow-none p-1">
                 <DropdownMenuGroup>
                   <DropdownMenuItem
-                    onClick={() => router.push(`/home/tasks/${task.id}`)}
+                    onClick={() => router.push(`/tasks/${task.id}`)}
                     className="flex items-center gap-3 text-sm text-[#1a1a1a] py-2 px-3 rounded-lg"
                   >
                     <ExternalLink size={16} className="text-[#6b6b6b]" />
@@ -660,7 +660,7 @@ const TaskRow: React.FC<TaskRowProps> = React.memo(
                     Duplicate
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={(e) => router.push(`/home/tasks/${task.id}`)}
+                    onClick={(e) => router.push(`/tasks/${task.id}`)}
                     className="flex items-center gap-3 text-sm text-[#1a1a1a] py-2 px-3 rounded-lg"
                   >
                     <Pencil size={16} className="text-[#6b6b6b]" />

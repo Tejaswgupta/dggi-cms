@@ -83,7 +83,7 @@ const CaseViewer = ({ case: caseItem }: { case: any }) => {
     <div className="border-b border-[#F3F2EF] last:border-b-0">
       <div
         className="flex gap-3 items-start hover:bg-[#FAFAF8] rounded-[8px] p-3 transition-colors cursor-pointer"
-        onClick={() => router.push(`/home/cases/${caseItem.id}`)}
+        onClick={() => router.push(`/cases/${caseItem.id}`)}
       >
         <div className="w-2 h-2 mt-2 rounded-full bg-[#4A5FD4] flex-shrink-0" />
 
@@ -140,7 +140,7 @@ const CaseViewer = ({ case: caseItem }: { case: any }) => {
           className="h-8 w-8 p-0"
           onClick={(e) => {
             e.stopPropagation();
-            router.push(`/home/cases/${caseItem.id}`);
+            router.push(`/cases/${caseItem.id}`);
           }}
         >
           <ExternalLink size={14} className="text-gray-500" />

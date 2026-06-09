@@ -81,7 +81,7 @@ const TaskViewer = ({ task, setTask }: { task: any; setTask: any }) => {
 
         <div
           className="flex-1 min-w-0"
-          onClick={() => router.push(`/home/tasks/${task.id}`)}
+          onClick={() => router.push(`/tasks/${task.id}`)}
         >
           <div className="flex flex-col cursor-pointer">
             <div className="flex items-start justify-between">
@@ -127,14 +127,14 @@ const TaskViewer = ({ task, setTask }: { task: any; setTask: any }) => {
               name: "View Task",
               icon: <ViewIcon size={15} />,
               onClick: () => {
-                router.push(`/home/tasks/${task.id}`);
+                router.push(`/tasks/${task.id}`);
               },
             },
             {
               name: "Edit Task",
               icon: <EditIcon size={15} />,
               onClick: () => {
-                router.push(`/home/tasks/${task.id}`);
+                router.push(`/tasks/${task.id}`);
               },
             },
             {

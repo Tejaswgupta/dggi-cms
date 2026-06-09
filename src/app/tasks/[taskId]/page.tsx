@@ -12,7 +12,7 @@ export default async function TaskDetailsPage(props: TaskDetailsPageProps) {
   const { taskId } = params;
 
   if (!taskId) {
-    redirect("/home/tasks");
+    redirect("/tasks");
   }
 
   // Check if user is authenticated

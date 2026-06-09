@@ -198,7 +198,7 @@ export function TaskAutomationStatus({ taskId }: TaskAutomationStatusProps) {
         </p>
         <Button
           className="mt-4"
-          onClick={() => router.push(`/home/tasks/${taskId}`)}
+          onClick={() => router.push(`/tasks/${taskId}`)}
         >
           Go back to task
         </Button>
@@ -212,7 +212,7 @@ export function TaskAutomationStatus({ taskId }: TaskAutomationStatusProps) {
         <h2 className="text-2xl font-bold">Approval Workflows</h2>
         <Button
           variant="outline"
-          onClick={() => router.push(`/home/tasks/${taskId}`)}
+          onClick={() => router.push(`/tasks/${taskId}`)}
         >
           Back to Task
         </Button>

@@ -414,7 +414,7 @@ interface RegisterMeta {
 
 const REGISTERS: RegisterMeta[] = [
   {
-    href: "/home/tasks/intelligence-allocation",
+    href: "/tasks/intelligence-allocation",
     label: "Intelligence Monitoring",
     shortLabel: "Intel Mon.",
     icon: Brain,
@@ -423,7 +423,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/intelligence-allocation",
+    href: "/tasks/intelligence-allocation",
     label: "Intelligence Monitoring",
     shortLabel: "Intel Mon.",
     icon: Brain,
@@ -432,7 +432,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   // {
-  //   href: "/home/tasks/non-ir-register",
+  //   href: "/tasks/non-ir-register",
   //   label: "NON-IR Cases",
   //   shortLabel: "NON-IR",
   //   icon: BookOpen,
@@ -441,7 +441,7 @@ const REGISTERS: RegisterMeta[] = [
   //   category: "register",
   // },
   {
-    href: "/home/tasks/incident-report",
+    href: "/tasks/incident-report",
     label: "Incident Report",
     shortLabel: "Incident",
     icon: AlertTriangle,
@@ -450,7 +450,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/provisional-attachment",
+    href: "/tasks/provisional-attachment",
     label: "Provisional Attachment",
     shortLabel: "Prov. Attach.",
     icon: Paperclip,
@@ -459,7 +459,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/alert-circular",
+    href: "/tasks/alert-circular",
     label: "Alert Circular",
     shortLabel: "Alert",
     icon: Bell,
@@ -468,7 +468,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/scn-register",
+    href: "/tasks/scn-register",
     label: "SCN Register",
     shortLabel: "SCN",
     icon: FileSearch,
@@ -477,7 +477,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/prosecution-register",
+    href: "/tasks/prosecution-register",
     label: "Prosecution Register",
     shortLabel: "Prosecution",
     icon: Scale,
@@ -486,7 +486,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/prosecution-register",
+    href: "/tasks/prosecution-register",
     label: "Prosecution (Non-Arrest)",
     shortLabel: "Pros. Non-Arrest",
     icon: Scale,
@@ -495,7 +495,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/closure-register",
+    href: "/tasks/closure-register",
     label: "Closure Register",
     shortLabel: "Closure",
     icon: Archive,
@@ -504,7 +504,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/modus-operandi",
+    href: "/tasks/modus-operandi",
     label: "Modus Operandi",
     shortLabel: "M.O.",
     icon: FlaskConical,
@@ -513,7 +513,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   // {
-  //   href: "/home/tasks/seizure-register",
+  //   href: "/tasks/seizure-register",
   //   label: "Seizure Register",
   //   shortLabel: "Seizure",
   //   icon: Package,
@@ -522,7 +522,7 @@ const REGISTERS: RegisterMeta[] = [
   //   category: "register",
   // },
   {
-    href: "/home/tasks",
+    href: "/tasks",
     label: "IR/NON-IR Cases",
     shortLabel: "Intel Exec.",
     icon: Shield,
@@ -531,7 +531,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/home/tasks/dfl-register",
+    href: "/tasks/dfl-register",
     label: "DFL Register",
     shortLabel: "DFL",
     icon: HardDrive,
@@ -540,7 +540,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "monitoring",
   },
   {
-    href: "/home/tasks/report-compliance",
+    href: "/tasks/report-compliance",
     label: "Report Compliance",
     shortLabel: "Compliance",
     icon: ClipboardCheck,
@@ -1799,7 +1799,7 @@ export default function DGGIDashboard() {
           records,
           config,
           reg?.label ?? config.source_table,
-          reg?.href ?? "/home/tasks",
+          reg?.href ?? "/tasks",
         ),
       );
     }
@@ -1999,8 +1999,8 @@ export default function DGGIDashboard() {
       seen.get(item.registerHref)!.count++;
     }
     return Array.from(seen.values()).sort((a, b) => {
-      if (a.href === "/home/tasks/dfl-register") return 1;
-      if (b.href === "/home/tasks/dfl-register") return -1;
+      if (a.href === "/tasks/dfl-register") return 1;
+      if (b.href === "/tasks/dfl-register") return -1;
       return 0;
     });
   }, [baseItems]);
@@ -2145,7 +2145,7 @@ export default function DGGIDashboard() {
                 </button>
               </div>
               {/* <Link
-                href="/home/tasks"
+                href="/tasks"
                 className="flex items-center gap-1.5 bg-white hover:bg-[#F3F2EF] border border-[#EDEDEA] rounded-lg px-3 py-1.5 text-[11.5px] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all"
               >
                 <Eye size={11} />

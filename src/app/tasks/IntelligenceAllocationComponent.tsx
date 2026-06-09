@@ -159,10 +159,17 @@ const RAPID_COLS: RegisterColumn[] = [
   },
   {
     key: "date_of_action_taken",
-    label: "Date of Action",
+    label: "Date of Allocation",
     type: "datepicker",
-    width: "150px",
+    width: "160px",
     readOnly: true,
+  },
+  {
+    key: "sio",
+    label: "Delegated to IO/SIO",
+    type: "usercombobox",
+    width: "180px",
+    showWhen: { field: "action_taken", values: ["Allocated"] },
   },
   {
     key: "non_ir_no",
@@ -300,9 +307,9 @@ const OTHER_COLS: RegisterColumn[] = [
   },
   {
     key: "date_of_action_taken",
-    label: "Date of Action",
+    label: "Date of Allocation",
     type: "datepicker",
-    width: "150px",
+    width: "160px",
     readOnly: true,
   },
   {
@@ -321,9 +328,9 @@ const OTHER_COLS: RegisterColumn[] = [
   },
   {
     key: "sio",
-    label: "SIO",
+    label: "Delegated to IO/SIO",
     type: "usercombobox",
-    width: "160px",
+    width: "180px",
     showWhen: { field: "action_taken", values: ["Allocated"] },
   },
   { key: "remarks", label: "Remarks", type: "text", width: "220px" },
@@ -482,17 +489,17 @@ const STR_COLS: RegisterColumn[] = [
   },
   {
     key: "date_of_action_taken",
-    label: "Date of Action",
+    label: "Date of Allocation",
     type: "datepicker",
-    width: "150px",
+    width: "160px",
     readOnly: true,
   },
   { key: "sio_group", label: "SIO/Group", type: "text", width: "140px" },
   {
     key: "sio",
-    label: "SIO",
+    label: "Delegated to IO/SIO",
     type: "usercombobox",
-    width: "160px",
+    width: "180px",
     showWhen: { field: "action_taken", values: ["Allocated"] },
   },
   {
@@ -873,6 +880,7 @@ const IntelligenceAllocationComponent = () => {
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
+  const [userRole, setUserRole] = useState("");
 
   // NON-IR generation dialog
   const [nonIrDialogOpen, setNonIrDialogOpen] = useState(false);
@@ -907,6 +915,7 @@ const IntelligenceAllocationComponent = () => {
           .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
+      setUserRole(role);
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
@@ -1216,7 +1225,7 @@ const IntelligenceAllocationComponent = () => {
       rapidSortCol,
       rapidSortDir,
     );
-    exportRegisterToExcel(filtered, RAPID_COLS, "Intelligence_Rapid", (msg) =>
+    exportRegisterToExcel(filtered, visibleRapidCols, "Intelligence_Rapid", (msg) =>
       toast.success(msg),
     );
   };
@@ -1235,7 +1244,7 @@ const IntelligenceAllocationComponent = () => {
       otherSortCol,
       otherSortDir,
     );
-    exportRegisterToExcel(filtered, OTHER_COLS, "Intelligence_Other", (msg) =>
+    exportRegisterToExcel(filtered, visibleOtherCols, "Intelligence_Other", (msg) =>
       toast.success(msg),
     );
   };
@@ -1248,10 +1257,22 @@ const IntelligenceAllocationComponent = () => {
       strSortCol,
       strSortDir,
     );
-    exportRegisterToExcel(filtered, STR_COLS, "STR", (msg) =>
+    exportRegisterToExcel(filtered, visibleStrCols, "STR", (msg) =>
       toast.success(msg),
     );
   };
+
+  const isDDInt = userRole === "DD_INT" || userRole === "ADG";
+  const visibleRapidCols = isDDInt
+    ? RAPID_COLS
+    : RAPID_COLS.filter((c) => c.key !== "transferred_to");
+  const visibleOtherCols = isDDInt
+    ? OTHER_COLS
+    : OTHER_COLS.filter((c) => c.key !== "transferred_to");
+  // In STR_COLS, the "Transferred To" column uses key "assigned_group"
+  const visibleStrCols = isDDInt
+    ? STR_COLS
+    : STR_COLS.filter((c) => c.key !== "assigned_group");
 
   if (loading)
     return (
@@ -1323,7 +1344,7 @@ const IntelligenceAllocationComponent = () => {
                 rapidSortCol,
                 rapidSortDir,
               )}
-              columns={RAPID_COLS}
+              columns={visibleRapidCols}
               sortCol={rapidSortCol}
               sortDir={rapidSortDir}
               search={rapidSearch}
@@ -1348,7 +1369,7 @@ const IntelligenceAllocationComponent = () => {
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
                     <Link
-                      href={`/home/tasks/investigation-cases?caseId=${encodeURIComponent(r.non_ir_no)}`}
+                      href={`/tasks/investigation-cases?caseId=${encodeURIComponent(r.non_ir_no)}`}
                       className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5]"
                     >
                       {r.non_ir_no}
@@ -1393,7 +1414,7 @@ const IntelligenceAllocationComponent = () => {
                 otherSortCol,
                 otherSortDir,
               )}
-              columns={OTHER_COLS}
+              columns={visibleOtherCols}
               sortCol={otherSortCol}
               sortDir={otherSortDir}
               search={otherSearch}
@@ -1418,7 +1439,7 @@ const IntelligenceAllocationComponent = () => {
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
                     <Link
-                      href={`/home/tasks/investigation-cases?caseId=${encodeURIComponent(r.non_ir_no)}`}
+                      href={`/tasks/investigation-cases?caseId=${encodeURIComponent(r.non_ir_no)}`}
                       className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5]"
                     >
                       {r.non_ir_no}
@@ -1457,7 +1478,7 @@ const IntelligenceAllocationComponent = () => {
                 strSortCol,
                 strSortDir,
               )}
-              columns={STR_COLS}
+              columns={visibleStrCols}
               sortCol={strSortCol}
               sortDir={strSortDir}
               search={strSearch}
@@ -1482,7 +1503,7 @@ const IntelligenceAllocationComponent = () => {
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
                     <Link
-                      href={`/home/tasks/investigation-cases?caseId=${encodeURIComponent(r.non_ir_no)}`}
+                      href={`/tasks/investigation-cases?caseId=${encodeURIComponent(r.non_ir_no)}`}
                       className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5]"
                     >
                       {r.non_ir_no}

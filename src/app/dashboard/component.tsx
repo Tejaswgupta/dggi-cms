@@ -262,7 +262,7 @@ const Component = () => {
                 variant="default"
                 className="flex items-center gap-1 bg-[#4A5FD4] hover:bg-[#3B4EC5] rounded-[8px] px-[18px] py-[9px] text-[13.5px] font-medium border-0"
               >
-                <Link href="/home/tasks">
+                <Link href="/tasks">
                   <Plus size={16} />
                   New Task
                 </Link>
@@ -287,7 +287,7 @@ const Component = () => {
                     variant="outline"
                     className="flex items-center gap-1 text-indigo-700 border-indigo-100 hover:bg-indigo-50"
                   >
-                    <Link href="/home/tasks">
+                    <Link href="/tasks">
                       View All
                       <ArrowUpRight size={14} />
                     </Link>
@@ -356,7 +356,7 @@ const Component = () => {
                                     You&apos;re all caught up!
                                   </p>
                                   <Link
-                                    href="/home/tasks"
+                                    href="/tasks"
                                     className="text-[#4A5FD4] text-xs mt-1"
                                   >
                                     + Assign yourself a task
@@ -382,7 +382,7 @@ const Component = () => {
                                     You&apos;re all caught up!
                                   </p>
                                   <Link
-                                    href="/home/tasks"
+                                    href="/tasks"
                                     className="text-[#4A5FD4] text-xs mt-1"
                                   >
                                     + Assign yourself a task
@@ -408,7 +408,7 @@ const Component = () => {
                                     Nothing completed yet.
                                   </p>
                                   <Link
-                                    href="/home/tasks"
+                                    href="/tasks"
                                     className="text-[#4A5FD4] text-xs mt-1"
                                   >
                                     + Assign yourself a task
@@ -436,7 +436,7 @@ const Component = () => {
                     variant="outline"
                     className="flex items-center gap-1 text-indigo-700 border-indigo-100 hover:bg-indigo-50"
                   >
-                    <Link href="/home/cases">
+                    <Link href="/cases">
                       View All
                       <ArrowUpRight size={14} />
                     </Link>
@@ -462,7 +462,7 @@ const Component = () => {
                     size="sm"
                     className="w-full"
                   >
-                    <Link href="/home/cases">
+                    <Link href="/cases">
                       <Plus size={16} className="mr-2" />
                       New Case
                     </Link>
@@ -522,7 +522,7 @@ const Component = () => {
                           <div
                             className="flex gap-3 items-start hover:bg-[#FAFAF8] rounded-[8px] p-3 transition-colors cursor-pointer"
                             onClick={() =>
-                              router.push(`/home/cases/${caseItem.id}`)
+                              router.push(`/cases/${caseItem.id}`)
                             }
                           >
                             <div className="w-2 h-2 mt-2 rounded-full bg-amber-500 flex-shrink-0" />

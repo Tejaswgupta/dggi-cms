@@ -230,7 +230,7 @@ const SubtaskManager: React.FC<SubtaskManagerProps> = ({
                 <StickyNote size={18} color="#9d9c99" />
                 {mode === "edit" ? (
                   <Link
-                    href={`/home/tasks/${task.id}`}
+                    href={`/tasks/${task.id}`}
                     className="text-[0.75rem] tll:text-[0.85rem] font-[400] hover:underline hover:cursor-pointer"
                   >
                     {task.name}

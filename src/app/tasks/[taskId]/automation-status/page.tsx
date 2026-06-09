@@ -15,7 +15,7 @@ export default async function TaskAutomationStatusPage({
   const taskId = resolvedParams.taskId;
 
   if (!taskId) {
-    redirect("/home/tasks");
+    redirect("/tasks");
   }
 
   const supabase = await createSupabaseServerComponentClient();
@@ -56,7 +56,7 @@ export default async function TaskAutomationStatusPage({
     .single();
 
   if (taskRes.error || !taskRes.data) {
-    redirect("/home/tasks");
+    redirect("/tasks");
   }
 
   return (
