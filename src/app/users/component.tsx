@@ -117,18 +117,31 @@ export default function UsersPage() {
 
       if (roleError) throw roleError;
 
-      // Sync group assignments: delete all then re-insert
-      const { error: deleteError } = await supabase
-        .from("dggi_user_group_assignments")
-        .delete()
-        .eq("user_id", editingUser.id);
+      // Sync group assignments: only delete removed, only insert added
+      const originalGroups = users.find((u) => u.id === editingUser.id)?.groups ?? [];
+      const toRemove = originalGroups.filter((g) => !editingUser.groups.includes(g));
+      const toAdd = editingUser.groups.filter((g) => !originalGroups.includes(g));
 
-      if (deleteError) throw deleteError;
+      if (toRemove.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("dggi_user_group_assignments")
+          .delete()
+          .eq("user_id", editingUser.id)
+          .in("group_name", toRemove);
 
-      if (editingUser.groups.length > 0) {
+        if (deleteError) throw deleteError;
+      }
+
+      if (toAdd.length > 0) {
         const { error: insertError } = await supabase
           .from("dggi_user_group_assignments")
-          .insert(editingUser.groups.map((group_name) => ({ user_id: editingUser.id, group_name })));
+          .insert(
+            toAdd.map((group_name) => ({
+              user_id: editingUser.id,
+              group_name,
+              workspace_id: editingUser.workspace_id,
+            }))
+          );
 
         if (insertError) throw insertError;
       }
