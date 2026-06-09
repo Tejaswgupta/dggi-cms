@@ -1,23 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +11,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { DateInput } from "@/components/ui/date-input";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/table";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
+import { DGGI_GROUPS, type GroupName } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
 import {
@@ -78,6 +79,7 @@ import {
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import { type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
   generateWorkspaceRecordId,
@@ -87,8 +89,6 @@ import {
   RegisterRecordDialog,
   type RegisterColumn,
 } from "./RegisterRecordDialog";
-import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { DGGI_GROUPS, type GroupName } from "@/lib/dggi-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -194,10 +194,10 @@ const NON_IR_CLOSURE_OPTIONS = ["Closed", "Transferred", "Converted to IR"];
 const SOURCE_OPTIONS = ["Int", "Group", "STR"];
 const DUE_DATE_YEAR_OPTIONS = ["2026", "2027", "2028"];
 const ISSUE_INVOLVED_OPTIONS = [
-  "Fake",
-  "Technical",
-  "Clandestine",
+  "Fake ITC",
+  "Clandestine Supply",
   "Misclassification",
+  "Online Gaming",
 ];
 
 export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
@@ -383,7 +383,7 @@ const COLUMNS: {
   },
   {
     key: "pr_adg_comments",
-    label: "PR/ADG Comments",
+    label: "Pr.ADG Comments",
     type: "text",
     width: "200px",
   },
@@ -395,29 +395,117 @@ type ColDef = (typeof COLUMNS)[number];
 
 // Fields used in the NON-IR form but not shown as table columns
 const NON_IR_FORM_EXTRA: ColDef[] = [
-  { key: "date_of_receipt", label: "Date of Receipt", type: "datepicker", width: "150px" },
-  { key: "date_of_initiation", label: "Date of Initiation of File", type: "datepicker", width: "150px" },
-  { key: "intel_approved_date", label: "Intel Approved Date", type: "datepicker", width: "150px" },
-  { key: "mode_of_initiation", label: "Mode of Initiation", type: "select", options: MODE_OPTIONS, width: "140px" },
-  { key: "intelligence_action_date", label: "Intelligence Action Date", type: "datepicker", width: "150px" },
-  { key: "issue_involved", label: "Issue Involved", type: "select-with-other", options: ISSUE_INVOLVED_OPTIONS, width: "160px" },
+  {
+    key: "date_of_receipt",
+    label: "Date of Receipt",
+    type: "datepicker",
+    width: "150px",
+  },
+  {
+    key: "date_of_initiation",
+    label: "Date of Initiation of File",
+    type: "datepicker",
+    width: "150px",
+  },
+  {
+    key: "intel_approved_date",
+    label: "Intel Approved Date",
+    type: "datepicker",
+    width: "150px",
+  },
+  {
+    key: "mode_of_initiation",
+    label: "Mode of Initiation",
+    type: "select",
+    options: MODE_OPTIONS,
+    width: "140px",
+  },
+  {
+    key: "intelligence_action_date",
+    label: "Intelligence Action Date",
+    type: "datepicker",
+    width: "150px",
+  },
+  {
+    key: "issue_involved",
+    label: "Issue Involved",
+    type: "select-with-other",
+    options: ISSUE_INVOLVED_OPTIONS,
+    width: "160px",
+  },
 ];
 
 const NON_IR_COLUMNS: ColDef[] = [
-  { key: "record_id", label: "NON-IR No.", type: "text", width: "140px", readOnly: true },
-  { key: "date_of_non_ir", label: "Date of NON-IR", type: "datepicker", width: "150px", readOnly: true },
-  { key: "group", label: "Group", type: "select", options: [...GROUPS], width: "120px" },
-  { key: "intel_source", label: "Source", type: "select", options: SOURCE_OPTIONS, width: "120px" },
-  { key: "taxpayer_name", label: "Taxpayer Name", type: "text", width: "150px" },
+  {
+    key: "record_id",
+    label: "NON-IR No.",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
+  {
+    key: "date_of_non_ir",
+    label: "Date of NON-IR",
+    type: "datepicker",
+    width: "150px",
+    readOnly: true,
+  },
+  {
+    key: "group",
+    label: "Group",
+    type: "select",
+    options: [...GROUPS],
+    width: "120px",
+  },
+  {
+    key: "intel_source",
+    label: "Source",
+    type: "select",
+    options: SOURCE_OPTIONS,
+    width: "120px",
+  },
+  {
+    key: "taxpayer_name",
+    label: "Taxpayer Name",
+    type: "text",
+    width: "150px",
+  },
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
-  { key: "handling_io_sio", label: "Handling IO/SIO", type: "usercombobox", width: "170px" },
+  {
+    key: "handling_io_sio",
+    label: "Handling IO/SIO",
+    type: "usercombobox",
+    width: "170px",
+  },
   { key: "latest_status", label: "Action Taken", type: "text", width: "160px" },
-  { key: "pr_adg_comments", label: "PR/ADG Comments", type: "text", width: "200px" },
+  {
+    key: "pr_adg_comments",
+    label: "Pr.ADG Comments",
+    type: "text",
+    width: "200px",
+  },
   { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
-  { key: "date_of_ir", label: "Date of IR", type: "datepicker", width: "150px", readOnly: true },
-  { key: "due_date", label: "Date of Closure", type: "datepicker", width: "150px" },
-  { key: "closure_by", label: "Closure Reason", type: "select", options: NON_IR_CLOSURE_OPTIONS, width: "160px" },
+  {
+    key: "date_of_ir",
+    label: "Date of IR",
+    type: "datepicker",
+    width: "150px",
+    readOnly: true,
+  },
+  {
+    key: "due_date",
+    label: "Date of Closure",
+    type: "datepicker",
+    width: "150px",
+  },
+  {
+    key: "closure_by",
+    label: "Closure Reason",
+    type: "select",
+    options: NON_IR_CLOSURE_OPTIONS,
+    width: "160px",
+  },
 ];
 
 const LS_HIDDEN_COLS_KEY = "dggi_hidden_columns";
@@ -1567,9 +1655,24 @@ interface SCNSubRecord {
 // ─── Register column definitions (inline, no external deps) ──────────────────
 
 const ARREST_COLUMNS: RegisterColumn[] = [
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "arrested_name", label: "Name of Arrested Person", type: "text", width: "180px" },
-  { key: "arrested_designation", label: "Designation", type: "text", width: "160px" },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
+  {
+    key: "arrested_name",
+    label: "Name of Arrested Person",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "arrested_designation",
+    label: "Designation",
+    type: "text",
+    width: "160px",
+  },
   { key: "arrested_age", label: "Age", type: "text", width: "80px" },
   {
     key: "date_of_arrest",
@@ -1607,8 +1710,18 @@ const ARREST_COLUMNS: RegisterColumn[] = [
     type: "text",
     width: "240px",
   },
-  { key: "relative_name", label: "Relative Name", type: "text", width: "160px" },
-  { key: "relative_address", label: "Relative Address", type: "text", width: "200px" },
+  {
+    key: "relative_name",
+    label: "Relative Name",
+    type: "text",
+    width: "160px",
+  },
+  {
+    key: "relative_address",
+    label: "Relative Address",
+    type: "text",
+    width: "200px",
+  },
   { key: "relative_tel", label: "Relative Tel.", type: "text", width: "140px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   {
@@ -1621,7 +1734,12 @@ const ARREST_COLUMNS: RegisterColumn[] = [
 ];
 
 const PROVISIONAL_COLUMNS: RegisterColumn[] = [
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
   {
     key: "person_name",
     label: "Name of Person (Sec. 83)",
@@ -1757,7 +1875,12 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
 ];
 
 const SCN_COLUMNS: RegisterColumn[] = [
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
   { key: "scn_no", label: "SCN No.", type: "text", width: "200px" },
   {
     key: "date_of_scn",
@@ -1803,7 +1926,25 @@ const SCN_COLUMNS: RegisterColumn[] = [
     type: "datepicker",
     width: "150px",
   },
-  { key: "issue", label: "Issue", type: "select", options: ["Classification", "Valuation", "ITC", "Fake Invoices", "Exports", "Refund", "Registration", "Short Payment", "Non-Payment", "Others"], allowOther: true, width: "200px" },
+  {
+    key: "issue",
+    label: "Issue",
+    type: "select",
+    options: [
+      "Classification",
+      "Valuation",
+      "ITC",
+      "Fake Invoices",
+      "Exports",
+      "Refund",
+      "Registration",
+      "Short Payment",
+      "Non-Payment",
+      "Others",
+    ],
+    allowOther: true,
+    width: "200px",
+  },
   {
     key: "adjudication_formation",
     label: "Adjudication Formation",
@@ -1950,7 +2091,8 @@ function RegisterSummaryTile({
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete record?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will permanently delete {rec.record_id || "this record"} and cannot be undone.
+                          This will permanently delete{" "}
+                          {rec.record_id || "this record"} and cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -1992,8 +2134,6 @@ const NON_IR_STAGES: {
       "file_no",
       "handling_io_sio",
       "date_of_initiation",
-      "intel_approved_date",
-      "mode_of_initiation",
       "issue_involved",
     ],
     requiredFields: ["group", "taxpayer_name", "file_no", "handling_io_sio"],
@@ -2001,8 +2141,9 @@ const NON_IR_STAGES: {
   {
     label: "Intelligence Action",
     fields: [
+      "intel_approved_date",
+      "mode_of_initiation",
       "intelligence_action_date",
-      "latest_status",
       "pr_adg_comments",
     ],
     requiredFields: [],
@@ -2044,7 +2185,9 @@ export function DGGIRecordDialog({
 }: DGGIRecordDialogProps) {
   const isIr = draft.is_ir ?? true;
   const formColumns = isIr ? COLUMNS : NON_IR_COLUMNS;
-  const editableColumns = formColumns.filter((col) => !col.readOnly && col.key !== "is_ir");
+  const editableColumns = formColumns.filter(
+    (col) => !col.readOnly && col.key !== "is_ir",
+  );
   const [otherActiveFields, setOtherActiveFields] = useState<Set<string>>(
     new Set(),
   );
@@ -2079,7 +2222,11 @@ export function DGGIRecordDialog({
     }
 
     if (col.type === "text") {
-      const isAmountField = ["detection_amount", "recovery_itc", "recovery_cash"].includes(col.key);
+      const isAmountField = [
+        "detection_amount",
+        "recovery_itc",
+        "recovery_cash",
+      ].includes(col.key);
       return (
         <Input
           value={value as string}
@@ -2216,10 +2363,14 @@ export function DGGIRecordDialog({
         // In edit mode, case type is locked to prevent accidental IR/NON-IR toggling.
         // To convert NON-IR → IR, set closure_by = "Converted to IR" instead.
         <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center rounded-lg border px-4 py-2 text-base font-medium ${isIr ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]" : "border-[#EDEDEA] bg-[#F9F9F8] text-[#6b6b6b]"}`}>
+          <span
+            className={`inline-flex items-center rounded-lg border px-4 py-2 text-base font-medium ${isIr ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]" : "border-[#EDEDEA] bg-[#F9F9F8] text-[#6b6b6b]"}`}
+          >
             {isIr ? "IR" : "NON-IR"}
           </span>
-          <span className="text-sm text-[#9a9a96]">(locked — use &ldquo;Closure&rdquo; to convert)</span>
+          <span className="text-sm text-[#9a9a96]">
+            (locked — use &ldquo;Closure&rdquo; to convert)
+          </span>
         </div>
       ) : (
         <div className="flex rounded-lg border border-[#EDEDEA] overflow-hidden w-fit">
@@ -2244,44 +2395,29 @@ export function DGGIRecordDialog({
 
   const renderIrForm = () => {
     const CLOSURE_KEYS = ["due_date", "closure_by"];
-    const mainCols = editableColumns.filter((col) => !CLOSURE_KEYS.includes(col.key));
-    const closureCols = editableColumns.filter((col) => CLOSURE_KEYS.includes(col.key));
+    const mainCols = editableColumns.filter(
+      (col) => !CLOSURE_KEYS.includes(col.key),
+    );
+    const closureCols = editableColumns.filter((col) =>
+      CLOSURE_KEYS.includes(col.key),
+    );
 
     return (
-    <div className="space-y-4 py-2">
-      {renderCaseTypeSelector()}
-      {draft.converted_from_non_ir && (
-        <div className="flex items-center gap-2 rounded-lg border border-[#4A5FD4]/20 bg-[#EEF2FF] px-4 py-2.5">
-          <Zap size={14} className="text-[#4A5FD4] shrink-0" />
-          <span className="text-sm text-[#4A5FD4]">
-            Converted from NON-IR:{" "}
-            <span className="font-semibold">
-              {draft.converted_from_non_ir}
+      <div className="space-y-4 py-2">
+        {renderCaseTypeSelector()}
+        {draft.converted_from_non_ir && (
+          <div className="flex items-center gap-2 rounded-lg border border-[#4A5FD4]/20 bg-[#EEF2FF] px-4 py-2.5">
+            <Zap size={14} className="text-[#4A5FD4] shrink-0" />
+            <span className="text-sm text-[#4A5FD4]">
+              Converted from NON-IR:{" "}
+              <span className="font-semibold">
+                {draft.converted_from_non_ir}
+              </span>
             </span>
-          </span>
-        </div>
-      )}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-        {mainCols.map((col) => (
-          <div key={col.key} className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#6b6b6b]">
-              {col.label}
-            </label>
-            {renderField(col)}
           </div>
-        ))}
-      </div>
-
-      {/* Closure section */}
-      <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
-            <Check size={12} />
-          </span>
-          <span className="text-base font-medium text-[#1a1a1a]">Closure</span>
-        </div>
-        <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-4">
-          {closureCols.map((col) => (
+        )}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+          {mainCols.map((col) => (
             <div key={col.key} className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-[#6b6b6b]">
                 {col.label}
@@ -2290,58 +2426,79 @@ export function DGGIRecordDialog({
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Related Registers section for IR */}
-      <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
-            <Layers size={12} />
-          </span>
-          <span className="text-base font-medium text-[#1a1a1a]">
-            Related Registers
-          </span>
+        {/* Closure section */}
+        <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
+              <Check size={12} />
+            </span>
+            <span className="text-base font-medium text-[#1a1a1a]">
+              Closure
+            </span>
+          </div>
+          <div className="px-4 py-3 grid grid-cols-2 gap-x-6 gap-y-4">
+            {closureCols.map((col) => (
+              <div key={col.key} className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-[#6b6b6b]">
+                  {col.label}
+                </label>
+                {renderField(col)}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="px-4 py-3 space-y-2">
-          {mode === "add" ? (
-            <p className="text-sm text-[#9a9a96] italic py-2">
-              Save the record first to link related registers.
-            </p>
-          ) : (
-            <>
-              <RegisterSummaryTile
-                title="Arrest Register"
-                count={arrestRecords.length}
-                icon={<Layers size={14} />}
-                onAdd={onAddArrest ?? (() => {})}
-                records={arrestRecords}
-                onEdit={onEditArrest}
-                onDelete={onDeleteArrest}
-              />
-              <RegisterSummaryTile
-                title="Provisional Attachment"
-                count={provisionalRecords.length}
-                icon={<Layers size={14} />}
-                onAdd={onAddProvisional ?? (() => {})}
-                records={provisionalRecords}
-                onEdit={onEditProvisional}
-                onDelete={onDeleteProvisional}
-              />
-              <RegisterSummaryTile
-                title="SCN Register"
-                count={scnRecords.length}
-                icon={<Layers size={14} />}
-                onAdd={onAddSCN ?? (() => {})}
-                records={scnRecords}
-                onEdit={onEditSCN}
-                onDelete={onDeleteSCN}
-              />
-            </>
-          )}
+
+        {/* Related Registers section for IR */}
+        <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
+              <Layers size={12} />
+            </span>
+            <span className="text-base font-medium text-[#1a1a1a]">
+              Related Registers
+            </span>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {mode === "add" ? (
+              <p className="text-sm text-[#9a9a96] italic py-2">
+                Save the record first to link related registers.
+              </p>
+            ) : (
+              <>
+                <RegisterSummaryTile
+                  title="Arrest Register"
+                  count={arrestRecords.length}
+                  icon={<Layers size={14} />}
+                  onAdd={onAddArrest ?? (() => {})}
+                  records={arrestRecords}
+                  onEdit={onEditArrest}
+                  onDelete={onDeleteArrest}
+                />
+                <RegisterSummaryTile
+                  title="Provisional Attachment"
+                  count={provisionalRecords.length}
+                  icon={<Layers size={14} />}
+                  onAdd={onAddProvisional ?? (() => {})}
+                  records={provisionalRecords}
+                  onEdit={onEditProvisional}
+                  onDelete={onDeleteProvisional}
+                />
+                <RegisterSummaryTile
+                  title="SCN Register"
+                  count={scnRecords.length}
+                  icon={<Layers size={14} />}
+                  onAdd={onAddSCN ?? (() => {})}
+                  records={scnRecords}
+                  onEdit={onEditSCN}
+                  onDelete={onDeleteSCN}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
   };
 
   const renderNonIrForm = () => (
@@ -2517,7 +2674,13 @@ const DGGIComponent = () => {
   const [userGroups, setUserGroups] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const caseOptions = useMemo<DGGICaseOption[]>(
-    () => records.map((r) => ({ record_id: r.record_id, taxpayer_name: r.taxpayer_name, file_no: r.file_no, is_ir: r.is_ir })),
+    () =>
+      records.map((r) => ({
+        record_id: r.record_id,
+        taxpayer_name: r.taxpayer_name,
+        file_no: r.file_no,
+        is_ir: r.is_ir,
+      })),
     [records],
   );
   const [loading, setLoading] = useState(true);
@@ -2616,10 +2779,15 @@ const DGGIComponent = () => {
 
       const [userRow, groupRows] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid),
       ]);
       const role = userRow.data?.dggi_role ?? "";
-      const groups = (groupRows.data ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows.data ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
       setUserRole(role);
       setUserGroups(groups);
 
@@ -2640,8 +2808,16 @@ const DGGIComponent = () => {
     init();
   }, []);
 
-  const fetchRecords = async (wid: string, role?: string, groups?: string[], uid?: string) => {
-    let query = supabase.from("dggi_records").select("*").eq("workspace_id", wid);
+  const fetchRecords = async (
+    wid: string,
+    role?: string,
+    groups?: string[],
+    uid?: string,
+  ) => {
+    let query = supabase
+      .from("dggi_records")
+      .select("*")
+      .eq("workspace_id", wid);
 
     if (role && role !== "ADG" && role !== "DD_INT") {
       if (role === "IO" || role === "SIO") {
@@ -2803,9 +2979,7 @@ const DGGIComponent = () => {
     } else {
       setRecords((prev) =>
         prev.map((r) =>
-          r.id === dialogEditingId
-            ? { ...r, ...dialogDraft, is_ir: false }
-            : r,
+          r.id === dialogEditingId ? { ...r, ...dialogDraft, is_ir: false } : r,
         ),
       );
       cancelDialog();
@@ -2821,6 +2995,8 @@ const DGGIComponent = () => {
           file_no: dialogDraft.file_no ?? "",
           handling_io_sio: dialogDraft.handling_io_sio ?? "",
           issue_involved: dialogDraft.issue_involved ?? "",
+          mode_of_initiation: dialogDraft.mode_of_initiation ?? "",
+          intel_approved_date: dialogDraft.intel_approved_date ?? "",
           date_of_initiation: today(),
           date_of_ir: today(),
           converted_from_non_ir: sourceNirRecordId,
@@ -2828,7 +3004,9 @@ const DGGIComponent = () => {
         setDialogMode("add");
         setDialogEditingId(null);
         setDialogOpen(true);
-        toast.info(`NON-IR ${sourceNirRecordId} closed — fill in the new IR record below.`);
+        toast.info(
+          `NON-IR ${sourceNirRecordId} closed — fill in the new IR record below.`,
+        );
       } else {
         toast.success("Record saved");
       }
@@ -2842,7 +3020,10 @@ const DGGIComponent = () => {
     setRecords((prev) => prev.filter((r) => r.id !== id));
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_records").delete().eq("id", id);
+      const { error } = await supabase
+        .from("dggi_records")
+        .delete()
+        .eq("id", id);
       if (error) {
         setRecords((prev) => [...prev, record]);
         toast.error("Delete failed: " + error.message);
@@ -2852,7 +3033,11 @@ const DGGIComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setRecords((prev) => [...prev, record]);
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -2878,7 +3063,8 @@ const DGGIComponent = () => {
       handling_io_sio: draft.handling_io_sio || null,
       mode_of_initiation: draft.mode_of_initiation || null,
       due_date: draft.due_date || null,
-      date_of_ir: (draft.is_ir && !draft.date_of_ir) ? today() : (draft.date_of_ir || null),
+      date_of_ir:
+        draft.is_ir && !draft.date_of_ir ? today() : draft.date_of_ir || null,
       date_of_non_ir: draft.date_of_non_ir || null,
       converted_from_non_ir: draft.converted_from_non_ir || null,
       workspace_id: workspaceId,
@@ -3296,20 +3482,36 @@ const DGGIComponent = () => {
     let foundKey: string | undefined;
     for (const [k, v] of arrestRecordsMap) {
       const r = v.find((x) => x.id === id);
-      if (r) { found = r; foundKey = k; break; }
+      if (r) {
+        found = r;
+        foundKey = k;
+        break;
+      }
     }
     if (!found || !foundKey) return;
-    const record = found; const key = foundKey;
+    const record = found;
+    const key = foundKey;
     setArrestRecordsMap((prev) => {
       const next = new Map(prev);
-      for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
+      for (const [k, v] of next)
+        next.set(
+          k,
+          v.filter((r) => r.id !== id),
+        );
       return next;
     });
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_arrest_records").delete().eq("id", id);
+      const { error } = await supabase
+        .from("dggi_arrest_records")
+        .delete()
+        .eq("id", id);
       if (error) {
-        setArrestRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; });
+        setArrestRecordsMap((prev) => {
+          const next = new Map(prev);
+          next.set(key, [...(next.get(key) ?? []), record]);
+          return next;
+        });
         toast.error("Delete failed: " + error.message);
       }
     }, 5000);
@@ -3317,7 +3519,15 @@ const DGGIComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id ?? "Arrest record"} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setArrestRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; }); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setArrestRecordsMap((prev) => {
+              const next = new Map(prev);
+              next.set(key, [...(next.get(key) ?? []), record]);
+              return next;
+            });
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -3332,20 +3542,36 @@ const DGGIComponent = () => {
     let foundKey: string | undefined;
     for (const [k, v] of provisionalRecordsMap) {
       const r = v.find((x) => x.id === id);
-      if (r) { found = r; foundKey = k; break; }
+      if (r) {
+        found = r;
+        foundKey = k;
+        break;
+      }
     }
     if (!found || !foundKey) return;
-    const record = found; const key = foundKey;
+    const record = found;
+    const key = foundKey;
     setProvisionalRecordsMap((prev) => {
       const next = new Map(prev);
-      for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
+      for (const [k, v] of next)
+        next.set(
+          k,
+          v.filter((r) => r.id !== id),
+        );
       return next;
     });
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_provisional_attachment_records").delete().eq("id", id);
+      const { error } = await supabase
+        .from("dggi_provisional_attachment_records")
+        .delete()
+        .eq("id", id);
       if (error) {
-        setProvisionalRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; });
+        setProvisionalRecordsMap((prev) => {
+          const next = new Map(prev);
+          next.set(key, [...(next.get(key) ?? []), record]);
+          return next;
+        });
         toast.error("Delete failed: " + error.message);
       }
     }, 5000);
@@ -3353,7 +3579,15 @@ const DGGIComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id ?? "Provisional attachment"} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setProvisionalRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; }); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setProvisionalRecordsMap((prev) => {
+              const next = new Map(prev);
+              next.set(key, [...(next.get(key) ?? []), record]);
+              return next;
+            });
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -3368,20 +3602,36 @@ const DGGIComponent = () => {
     let foundKey: string | undefined;
     for (const [k, v] of scnRecordsMap) {
       const r = v.find((x) => x.id === id);
-      if (r) { found = r; foundKey = k; break; }
+      if (r) {
+        found = r;
+        foundKey = k;
+        break;
+      }
     }
     if (!found || !foundKey) return;
-    const record = found; const key = foundKey;
+    const record = found;
+    const key = foundKey;
     setScnRecordsMap((prev) => {
       const next = new Map(prev);
-      for (const [k, v] of next) next.set(k, v.filter((r) => r.id !== id));
+      for (const [k, v] of next)
+        next.set(
+          k,
+          v.filter((r) => r.id !== id),
+        );
       return next;
     });
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_scn_records").delete().eq("id", id);
+      const { error } = await supabase
+        .from("dggi_scn_records")
+        .delete()
+        .eq("id", id);
       if (error) {
-        setScnRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; });
+        setScnRecordsMap((prev) => {
+          const next = new Map(prev);
+          next.set(key, [...(next.get(key) ?? []), record]);
+          return next;
+        });
         toast.error("Delete failed: " + error.message);
       }
     }, 5000);
@@ -3389,7 +3639,15 @@ const DGGIComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id ?? "SCN record"} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setScnRecordsMap((prev) => { const next = new Map(prev); next.set(key, [...(next.get(key) ?? []), record]); return next; }); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setScnRecordsMap((prev) => {
+              const next = new Map(prev);
+              next.set(key, [...(next.get(key) ?? []), record]);
+              return next;
+            });
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -3464,7 +3722,8 @@ const DGGIComponent = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete record?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete {record.record_id} and cannot be undone.
+                    This will permanently delete {record.record_id} and cannot
+                    be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
