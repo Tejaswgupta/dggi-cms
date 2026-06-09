@@ -150,3 +150,7 @@ Manages document upload, display, and actions with enhanced features including d
 4. **Performance**: Built-in optimizations and debouncing
 5. **Developer Experience**: Much simpler API with sensible defaults
 6. **Error Handling**: Centralized error handling and user feedback
+
+xx/Grp-{group}//{initials}
+
+SIO/AD/DD/JD/ADC

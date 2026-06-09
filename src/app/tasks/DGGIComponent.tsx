@@ -145,6 +145,7 @@ export interface DGGIRecord {
   pr_adg_comments: string;
   due_date: string;
   closure_by: string;
+  transferred_to: string;
   is_ir: boolean;
   date_of_ir: string;
   date_of_non_ir: string;
@@ -153,6 +154,7 @@ export interface DGGIRecord {
   recovery_cash: string;
   digit_id: string;
   bo_id: string;
+  hsn_code: string;
   converted_from_non_ir: string;
 }
 
@@ -218,6 +220,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   pr_adg_comments: "",
   due_date: "",
   closure_by: "",
+  transferred_to: "",
   is_ir: true,
   date_of_ir: "",
   date_of_non_ir: "",
@@ -226,6 +229,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   recovery_cash: "",
   digit_id: "",
   bo_id: "",
+  hsn_code: "",
   converted_from_non_ir: "",
 };
 
@@ -2449,6 +2453,17 @@ export function DGGIRecordDialog({
                   {renderField(col)}
                 </div>
               ))}
+              {(draft.closure_by === "Transfer To" || draft.closure_by === "Transferred") && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#6b6b6b]">Transferred To</label>
+                  <Input
+                    value={(draft.transferred_to as string) ?? ""}
+                    onChange={(e) => onDraftChange("transferred_to", e.target.value)}
+                    placeholder="Enter unit / formation name…"
+                    className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2611,6 +2626,20 @@ export function DGGIRecordDialog({
                         {renderField(col, !unlocked)}
                       </div>
                     ))}
+                    {stage.label === "Closure" && (draft.closure_by === "Transfer To" || draft.closure_by === "Transferred") && (
+                      <div className="flex flex-col gap-1.5">
+                        <label className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}>
+                          Transferred To
+                        </label>
+                        <Input
+                          value={(draft.transferred_to as string) ?? ""}
+                          onChange={(e) => onDraftChange("transferred_to", e.target.value)}
+                          placeholder="Enter unit / formation name…"
+                          disabled={!unlocked}
+                          className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2963,13 +2992,22 @@ const DGGIComponent = () => {
   const saveEdit = async () => {
     if (!dialogEditingId) return;
     setSavingRow(true);
+    const isIrRecord = dialogDraft.is_ir ?? false;
     const isClosedAsConverted = dialogDraft.closure_by === "Converted to IR";
-    const sourceNirRecordId = dialogDraft.record_id;
+    const sourceRecordId = dialogDraft.record_id;
+
+    const existingRecord = records.find((r) => r.id === dialogEditingId);
+    const hadClosureBefore = !!existingRecord?.closure_by;
+    const isNowClosed = !!dialogDraft.closure_by;
+    const isClosedOnMerits = !isIrRecord && dialogDraft.closure_by === "Closed";
+    const isIrClosed = isIrRecord && isNowClosed;
+    const shouldWriteClosureEntry =
+      !hadClosureBefore && (isClosedOnMerits || isIrClosed) && !isClosedAsConverted;
+
     const { error } = await supabase
       .from("dggi_records")
       .update({
         ...dialogDraft,
-        is_ir: false, // source NON-IR stays NON-IR regardless
         handling_io_sio: dialogDraft.handling_io_sio || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
@@ -2982,40 +3020,88 @@ const DGGIComponent = () => {
       .eq("id", dialogEditingId);
     if (error) {
       toast.error("Failed to save: " + error.message);
-    } else {
-      setRecords((prev) =>
-        prev.map((r) =>
-          r.id === dialogEditingId ? { ...r, ...dialogDraft, is_ir: false } : r,
-        ),
+      setSavingRow(false);
+      return;
+    }
+
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === dialogEditingId ? { ...r, ...dialogDraft } : r,
+      ),
+    );
+
+    if (shouldWriteClosureEntry) {
+      const closureRecordId = await generateWorkspaceRecordId(
+        supabase,
+        "dggi_closure_records",
+        REGISTER_PREFIXES.CLOSURE,
+        workspaceId,
       );
-      cancelDialog();
-      if (isClosedAsConverted && sourceNirRecordId) {
-        // Open an "add IR" dialog pre-filled from the NON-IR record
-        setDialogDraft({
-          ...EMPTY_RECORD,
-          is_ir: true,
-          group: dialogDraft.group ?? "Group A",
-          intel_source: dialogDraft.intel_source ?? "",
-          taxpayer_name: dialogDraft.taxpayer_name ?? "",
-          gstins: dialogDraft.gstins ?? "",
-          file_no: dialogDraft.file_no ?? "",
-          handling_io_sio: dialogDraft.handling_io_sio ?? "",
-          issue_involved: dialogDraft.issue_involved ?? "",
-          mode_of_initiation: dialogDraft.mode_of_initiation ?? "",
-          intel_approved_date: dialogDraft.intel_approved_date ?? "",
-          date_of_initiation: today(),
-          date_of_ir: today(),
-          converted_from_non_ir: sourceNirRecordId,
+      const { error: closureErr } = await supabase
+        .from("dggi_closure_records")
+        .insert({
+          workspace_id: workspaceId,
+          record_id: closureRecordId,
+          source_record_id: sourceRecordId,
+          is_ir: isIrRecord,
+          group: dialogDraft.group || null,
+          intel_source: dialogDraft.intel_source || null,
+          date_of_receipt: dialogDraft.date_of_receipt || null,
+          taxpayer_name: dialogDraft.taxpayer_name || null,
+          gstins: dialogDraft.gstins || null,
+          file_no: dialogDraft.file_no || null,
+          date_of_initiation: dialogDraft.date_of_initiation || null,
+          intel_approved_date: dialogDraft.intel_approved_date || null,
+          mode_of_initiation: dialogDraft.mode_of_initiation || null,
+          intelligence_action_date: dialogDraft.intelligence_action_date || null,
+          handling_io_sio: dialogDraft.handling_io_sio || null,
+          issue_involved: dialogDraft.issue_involved || null,
+          latest_status: dialogDraft.latest_status || null,
+          pr_adg_comments: dialogDraft.pr_adg_comments || null,
+          detection_amount: dialogDraft.detection_amount || null,
+          recovery_itc: dialogDraft.recovery_itc || null,
+          recovery_cash: dialogDraft.recovery_cash || null,
+          digit_id: dialogDraft.digit_id || null,
+          bo_id: dialogDraft.bo_id || null,
+          hsn_code: dialogDraft.hsn_code || null,
+          closure_by: dialogDraft.closure_by || null,
+          due_date: dialogDraft.due_date || null,
+          date_of_ir: dialogDraft.date_of_ir || null,
+          date_of_non_ir: dialogDraft.date_of_non_ir || null,
+          converted_from_non_ir: dialogDraft.converted_from_non_ir || null,
         });
-        setDialogMode("add");
-        setDialogEditingId(null);
-        setDialogOpen(true);
-        toast.info(
-          `NON-IR ${sourceNirRecordId} closed — fill in the new IR record below.`,
-        );
-      } else {
-        toast.success("Record saved");
+      if (closureErr) {
+        toast.error("Saved record but failed to write closure entry: " + closureErr.message);
       }
+    }
+
+    cancelDialog();
+
+    if (isClosedAsConverted && sourceRecordId) {
+      setDialogDraft({
+        ...EMPTY_RECORD,
+        is_ir: true,
+        group: dialogDraft.group ?? "Group A",
+        intel_source: dialogDraft.intel_source ?? "",
+        taxpayer_name: dialogDraft.taxpayer_name ?? "",
+        gstins: dialogDraft.gstins ?? "",
+        file_no: dialogDraft.file_no ?? "",
+        handling_io_sio: dialogDraft.handling_io_sio ?? "",
+        issue_involved: dialogDraft.issue_involved ?? "",
+        mode_of_initiation: dialogDraft.mode_of_initiation ?? "",
+        intel_approved_date: dialogDraft.intel_approved_date ?? "",
+        date_of_initiation: today(),
+        date_of_ir: today(),
+        converted_from_non_ir: sourceRecordId,
+      });
+      setDialogMode("add");
+      setDialogEditingId(null);
+      setDialogOpen(true);
+      toast.info(
+        `NON-IR ${sourceRecordId} closed — fill in the new IR record below.`,
+      );
+    } else {
+      toast.success("Record saved");
     }
     setSavingRow(false);
   };

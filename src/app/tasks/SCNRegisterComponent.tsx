@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -79,6 +80,7 @@ interface SCNRecord {
   remarks: string;
   sio: string;
   group: string;
+  competency: string;
 }
 
 interface Filters {
@@ -123,6 +125,7 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   remarks: "",
   sio: "",
   group: "",
+  competency: "",
 };
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -157,6 +160,12 @@ const ISSUE_OPTIONS = [
   "Others",
 ];
 
+const COMPETENCY_OPTIONS = [
+  "SIO Competency",
+  "AD/DD Competency",
+  "JC/ADC Competency",
+];
+
 const ADJUDICATION_STATUS_OPTIONS = [
   "Pending",
   "OIO Issued",
@@ -189,6 +198,7 @@ const COLUMNS: RegisterColumn[] = [
   { key: "appeal_stage", label: "Appeal Stage", type: "select", options: APPEAL_STAGE_OPTIONS, width: "170px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
+  { key: "competency", label: "Competency", type: "select", options: COMPETENCY_OPTIONS, width: "170px" },
   { key: "remarks", label: "Remarks", type: "text", width: "160px" },
 ];
 
@@ -264,6 +274,8 @@ const SCNRegisterComponent = () => {
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
 
+  const [activeTab, setActiveTab] = useState<string>("SIO Competency");
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<SCNRecord>>({});
@@ -338,6 +350,7 @@ const SCNRegisterComponent = () => {
   // ── Filtered + sorted rows ─────────────────────────────────────────────────
 
   const tableRecords = records
+    .filter((r) => r.competency === activeTab)
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -525,7 +538,7 @@ const SCNRegisterComponent = () => {
                 className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
                 onClick={() => {
                   setDialogMode("add");
-                  setDialogDraft({ ...EMPTY_RECORD });
+                  setDialogDraft({ ...EMPTY_RECORD, competency: activeTab });
                   setDialogOpen(true);
                 }}
               >
@@ -536,6 +549,22 @@ const SCNRegisterComponent = () => {
           </div>
         </div>
 
+        {/* ── Competency Tabs ─────────────────────────────────────────────── */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-4 rounded-xl border border-[#EDEDEA] bg-white h-10 p-1">
+            {COMPETENCY_OPTIONS.map((opt) => (
+              <TabsTrigger
+                key={opt}
+                value={opt}
+                className="rounded-lg text-base data-[state=active]:bg-[#EEF2FF] data-[state=active]:text-[#4A5FD4]"
+              >
+                {opt}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {COMPETENCY_OPTIONS.map((opt) => (
+            <TabsContent key={opt} value={opt} className="space-y-4">
         {/* ── Filter bar ──────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -651,8 +680,8 @@ const SCNRegisterComponent = () => {
           </div>
         </div>
 
-        {/* ── Records table ─────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
+              {/* ── Records table ───────────────────────────────────────────── */}
+              <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -757,7 +786,10 @@ const SCNRegisterComponent = () => {
               </TableBody>
             </Table>
           </div>
-        </div>
+              </div>
+            </TabsContent>
+          ))}
+        </Tabs>
       </div>
 
       <RegisterRecordDialog

@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -23,78 +22,51 @@ import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
 import {
   CalendarIcon,
-  Check,
   ChevronDown,
   ChevronUp,
-  ChevronsUpDown,
   Download,
-  Pencil,
-  Plus,
   Search,
   SlidersHorizontal,
-  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
-import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
-import { DGGI_GROUPS } from "@/lib/dggi-constants";
+import { exportRegisterToExcel } from "./register-utils";
+import { type WorkspaceUser } from "./RegisterRecordDialog";
 
-function UserCombobox({ value, onChange, users }: { value: string; onChange: (v: string) => void; users: WorkspaceUser[]; }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const filtered = users.filter((u) => u.name?.toLowerCase().includes(query.toLowerCase()) || u.email?.toLowerCase().includes(query.toLowerCase()));
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button className="flex h-8 w-[160px] items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate">
-          <span className="truncate">{users.find((u) => u.id === value)?.name || <span className="text-[#9a9a96]">Select user…</span>}</span>
-          <ChevronsUpDown size={12} className="text-[#9a9a96] shrink-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
-        <Command>
-          <CommandInput placeholder="Search user…" value={query} onValueChange={setQuery} className="text-base" />
-          <CommandList>
-            <CommandEmpty className="py-3 text-center text-base text-[#9a9a96]">No users found.</CommandEmpty>
-            <CommandGroup>
-              {filtered.map((u) => (
-                <CommandItem key={u.id} value={u.name} onSelect={() => { onChange(u.id); setOpen(false); setQuery(""); }} className="text-base">
-                  <Check size={13} className={`mr-2 shrink-0 ${value === u.id ? "opacity-100" : "opacity-0"}`} />
-                  <div className="flex flex-col min-w-0">
-                    <span className="truncate">{u.name}</span>
-                    <span className="truncate text-[#9a9a96] text-sm">{u.email}</span>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-const RECORD_PREFIX = REGISTER_PREFIXES.CLOSURE;
 const TABLE_NAME = "dggi_closure_records";
 
 interface ClosureRecord {
   id: string;
   record_id: string;
-  linked_case_id: string;
+  source_record_id: string;
   is_ir: boolean;
-  file_number: string;
-  taxpayer_name: string;
-  closure_report_no: string;
-  closure_date: string;
-  closure_under_section: string;
-  incident_report_no: string;
-  sio_group: string;
-  remark: string;
-  sio: string;
   group: string;
+  intel_source: string;
+  date_of_receipt: string;
+  taxpayer_name: string;
+  gstins: string;
+  file_no: string;
+  date_of_initiation: string;
+  intel_approved_date: string;
+  mode_of_initiation: string;
+  intelligence_action_date: string;
+  handling_io_sio: string;
+  issue_involved: string;
+  latest_status: string;
+  pr_adg_comments: string;
+  detection_amount: string;
+  recovery_itc: string;
+  recovery_cash: string;
+  digit_id: string;
+  bo_id: string;
+  hsn_code: string;
+  closure_by: string;
+  due_date: string;
+  date_of_ir: string;
+  date_of_non_ir: string;
+  converted_from_non_ir: string;
+  created_at: string;
 }
 
 type ActiveTab = "non-ir" | "ir";
@@ -107,51 +79,45 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = { search: "", dateFrom: "", dateTo: "" };
 
-const today = () => format(new Date(), "yyyy-MM-dd");
+type ColDef = {
+  key: keyof Omit<ClosureRecord, "id" | "is_ir">;
+  label: string;
+  type: "text" | "datepicker" | "usercombobox";
+  width?: string;
+};
 
-const EMPTY_RECORD = (isIr: boolean): Omit<ClosureRecord, "id"> => ({
-  record_id: "",
-  linked_case_id: "",
-  is_ir: isIr,
-  file_number: "",
-  taxpayer_name: "",
-  closure_report_no: "",
-  closure_date: today(),
-  closure_under_section: "",
-  incident_report_no: "",
-  sio_group: "",
-  remark: "",
-  sio: "",
-  group: "",
-});
-
-const NON_IR_COLUMNS: { key: keyof Omit<ClosureRecord, "id" | "is_ir">; label: string; type: "text" | "datepicker" | "usercombobox" | "caselink" | "select"; width?: string; options?: string[]; readOnly?: boolean }[] = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "file_number", label: "File Number", type: "text", width: "160px" },
-  { key: "taxpayer_name", label: "Name of Taxpayer/Entity", type: "text", width: "200px" },
-  { key: "closure_report_no", label: "Closure Report No.", type: "text", width: "220px" },
-  { key: "closure_date", label: "Closure Date", type: "datepicker", width: "150px" },
-  { key: "closure_under_section", label: "Closure U/S", type: "text", width: "140px" },
-  { key: "sio_group", label: "SIO/Group", type: "usercombobox", width: "170px" },
-  { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
-  { key: "remark", label: "Remark", type: "text", width: "240px" },
+const SHARED_COLUMNS: ColDef[] = [
+  { key: "record_id", label: "Closure ID", type: "text", width: "150px" },
+  { key: "source_record_id", label: "Case ID", type: "text", width: "150px" },
+  { key: "taxpayer_name", label: "Taxpayer / Entity", type: "text", width: "200px" },
+  { key: "gstins", label: "GSTINs", type: "text", width: "180px" },
+  { key: "file_no", label: "File No.", type: "text", width: "160px" },
+  { key: "group", label: "Group", type: "text", width: "110px" },
+  { key: "handling_io_sio", label: "Handling IO/SIO", type: "usercombobox", width: "170px" },
+  { key: "closure_by", label: "Closure Reason", type: "text", width: "180px" },
+  { key: "due_date", label: "Closure Date", type: "datepicker", width: "150px" },
+  { key: "issue_involved", label: "Issue Involved", type: "text", width: "180px" },
+  { key: "mode_of_initiation", label: "Mode of Initiation", type: "text", width: "170px" },
+  { key: "detection_amount", label: "Detection Amount", type: "text", width: "170px" },
+  { key: "recovery_itc", label: "Recovery ITC", type: "text", width: "150px" },
+  { key: "recovery_cash", label: "Recovery Cash", type: "text", width: "150px" },
+  { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
+  { key: "bo_id", label: "BO ID", type: "text", width: "130px" },
+  { key: "hsn_code", label: "HSN Code", type: "text", width: "130px" },
+  { key: "latest_status", label: "Latest Status", type: "text", width: "170px" },
+  { key: "date_of_receipt", label: "Date of Receipt", type: "datepicker", width: "155px" },
+  { key: "date_of_initiation", label: "Date of Initiation", type: "datepicker", width: "165px" },
+  { key: "intel_approved_date", label: "Intel Approved Date", type: "datepicker", width: "175px" },
 ];
 
-const IR_COLUMNS: typeof NON_IR_COLUMNS = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "file_number", label: "File Number", type: "text", width: "160px" },
-  { key: "taxpayer_name", label: "Name of Taxpayer/Entity", type: "text", width: "200px" },
-  { key: "closure_report_no", label: "Closure Report Number", type: "text", width: "240px" },
-  { key: "closure_date", label: "Closure Date", type: "datepicker", width: "150px" },
-  { key: "closure_under_section", label: "Closure U/S", type: "text", width: "140px" },
-  { key: "incident_report_no", label: "Incident Report No.", type: "text", width: "180px" },
-  { key: "sio_group", label: "SIO/Group", type: "usercombobox", width: "170px" },
-  { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
-  { key: "remark", label: "Remark", type: "text", width: "240px" },
+const NON_IR_COLUMNS: ColDef[] = [
+  ...SHARED_COLUMNS,
+  { key: "date_of_non_ir", label: "Date of NON-IR", type: "datepicker", width: "160px" },
+];
+
+const IR_COLUMNS: ColDef[] = [
+  ...SHARED_COLUMNS,
+  { key: "date_of_ir", label: "Date of IR", type: "datepicker", width: "150px" },
 ];
 
 const fmt = (iso: string) => {
@@ -161,29 +127,6 @@ const fmt = (iso: string) => {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
-function DatePickerCell({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const parsed = value && isValid(parseISO(value)) ? parseISO(value) : undefined;
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button className="flex h-8 w-[150px] items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
-          <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
-          {parsed ? format(parsed, "dd/MM/yyyy") : <span className="text-[#9a9a96]">Pick date</span>}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
-        <Calendar mode="single" selected={parsed} onSelect={(d) => onChange(d ? format(d, "yyyy-MM-dd") : "")} initialFocus />
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function EditableCell({ value, type, users, cases }: { value: string; type: "text" | "datepicker" | "usercombobox" | "caselink" | "select"; users?: WorkspaceUser[]; cases?: DGGICaseOption[] }) {
-  if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={cases ?? []} editing={false} />;
-  if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
-  if (type === "usercombobox") return <span>{users?.find((u) => u.id === value)?.name || value || "—"}</span>;
-  return <span>{value || "—"}</span>;
-}
 
 function FilterDatePicker({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
   const parsed = value && isValid(parseISO(value)) ? parseISO(value) : undefined;
@@ -204,26 +147,17 @@ function FilterDatePicker({ value, placeholder, onChange }: { value: string; pla
 
 const ClosureRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
-  const [workspaceId, setWorkspaceId] = useState("");
   const [records, setRecords] = useState<ClosureRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("non-ir");
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
-  const [savingRow, setSavingRow] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
-  const [dialogDraft, setDialogDraft] = useState<Partial<ClosureRecord>>({});
-
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
-  const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
 
   useEffect(() => {
     const init = async () => {
       const wid = await getWorkspaceId();
-      setWorkspaceId(wid);
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
@@ -236,17 +170,16 @@ const ClosureRegisterComponent = () => {
       let query = supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid);
       if (role !== "ADG" && role !== "DD_INT") {
         if (role === "IO" || role === "SIO") {
-          query = query.eq("sio", uid!);
+          query = query.eq("handling_io_sio", uid!);
         } else if (groups.length > 0) {
           query = query.in("group", groups);
         } else {
           query = query.eq("group", "__none__");
         }
       }
-      const [{ data, error }, usersRes, cases] = await Promise.all([query, getAllUsers(), fetchCaseOptions(supabase, wid)]);
+      const [{ data, error }, usersRes] = await Promise.all([query, getAllUsers()]);
       if (!error) setRecords(data ?? []);
       if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
-      setCaseOptions(cases);
       setLoading(false);
     };
     init();
@@ -254,7 +187,7 @@ const ClosureRegisterComponent = () => {
 
   const isIr = activeTab === "ir";
   const COLUMNS = isIr ? IR_COLUMNS : NON_IR_COLUMNS;
-  const TOTAL_COLS = COLUMNS.length + 1;
+  const TOTAL_COLS = COLUMNS.length;
 
   const nonIrTotal = records.filter((r) => !r.is_ir).length;
   const irTotal = records.filter((r) => r.is_ir).length;
@@ -264,10 +197,10 @@ const ClosureRegisterComponent = () => {
       if (r.is_ir !== isIr) return false;
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        if (![r.file_number, r.taxpayer_name, r.closure_report_no, r.sio_group].some((v) => v?.toLowerCase().includes(q))) return false;
+        if (![r.source_record_id, r.taxpayer_name, r.file_no, r.gstins, r.closure_by].some((v) => v?.toLowerCase().includes(q))) return false;
       }
-      if (filters.dateFrom && r.closure_date < filters.dateFrom) return false;
-      if (filters.dateTo && r.closure_date > filters.dateTo) return false;
+      if (filters.dateFrom && r.due_date && r.due_date < filters.dateFrom) return false;
+      if (filters.dateTo && r.due_date && r.due_date > filters.dateTo) return false;
       return true;
     })
     .sort((a, b) => {
@@ -276,57 +209,24 @@ const ClosureRegisterComponent = () => {
       return sortDir === "asc" ? cmp : -cmp;
     });
 
-  const saveEdit = async () => {
-    if (!dialogDraft.id) return;
-    setSavingRow(true);
-    const { error } = await supabase.from(TABLE_NAME).update({ ...dialogDraft }).eq("id", dialogDraft.id);
-    if (error) { toast.error("Failed to save: " + error.message); }
-    else { setRecords((prev) => prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)); toast.success("Record saved"); setDialogOpen(false); }
-    setSavingRow(false);
-  };
-
-  const deleteRecord = async (id: string) => {
-    const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
-    if (error) { toast.error("Delete failed: " + error.message); }
-    else { setRecords((prev) => prev.filter((r) => r.id !== id)); toast.success("Record deleted"); }
-  };
-
-  const saveNew = async () => {
-    if (!workspaceId) return;
-    setSavingRow(true);
-    const payload = { ...dialogDraft, is_ir: isIr, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId };
-    const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
-    if (error) { toast.error("Failed to add: " + error.message); }
-    else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }
-    setSavingRow(false);
-  };
-
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortCol(col); setSortDir("asc"); }
   };
 
-  const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) => setFilters((prev) => ({ ...prev, [key]: val }));
+  const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) =>
+    setFilters((prev) => ({ ...prev, [key]: val }));
 
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Closure", (msg) => toast.success(msg));
   };
 
-  const renderRow = (record: ClosureRecord) => (
-    <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
-      {COLUMNS.map((col) => (
-        <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-          <EditableCell value={(record as any)[col.key] ?? ""} type={col.type} users={workspaceUsers} cases={caseOptions} />
-        </TableCell>
-      ))}
-      <TableCell className="px-3 py-2">
-        <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}><Pencil size={13} /></Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteRecord(record.id)}><Trash2 size={13} /></Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
+  const renderCell = (record: ClosureRecord, col: ColDef) => {
+    const value = (record as any)[col.key] ?? "";
+    if (col.type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
+    if (col.type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+    return <span>{value || "—"}</span>;
+  };
 
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
 
@@ -340,12 +240,9 @@ const ClosureRegisterComponent = () => {
               <h1 className="text-xl font-medium text-[#1a1a1a]">Closure Register</h1>
               <p className="text-base text-[#9a9a96]">{isIr ? "IR" : "NON-IR"} Closures · {tableRecords.length} record{tableRecords.length !== 1 ? "s" : ""}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleExport} disabled={tableRecords.length === 0}><Download size={15} className="mr-1" />Export to Excel</Button>
-              <Button size="sm" className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4" onClick={() => { setDialogMode("add"); setDialogDraft({ ...EMPTY_RECORD(isIr) }); setDialogOpen(true); }}>
-                <Plus size={15} className="mr-1" />Add Record
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleExport} disabled={tableRecords.length === 0}>
+              <Download size={15} className="mr-1" />Export to Excel
+            </Button>
           </div>
         </div>
 
@@ -366,7 +263,7 @@ const ClosureRegisterComponent = () => {
             <div className="flex items-center gap-1.5 text-base text-[#6b6b6b] shrink-0"><SlidersHorizontal size={14} /><span className="font-medium">Filters</span></div>
             <div className="relative flex items-center">
               <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
-              <Input value={filters.search} onChange={(e) => setFilter("search", e.target.value)} placeholder="Search file no., taxpayer…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
+              <Input value={filters.search} onChange={(e) => setFilter("search", e.target.value)} placeholder="Search case ID, taxpayer, GSTIN…" className="h-9 pl-8 pr-3 min-w-[240px] border-[#EDEDEA] text-base rounded-lg" />
             </div>
             <FilterDatePicker value={filters.dateFrom} placeholder="From date" onChange={(v) => setFilter("dateFrom", v)} />
             <FilterDatePicker value={filters.dateTo} placeholder="To date" onChange={(v) => setFilter("dateTo", v)} />
@@ -387,11 +284,18 @@ const ClosureRegisterComponent = () => {
                       <span className="flex items-center gap-1">{col.label}{sortCol === col.key && (sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}</span>
                     </TableHead>
                   ))}
-                  <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tableRecords.map(renderRow)}
+                {tableRecords.map((record) => (
+                  <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+                    {COLUMNS.map((col) => (
+                      <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
+                        {renderCell(record, col)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
                 {tableRecords.length === 0 && (
                   <TableRow><TableCell colSpan={TOTAL_COLS} className="py-12 text-center text-base text-[#9a9a96]">No {isIr ? "IR" : "NON-IR"} closure records found.</TableCell></TableRow>
                 )}
@@ -400,19 +304,6 @@ const ClosureRegisterComponent = () => {
           </div>
         </div>
       </div>
-
-      <RegisterRecordDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        mode={dialogMode}
-        columns={COLUMNS as RegisterColumn[]}
-        draft={dialogDraft as Record<string, string>}
-        onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
-        onSave={dialogMode === "add" ? saveNew : saveEdit}
-        saving={savingRow}
-        users={workspaceUsers}
-        caseOptions={caseOptions}
-      />
     </div>
   );
 };
