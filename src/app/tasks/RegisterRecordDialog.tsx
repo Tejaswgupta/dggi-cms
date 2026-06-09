@@ -34,6 +34,7 @@ export interface WorkspaceUser {
   id: string;
   name: string;
   email: string;
+  dggi_role?: string;
 }
 
 export interface RegisterColumn {

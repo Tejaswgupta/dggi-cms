@@ -6,14 +6,16 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { Users, ChevronDown, X, Plus, Search } from "lucide-react";
 
-const DGGI_ROLES = ["ADG", "DD_INT", "DD", "ADC", "SIO", "IO"] as const;
+const DGGI_ROLES = ["ADG", "DD_INT", "DD", "AD", "ADC", "JD", "SIO", "IO"] as const;
 type DggiRole = (typeof DGGI_ROLES)[number];
 
 const ROLE_LABELS: Record<DggiRole, string> = {
   ADG: "Additional Director General",
   DD_INT: "Deputy Director (Intelligence)",
   DD: "Deputy Director",
+  AD: "Assistant Director",
   ADC: "Assistant Deputy Commissioner",
+  JD: "Joint Director",
   SIO: "Senior Intelligence Officer",
   IO: "Intelligence Officer",
 };

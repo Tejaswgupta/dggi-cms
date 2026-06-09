@@ -15,7 +15,7 @@ export const getAllUsers = async () => {
 
   const { data, error }: any = await supabase
     .from("votum_users")
-    .select()
+    .select("id, name, email, dggi_role")
     .eq("workspace_id", workspace_id);
 
   if (error === null) {

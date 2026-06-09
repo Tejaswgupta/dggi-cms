@@ -45,15 +45,11 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const RECORD_PREFIX = REGISTER_PREFIXES.SCN;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +57,6 @@ interface SCNRecord {
   id: string;
   record_id: string;
   linked_case_id: string;
-  scn_no: string;
   date_of_scn: string;
   noticee_name: string;
   gstin_pan: string;
@@ -106,7 +101,6 @@ const today = () => format(new Date(), "yyyy-MM-dd");
 const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   record_id: "",
   linked_case_id: "",
-  scn_no: "",
   date_of_scn: today(),
   noticee_name: "",
   gstin_pan: "",
@@ -178,9 +172,8 @@ const ADJUDICATION_STATUS_OPTIONS = [
 ];
 
 const COLUMNS: RegisterColumn[] = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
+  { key: "record_id", label: "ID", type: "text", width: "200px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "scn_no", label: "SCN No. (oo/F.Y./Group/Initials)", type: "text", width: "200px" },
   { key: "date_of_scn", label: "Date of SCN", type: "datepicker", width: "150px" },
   { key: "noticee_name", label: "Name of Noticee", type: "text", width: "160px" },
   { key: "gstin_pan", label: "GSTIN/PAN", type: "text", width: "150px" },
@@ -354,7 +347,7 @@ const SCNRegisterComponent = () => {
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const hit = [r.noticee_name, r.gstin_pan, r.file_no, r.scn_no].some(
+        const hit = [r.noticee_name, r.gstin_pan, r.file_no, r.record_id].some(
           (v) => v?.toLowerCase().includes(q),
         );
         if (!hit) return false;
@@ -437,7 +430,7 @@ const SCNRegisterComponent = () => {
     setSavingRow(true);
     const payload = {
       ...sanitizeDates(dialogDraft),
-      record_id: await generateWorkspaceRecordId(supabase, "dggi_scn_records", RECORD_PREFIX, workspaceId),
+      record_id: await generateSCNRecordId(dialogDraft),
       workspace_id: workspaceId,
     };
     const { data, error } = await supabase
@@ -453,6 +446,26 @@ const SCNRegisterComponent = () => {
       toast.success("Record added");
     }
     setSavingRow(false);
+  };
+
+  const getInitials = (name: string): string =>
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("");
+
+  const generateSCNRecordId = async (draft: Partial<SCNRecord>): Promise<string> => {
+    const { count } = await supabase
+      .from("dggi_scn_records")
+      .select("*", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId);
+    const seq = String((count ?? 0) + 1).padStart(2, "0");
+    const grp = draft.group ?? "";
+    const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
+    const designation = sioUser?.dggi_role ?? "";
+    const initials = sioUser ? getInitials(sioUser.name) : "";
+    return `${seq}/Grp-${grp}/${designation}/${initials}`;
   };
 
   const fyFromDate = (iso: string): string => {
@@ -582,7 +595,7 @@ const SCNRegisterComponent = () => {
               <Input
                 value={filters.search}
                 onChange={(e) => setFilter("search", e.target.value)}
-                placeholder="Search noticee, GSTIN/PAN, SCN no, file no…"
+                placeholder="Search noticee, GSTIN/PAN, ID, file no…"
                 className="h-9 pl-8 pr-3 min-w-[280px] border-[#EDEDEA] text-base rounded-lg"
               />
               {filters.search && (
