@@ -2781,14 +2781,13 @@ const DGGIComponent = () => {
   const saveEdit = async () => {
     if (!dialogEditingId) return;
     setSavingRow(true);
-    // A NON-IR record that gets closure_by="Converted to IR" must stay is_ir=false.
-    // The conversion creates a separate new IR record; the source NIR record is just closed.
     const isClosedAsConverted = dialogDraft.closure_by === "Converted to IR";
+    const sourceNirRecordId = dialogDraft.record_id;
     const { error } = await supabase
       .from("dggi_records")
       .update({
         ...dialogDraft,
-        ...(isClosedAsConverted ? { is_ir: false } : {}),
+        is_ir: false, // source NON-IR stays NON-IR regardless
         handling_io_sio: dialogDraft.handling_io_sio || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
@@ -2805,12 +2804,34 @@ const DGGIComponent = () => {
       setRecords((prev) =>
         prev.map((r) =>
           r.id === dialogEditingId
-            ? { ...r, ...dialogDraft, ...(isClosedAsConverted ? { is_ir: false } : {}) }
+            ? { ...r, ...dialogDraft, is_ir: false }
             : r,
         ),
       );
-      toast.success("Record saved");
       cancelDialog();
+      if (isClosedAsConverted && sourceNirRecordId) {
+        // Open an "add IR" dialog pre-filled from the NON-IR record
+        setDialogDraft({
+          ...EMPTY_RECORD,
+          is_ir: true,
+          group: dialogDraft.group ?? "Group A",
+          intel_source: dialogDraft.intel_source ?? "",
+          taxpayer_name: dialogDraft.taxpayer_name ?? "",
+          gstins: dialogDraft.gstins ?? "",
+          file_no: dialogDraft.file_no ?? "",
+          handling_io_sio: dialogDraft.handling_io_sio ?? "",
+          issue_involved: dialogDraft.issue_involved ?? "",
+          date_of_initiation: today(),
+          date_of_ir: today(),
+          converted_from_non_ir: sourceNirRecordId,
+        });
+        setDialogMode("add");
+        setDialogEditingId(null);
+        setDialogOpen(true);
+        toast.info(`NON-IR ${sourceNirRecordId} closed — fill in the new IR record below.`);
+      } else {
+        toast.success("Record saved");
+      }
     }
     setSavingRow(false);
   };
