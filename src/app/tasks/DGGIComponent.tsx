@@ -185,12 +185,12 @@ type TopFilter = "ir" | "non-ir";
 const today = () => format(new Date(), "yyyy-MM-dd");
 
 const IR_CLOSURE_OPTIONS = [
-  "Merit",
-  "Tax Payment",
-  "Transfer",
+  "On Merit",
+  "Closed After Payment of Tax",
+  "Transfer To",
   "Show Cause Notice",
 ];
-const NON_IR_CLOSURE_OPTIONS = ["Closed", "Transferred", "Converted to IR"];
+const NON_IR_CLOSURE_OPTIONS = ["Closed", "Transferred", "Convert to IR"];
 const SOURCE_OPTIONS = ["Int", "Group", "STR"];
 const DUE_DATE_YEAR_OPTIONS = ["2026", "2027", "2028"];
 const ISSUE_INVOLVED_OPTIONS = [
@@ -363,6 +363,22 @@ const COLUMNS: {
     width: "120px",
   },
   {
+    key: "latest_status",
+    label: "Latest Status",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "pr_adg_comments",
+    label: "Pr.ADG Comments",
+    type: "text",
+    width: "200px",
+  },
+];
+
+// Fields shown only in the IR form closure section, not as table columns
+const IR_CLOSURE_FORM_COLS: (typeof COLUMNS)[number][] = [
+  {
     key: "due_date",
     label: "Due Date / Closure Date",
     type: "datepicker",
@@ -374,18 +390,6 @@ const COLUMNS: {
     type: "select",
     options: IR_CLOSURE_OPTIONS,
     width: "160px",
-  },
-  {
-    key: "latest_status",
-    label: "Latest Status",
-    type: "text",
-    width: "180px",
-  },
-  {
-    key: "pr_adg_comments",
-    label: "Pr.ADG Comments",
-    type: "text",
-    width: "200px",
   },
 ];
 
@@ -493,6 +497,9 @@ const NON_IR_COLUMNS: ColDef[] = [
     width: "150px",
     readOnly: true,
   },
+];
+
+const NON_IR_CLOSURE_FORM_COLS: ColDef[] = [
   {
     key: "due_date",
     label: "Date of Closure",
@@ -2394,13 +2401,8 @@ export function DGGIRecordDialog({
   );
 
   const renderIrForm = () => {
-    const CLOSURE_KEYS = ["due_date", "closure_by"];
-    const mainCols = editableColumns.filter(
-      (col) => !CLOSURE_KEYS.includes(col.key),
-    );
-    const closureCols = editableColumns.filter((col) =>
-      CLOSURE_KEYS.includes(col.key),
-    );
+    const mainCols = editableColumns;
+    const closureCols = IR_CLOSURE_FORM_COLS;
 
     return (
       <div className="space-y-4 py-2">
@@ -2503,12 +2505,18 @@ export function DGGIRecordDialog({
 
       {/* Staged layout */}
       <div className="space-y-3">
-        {NON_IR_STAGES.filter((stage) =>
-          mode === "edit" || (stage.label !== "Closure" && stage.label !== "Related Registers")
+        {NON_IR_STAGES.filter(
+          (stage) =>
+            mode === "edit" ||
+            (stage.label !== "Closure" && stage.label !== "Related Registers"),
         ).map((stage, idx) => {
           const unlocked = isStageUnlocked(idx);
           const complete = isStageComplete(idx);
-          const allFormCols = [...NON_IR_COLUMNS, ...NON_IR_FORM_EXTRA];
+          const allFormCols = [
+            ...NON_IR_COLUMNS,
+            ...NON_IR_FORM_EXTRA,
+            ...NON_IR_CLOSURE_FORM_COLS,
+          ];
           const stageCols = stage.fields
             .map((f) => allFormCols.find((c) => c.key === f))
             .filter(Boolean) as ColDef[];
