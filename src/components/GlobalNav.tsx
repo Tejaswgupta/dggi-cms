@@ -19,6 +19,7 @@ import {
   Paperclip,
   Scale,
   ShieldAlert,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -28,6 +29,7 @@ type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
 const DASHBOARD_ITEMS: SidebarItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/users", label: "Users", icon: Users },
 ];
 
 const REGISTER_ITEMS: SidebarItem[] = [
