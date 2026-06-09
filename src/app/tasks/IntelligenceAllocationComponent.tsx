@@ -1374,6 +1374,8 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
+                  ) : userRole === "DD_INT" ? (
+                    <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
                       size="sm"
@@ -1444,6 +1446,8 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
+                  ) : userRole === "DD_INT" ? (
+                    <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
                       size="sm"
@@ -1508,6 +1512,8 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
+                  ) : userRole === "DD_INT" ? (
+                    <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
                       size="sm"
