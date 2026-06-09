@@ -40,7 +40,7 @@ CREATE OR REPLACE FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "t
       AND (
         u.dggi_role IN ('ADG', 'DD_INT')
         OR (
-          u.dggi_role IN ('ADC', 'DD')
+          u.dggi_role IN ('ADC', 'JD', 'DD', 'AD')
           AND EXISTS (
             SELECT 1
             FROM public.dggi_user_group_assignments g
@@ -74,7 +74,7 @@ CREATE OR REPLACE FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "t
       AND (
         u.dggi_role IN ('ADG', 'DD_INT')
         OR (
-          u.dggi_role IN ('ADC', 'DD')
+          u.dggi_role IN ('ADC', 'JD', 'DD', 'AD')
           AND EXISTS (
             SELECT 1
             FROM public.dggi_user_group_assignments g
@@ -749,7 +749,7 @@ CREATE TABLE IF NOT EXISTS "public"."votum_users" (
     "whatsapp_otp_send_date" timestamp with time zone,
     "checklist_state" "jsonb" DEFAULT '{"isDismissed": false, "completedItems": []}'::"jsonb",
     "dggi_role" "text",
-    CONSTRAINT "votum_users_dggi_role_check" CHECK ((("dggi_role" IS NULL) OR ("dggi_role" = ANY (ARRAY['ADG'::"text", 'ADC'::"text", 'DD'::"text", 'SIO'::"text", 'IO'::"text", 'DD_INT'::"text"]))))
+    CONSTRAINT "votum_users_dggi_role_check" CHECK ((("dggi_role" IS NULL) OR ("dggi_role" = ANY (ARRAY['ADG'::"text", 'DD_INT'::"text", 'DD'::"text", 'AD'::"text", 'ADC'::"text", 'JD'::"text", 'SIO'::"text", 'IO'::"text"]))))
 );
 
 
