@@ -104,7 +104,7 @@ const COLUMNS: {
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   {
     key: "legal_trade_name",
-    label: "Trade Name",
+    label: "Taxpayer Name",
     type: "text",
     width: "180px",
   },

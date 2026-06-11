@@ -68,10 +68,8 @@ interface SCNRecord {
   issue: string;
   adjudication_formation: string;
   file_no: string;
-  din_no: string;
   date_uploading_bo: string;
   adjudication_status: string;
-  appeal_stage: string;
   remarks: string;
   sio: string;
   group: string;
@@ -112,10 +110,8 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   issue: "",
   adjudication_formation: "",
   file_no: "",
-  din_no: "",
   date_uploading_bo: "",
   adjudication_status: "",
-  appeal_stage: "",
   remarks: "",
   sio: "",
   group: "",
@@ -185,11 +181,9 @@ const COLUMNS: RegisterColumn[] = [
   { key: "issue", label: "Issue", type: "select", options: ISSUE_OPTIONS, allowOther: true, width: "220px" },
   { key: "adjudication_formation", label: "Adjudication Formation", type: "select", options: ADJUDICATION_FORMATION_OPTIONS, allowOther: true, width: "200px" },
   { key: "file_no", label: "File No.", type: "text", width: "120px" },
-  { key: "din_no", label: "DIN No.", type: "text", width: "130px" },
   { key: "date_uploading_bo", label: "Date of Uploading on BO Portal", type: "datepicker", width: "200px" },
   { key: "adjudication_status", label: "Adjudication Status", type: "select", options: ADJUDICATION_STATUS_OPTIONS, allowOther: true, width: "180px" },
-  { key: "appeal_stage", label: "Appeal Stage", type: "select", options: APPEAL_STAGE_OPTIONS, width: "170px" },
-  { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
+  { key: "sio", label: "Name of SCN Issuing Authority", type: "usercombobox", width: "220px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
   { key: "competency", label: "Competency", type: "select", options: COMPETENCY_OPTIONS, width: "170px" },
   { key: "remarks", label: "Remarks", type: "text", width: "160px" },

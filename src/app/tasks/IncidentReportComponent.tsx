@@ -41,7 +41,6 @@ interface IncidentReportRecord {
   id: string;
   record_id: string;
   linked_case_id: string;
-  int_no: string;
   incident_date: string;
   file_number: string;
   company_name: string;
@@ -50,10 +49,8 @@ interface IncidentReportRecord {
   recovery_cash: string;
   description: string;
   group: string;
-  officer_name: string;
   bo_id_no: string;
   sio: string;
-  arrest: string;
   digit_id: string;
   gstin: string;
 }
@@ -65,7 +62,6 @@ type SortDir = "asc" | "desc";
 const EMPTY_RECORD: Omit<IncidentReportRecord, "id"> = {
   record_id: "",
   linked_case_id: "",
-  int_no: "",
   incident_date: "",
   file_number: "",
   company_name: "",
@@ -74,10 +70,8 @@ const EMPTY_RECORD: Omit<IncidentReportRecord, "id"> = {
   recovery_cash: "",
   description: "",
   group: "",
-  officer_name: "",
   bo_id_no: "",
   sio: "",
-  arrest: "",
   digit_id: "",
   gstin: "",
 };
@@ -88,18 +82,15 @@ const EMPTY_RECORD: Omit<IncidentReportRecord, "id"> = {
 const COLUMNS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "int_no", label: "Int. No.", type: "text", width: "140px" },
   { key: "incident_date", label: "Date", type: "datepicker", width: "130px" },
   { key: "file_number", label: "File Number", type: "text", width: "140px" },
-  { key: "company_name", label: "Trade Name", type: "text", width: "180px" },
+  { key: "company_name", label: "Taxpayer Name", type: "text", width: "180px" },
   { key: "detection_amount", label: "Detection (₹)", type: "number", width: "150px" },
   { key: "recovery_itc", label: "Recovery ITC (₹)", type: "number", width: "160px" },
   { key: "recovery_cash", label: "Recovery Cash (₹)", type: "number", width: "160px" },
   { key: "description", label: "Description", type: "text", width: "220px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
-  { key: "officer_name", label: "Officer Name", type: "usercombobox", width: "170px" },
   { key: "bo_id_no", label: "BO ID No.", type: "text", width: "130px" },
-  { key: "arrest", label: "Arrest", type: "text", width: "120px" },
   { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
@@ -185,10 +176,8 @@ const IncidentReportComponent = () => {
       return [
         r.company_name,
         r.file_number,
-        r.officer_name,
         r.bo_id_no,
         r.group,
-        r.int_no,
       ].some((v) => v?.toLowerCase().includes(q));
     })
     .sort((a, b) => {
@@ -217,16 +206,6 @@ const IncidentReportComponent = () => {
         ),
       );
       toast.success("Record saved");
-      // Backlink: if int_no is set, auto-update ir_date in intel rapid record
-      const savedInt = ((dialogDraft.int_no as string) ?? "").trim();
-      if (savedInt) {
-        await supabase
-          .from("dggi_intel_rapid_records")
-          .update({ ir_date: new Date().toISOString().split("T")[0] })
-          .eq("rapid_id", savedInt)
-          .eq("workspace_id", workspaceId)
-          .is("ir_date", null);
-      }
       setDialogOpen(false);
     }
     setSavingRow(false);

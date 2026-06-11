@@ -29,7 +29,7 @@ const COLUMNS: RegisterColumn[] = [
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
   { key: "str_reference_no", label: "STR Reference No.", type: "text", width: "180px" },
   { key: "date_of_str", label: "Date of STR", type: "datepicker", width: "150px" },
-  { key: "entity_name", label: "Trade Name", type: "text", width: "180px" },
+  { key: "entity_name", label: "Taxpayer Name", type: "text", width: "180px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   { key: "amount_involved", label: "Amount Involved", type: "text", width: "150px" },
   { key: "nature_of_offence", label: "Nature of Offence", type: "text", width: "200px" },

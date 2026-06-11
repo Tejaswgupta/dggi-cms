@@ -453,7 +453,7 @@ const STR_COLS: RegisterColumn[] = [
     width: "150px",
     readOnly: true,
   },
-  { key: "entity_name", label: "Trade Name", type: "text", width: "180px" },
+  { key: "entity_name", label: "Taxpayer Name", type: "text", width: "180px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   {
     key: "amount_involved",
