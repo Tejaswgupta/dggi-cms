@@ -3,6 +3,18 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -12,11 +24,16 @@ import {
 } from "@/components/ui/table";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
+import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import {
+  Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
+  Columns2,
   Download,
+  Layers,
   Pencil,
   Plus,
   Search,
@@ -29,11 +46,17 @@ import { toast } from "react-toastify";
 import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
-import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const RECORD_PREFIX = REGISTER_PREFIXES.INCIDENT_REPORT;
+const LS_HIDDEN_COLS_KEY = "ir_hidden_columns";
+
+type GroupByField = "group" | "sio";
+const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
+  { value: "group", label: "Group" },
+  { value: "sio", label: "SIO" },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +64,7 @@ interface IncidentReportRecord {
   id: string;
   record_id: string;
   linked_case_id: string;
+  int_no: string;
   incident_date: string;
   file_number: string;
   company_name: string;
@@ -57,11 +81,12 @@ interface IncidentReportRecord {
 
 type SortDir = "asc" | "desc";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Empty record ─────────────────────────────────────────────────────────────
 
 const EMPTY_RECORD: Omit<IncidentReportRecord, "id"> = {
   record_id: "",
   linked_case_id: "",
+  int_no: "",
   incident_date: "",
   file_number: "",
   company_name: "",
@@ -77,14 +102,14 @@ const EMPTY_RECORD: Omit<IncidentReportRecord, "id"> = {
 };
 
 // ─── Column definitions ───────────────────────────────────────────────────────
-// Note: "number" type maps to "text" in RegisterColumn; userCombobox maps to "usercombobox" type.
 
 const COLUMNS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
+  { key: "int_no", label: "Int. No.", type: "text", width: "140px" },
   { key: "incident_date", label: "Date", type: "datepicker", width: "130px" },
   { key: "file_number", label: "File Number", type: "text", width: "140px" },
-  { key: "company_name", label: "Taxpayer Name", type: "text", width: "180px" },
+  { key: "company_name", label: "Trade Name", type: "text", width: "180px" },
   { key: "detection_amount", label: "Detection (₹)", type: "number", width: "150px" },
   { key: "recovery_itc", label: "Recovery ITC (₹)", type: "number", width: "160px" },
   { key: "recovery_cash", label: "Recovery Cash (₹)", type: "number", width: "160px" },
@@ -96,8 +121,6 @@ const COLUMNS: RegisterColumn[] = [
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
 ];
 
-const TOTAL_COLS = COLUMNS.length + 1; // +1 for Actions
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const IncidentReportComponent = () => {
@@ -105,6 +128,9 @@ const IncidentReportComponent = () => {
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [records, setRecords] = useState<IncidentReportRecord[]>([]);
+  const [userRole, setUserRole] = useState<string>("");
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -114,6 +140,21 @@ const IncidentReportComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
+  const [groupBy, setGroupBy] = useState<GroupByField | "none">("none");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem(LS_HIDDEN_COLS_KEY);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [colPickerOpen, setColPickerOpen] = useState(false);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<IncidentReportRecord>>({});
@@ -121,22 +162,46 @@ const IncidentReportComponent = () => {
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
 
+  const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
+  const totalCols = visibleColumns.length + 1;
+
+  const toggleColumn = (key: string) => {
+    setHiddenColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(LS_HIDDEN_COLS_KEY, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  };
+
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const init = async () => {
       const wid = await getWorkspaceId();
       setWorkspaceId(wid);
-      const { data: authData } = await supabase.auth.getUser();
-      const uid = authData?.user?.id;
-      const [{ data: userRow }, { data: groupRows }] = await Promise.all([
-        supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
-      ]);
-      const role = userRow?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
 
-      const [, usersRes, cases] = await Promise.all([fetchRecords(wid, role, groups, uid!), getAllUsers(), fetchCaseOptions(supabase, wid)]);
+      const { data: authData } = await supabase.auth.getUser();
+      const uid = authData?.user?.id ?? "";
+      setCurrentUserId(uid);
+
+      const [userRow, groupRows] = await Promise.all([
+        supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
+        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
+      ]);
+      const role = userRow.data?.dggi_role ?? "";
+      const groups = (groupRows.data ?? []).map((g: { group_name: string }) => g.group_name);
+      setUserRole(role);
+      setUserGroups(groups);
+
+      const [, usersRes, cases] = await Promise.all([
+        fetchRecords(wid, role, groups, uid),
+        getAllUsers(),
+        fetchCaseOptions(supabase, wid),
+      ]);
       if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setCaseOptions(cases);
       setLoading(false);
@@ -144,11 +209,17 @@ const IncidentReportComponent = () => {
     init();
   }, []);
 
-  const fetchRecords = async (wid: string, role?: string, groups?: string[], uid?: string) => {
+  const fetchRecords = async (
+    wid: string,
+    role?: string,
+    groups?: string[],
+    uid?: string,
+  ) => {
     let query = supabase
       .from("dggi_incident_report_records")
       .select("*")
       .eq("workspace_id", wid);
+
     if (role && role !== "ADG" && role !== "DD_INT") {
       if (role === "IO" || role === "SIO") {
         query = query.eq("sio", uid ?? "__none__");
@@ -158,10 +229,10 @@ const IncidentReportComponent = () => {
         query = query.eq("group", "__none__");
       }
     }
+
     const { data, error } = await query;
     if (error) {
       console.error("fetchRecords error:", error);
-      toast.error("Failed to load records");
       return;
     }
     setRecords(data ?? []);
@@ -171,22 +242,52 @@ const IncidentReportComponent = () => {
 
   const tableRecords = records
     .filter((r) => {
+      if (groupFilter && r.group !== groupFilter) return false;
       if (!search) return true;
       const q = search.toLowerCase();
-      return [
-        r.company_name,
-        r.file_number,
-        r.bo_id_no,
-        r.group,
-      ].some((v) => v?.toLowerCase().includes(q));
+      return [r.company_name, r.file_number, r.bo_id_no, r.group, r.int_no, r.gstin].some(
+        (v) => v?.toLowerCase().includes(q),
+      );
     })
     .sort((a, b) => {
       if (!sortCol) return 0;
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
-      const cmp = av.localeCompare(bv);
+      const cmp = String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });
+
+  // ── Grouped buckets ────────────────────────────────────────────────────────
+
+  const groupedBuckets: { key: string; label: string; rows: IncidentReportRecord[] }[] =
+    groupBy === "none"
+      ? []
+      : (() => {
+          const map = new Map<string, IncidentReportRecord[]>();
+          for (const r of tableRecords) {
+            const raw = String((r as any)[groupBy] ?? "");
+            if (!map.has(raw)) map.set(raw, []);
+            map.get(raw)!.push(r);
+          }
+          return Array.from(map.entries())
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, rows]) => ({
+              key,
+              label:
+                groupBy === "sio"
+                  ? workspaceUsers.find((u) => u.id === key)?.name || key || "—"
+                  : key || "—",
+              rows,
+            }));
+        })();
+
+  const toggleGroupCollapse = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
@@ -201,27 +302,54 @@ const IncidentReportComponent = () => {
       toast.error("Failed to save: " + error.message);
     } else {
       setRecords((prev) =>
-        prev.map((r) =>
-          r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r,
-        ),
+        prev.map((r) => (r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)),
       );
       toast.success("Record saved");
+      const savedInt = ((dialogDraft.int_no as string) ?? "").trim();
+      if (savedInt) {
+        await supabase
+          .from("dggi_intel_rapid_records")
+          .update({ ir_date: new Date().toISOString().split("T")[0] })
+          .eq("rapid_id", savedInt)
+          .eq("workspace_id", workspaceId)
+          .is("ir_date", null);
+      }
       setDialogOpen(false);
     }
     setSavingRow(false);
   };
 
-  const deleteRecord = async (id: string) => {
-    const { error } = await supabase
-      .from("dggi_incident_report_records")
-      .delete()
-      .eq("id", id);
-    if (error) {
-      toast.error("Delete failed: " + error.message);
-    } else {
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Record deleted");
-    }
+  const deleteRecord = (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    let toastId: ReturnType<typeof toast.info>;
+    const timerId = setTimeout(async () => {
+      const { error } = await supabase
+        .from("dggi_incident_report_records")
+        .delete()
+        .eq("id", id);
+      if (error) {
+        setRecords((prev) => [...prev, record]);
+        toast.error("Delete failed: " + error.message);
+      }
+    }, 5000);
+    toastId = toast.info(
+      <div className="flex items-center justify-between gap-3 w-full">
+        <span>{record.record_id} deleted</span>
+        <button
+          onClick={() => {
+            clearTimeout(timerId);
+            setRecords((prev) => [...prev, record]);
+            toast.dismiss(toastId);
+          }}
+          className="font-medium underline underline-offset-2 shrink-0"
+        >
+          Undo
+        </button>
+      </div>,
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   const saveNew = async () => {
@@ -229,7 +357,16 @@ const IncidentReportComponent = () => {
     setSavingRow(true);
     const { data, error } = await supabase
       .from("dggi_incident_report_records")
-      .insert({ ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, "dggi_incident_report_records", RECORD_PREFIX, workspaceId), workspace_id: workspaceId })
+      .insert({
+        ...dialogDraft,
+        record_id: await generateWorkspaceRecordId(
+          supabase,
+          "dggi_incident_report_records",
+          RECORD_PREFIX,
+          workspaceId,
+        ),
+        workspace_id: workspaceId,
+      })
       .select()
       .single();
     if (error) {
@@ -237,7 +374,6 @@ const IncidentReportComponent = () => {
     } else {
       setRecords((prev) => [...prev, data]);
       toast.success("Record added");
-      // Backlink: if int_no is set, auto-update ir_date in intel rapid record
       const savedInt = ((dialogDraft.int_no as string) ?? "").trim();
       if (savedInt) {
         await supabase
@@ -262,16 +398,56 @@ const IncidentReportComponent = () => {
   };
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "Incident_Report", (msg) => toast.success(msg));
+    exportRegisterToExcel(tableRecords, visibleColumns, "Incident_Report", (msg) =>
+      toast.success(msg),
+    );
   };
+
+  const activeFilterCount = (search ? 1 : 0) + (groupFilter ? 1 : 0);
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
   const renderCell = (value: string, col: RegisterColumn) => {
-    if (col.type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
-    if (col.type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+    if (col.type === "caselink")
+      return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
+    if (col.type === "usercombobox")
+      return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
     return <span>{value || "—"}</span>;
   };
+
+  const renderRow = (record: IncidentReportRecord) => (
+    <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+      {visibleColumns.map((col) => (
+        <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
+          {renderCell((record as any)[col.key] ?? "", col)}
+        </TableCell>
+      ))}
+      <TableCell className="px-3 py-2">
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
+            onClick={() => {
+              setDialogMode("edit");
+              setDialogDraft({ ...record });
+              setDialogOpen(true);
+            }}
+          >
+            <Pencil size={13} />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+            onClick={() => deleteRecord(record.id)}
+          >
+            <Trash2 size={13} />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -290,16 +466,90 @@ const IncidentReportComponent = () => {
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-medium text-[#1a1a1a]">
-                Incident Report Register
-              </h1>
+              <h1 className="text-xl font-medium text-[#1a1a1a]">Incident Report Register</h1>
               <p className="text-base text-[#9a9a96]">
-                {tableRecords.length} record
-                {tableRecords.length !== 1 ? "s" : ""}
+                {tableRecords.length} record{tableRecords.length !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleExport} disabled={tableRecords.length === 0}><Download size={15} className="mr-1" />Export to Excel</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
+                onClick={handleExport}
+                disabled={tableRecords.length === 0}
+              >
+                <Download size={15} className="mr-1" />
+                Export to Excel
+              </Button>
+
+              {/* ── Column picker ─────────────────────────────────────────── */}
+              <Popover open={colPickerOpen} onOpenChange={setColPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className={`h-9 rounded-lg text-base shadow-none px-4 ${
+                      hiddenColumns.size > 0
+                        ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]"
+                        : "border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                    }`}
+                  >
+                    <Columns2 size={15} className="mr-1" />
+                    Columns
+                    {hiddenColumns.size > 0 && (
+                      <span className="ml-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#4A5FD4] text-xs text-white font-medium">
+                        {hiddenColumns.size}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-[220px] p-2 border border-[#EDEDEA] shadow-none rounded-xl max-h-[400px] overflow-y-auto"
+                >
+                  <div className="flex items-center justify-between px-2 py-1 mb-1">
+                    <span className="text-sm font-medium text-[#1a1a1a]">Toggle columns</span>
+                    {hiddenColumns.size > 0 && (
+                      <button
+                        onClick={() => {
+                          setHiddenColumns(new Set());
+                          try {
+                            localStorage.removeItem(LS_HIDDEN_COLS_KEY);
+                          } catch {}
+                        }}
+                        className="text-xs text-[#4A5FD4] hover:underline"
+                      >
+                        Show all
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {COLUMNS.map((col) => {
+                      const visible = !hiddenColumns.has(col.key);
+                      return (
+                        <button
+                          key={col.key}
+                          onClick={() => toggleColumn(col.key)}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-base text-left transition-all ${
+                            visible ? "text-[#1a1a1a] hover:bg-[#F3F2EF]" : "text-[#9a9a96] hover:bg-[#F3F2EF]"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                              visible ? "border-[#4A5FD4] bg-[#4A5FD4]" : "border-[#EDEDEA]"
+                            }`}
+                          >
+                            {visible && <Check size={10} className="text-white" />}
+                          </span>
+                          <span className="truncate">{col.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+
               <Button
                 size="sm"
                 className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
@@ -316,24 +566,21 @@ const IncidentReportComponent = () => {
           </div>
         </div>
 
-        {/* ── Filter bar ──────────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
+        {/* ── Filter + Group-by bar ────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3 space-y-3">
+          {/* Filters row */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 text-base text-[#6b6b6b] shrink-0">
               <SlidersHorizontal size={14} />
               <span className="font-medium">Filters</span>
             </div>
 
-            {/* Search */}
             <div className="relative flex items-center">
-              <Search
-                size={13}
-                className="absolute left-3 text-[#9a9a96] pointer-events-none"
-              />
+              <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search company, file no., officer, BO ID, group…"
+                placeholder="Search company, file no., BO ID, GSTIN…"
                 className="h-9 pl-8 pr-3 min-w-[300px] border-[#EDEDEA] text-base rounded-lg"
               />
               {search && (
@@ -346,14 +593,100 @@ const IncidentReportComponent = () => {
               )}
             </div>
 
-            {search && (
+            <Select
+              value={groupFilter ?? "all"}
+              onValueChange={(v) => setGroupFilter(v === "all" ? null : v)}
+            >
+              <SelectTrigger
+                className={`h-9 w-[130px] rounded-lg text-base border ${
+                  groupFilter
+                    ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]"
+                    : "border-[#EDEDEA] text-[#1a1a1a]"
+                }`}
+              >
+                <SelectValue placeholder="Group" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Groups</SelectItem>
+                {DGGI_GROUPS.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {activeFilterCount > 0 && (
               <button
-                onClick={() => setSearch("")}
+                onClick={() => {
+                  setSearch("");
+                  setGroupFilter(null);
+                }}
                 className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
               >
                 <X size={12} />
-                Clear
+                Clear all
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#6b6b6b] text-xs text-white font-medium">
+                  {activeFilterCount}
+                </span>
               </button>
+            )}
+          </div>
+
+          <div className="border-t border-[#EDEDEA]" />
+
+          {/* Group-by row */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-base text-[#6b6b6b] shrink-0">
+              <Layers size={14} />
+              <span className="font-medium">Group by</span>
+            </div>
+
+            <Select
+              value={groupBy}
+              onValueChange={(v) => {
+                setGroupBy(v as GroupByField | "none");
+                setCollapsedGroups(new Set());
+              }}
+            >
+              <SelectTrigger
+                className={`h-9 w-[160px] rounded-lg text-base border ${
+                  groupBy !== "none"
+                    ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]"
+                    : "border-[#EDEDEA] text-[#1a1a1a]"
+                }`}
+              >
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {GROUP_BY_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {groupBy !== "none" && groupedBuckets.length > 0 && (
+              <div className="flex items-center gap-1.5 ml-2">
+                <button
+                  onClick={() => setCollapsedGroups(new Set())}
+                  className="text-base text-[#6b6b6b] hover:text-[#4A5FD4] transition-all px-2 py-1 rounded-lg hover:bg-[#EEF2FF]"
+                >
+                  Expand all
+                </button>
+                <span className="text-[#EDEDEA]">·</span>
+                <button
+                  onClick={() => setCollapsedGroups(new Set(groupedBuckets.map((b) => b.key)))}
+                  className="text-base text-[#6b6b6b] hover:text-[#4A5FD4] transition-all px-2 py-1 rounded-lg hover:bg-[#EEF2FF]"
+                >
+                  Collapse all
+                </button>
+                <span className="ml-2 text-base text-[#9a9a96]">
+                  {groupedBuckets.length} group{groupedBuckets.length !== 1 ? "s" : ""}
+                </span>
+              </div>
             )}
           </div>
         </div>
@@ -364,7 +697,7 @@ const IncidentReportComponent = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-white border-b border-[#EDEDEA]">
-                  {COLUMNS.map((col) => (
+                  {visibleColumns.map((col) => (
                     <TableHead
                       key={col.key}
                       style={{ minWidth: col.width }}
@@ -374,11 +707,7 @@ const IncidentReportComponent = () => {
                       <span className="flex items-center gap-1">
                         {col.label}
                         {sortCol === col.key &&
-                          (sortDir === "asc" ? (
-                            <ChevronUp size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          ))}
+                          (sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
                       </span>
                     </TableHead>
                   ))}
@@ -389,58 +718,74 @@ const IncidentReportComponent = () => {
               </TableHeader>
 
               <TableBody>
-                {tableRecords.map((record) => (
-                  <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
-                    {COLUMNS.map((col) => (
-                      <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                        {renderCell((record as any)[col.key] ?? "", col)}
-                      </TableCell>
-                    ))}
-                    <TableCell className="px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
-                          onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}
+                {groupBy === "none" ? (
+                  <>
+                    {tableRecords.map(renderRow)}
+                    {tableRecords.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={totalCols}
+                          className="py-12 text-center text-base text-[#9a9a96]"
                         >
-                          <Pencil size={13} />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-                          onClick={() => deleteRecord(record.id)}
+                          No records match the current filters.{" "}
+                          {activeFilterCount > 0 && (
+                            <button
+                              className="text-[#4A5FD4] underline"
+                              onClick={() => {
+                                setSearch("");
+                                setGroupFilter(null);
+                              }}
+                            >
+                              Clear filters
+                            </button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {groupedBuckets.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={totalCols}
+                          className="py-12 text-center text-base text-[#9a9a96]"
                         >
-                          <Trash2 size={13} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-                {/* ── Empty state ── */}
-                {tableRecords.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={TOTAL_COLS}
-                      className="py-12 text-center text-base text-[#9a9a96]"
-                    >
-                      {search ? (
-                        <>
-                          No records match your search.{" "}
-                          <button
-                            className="text-[#4A5FD4] underline"
-                            onClick={() => setSearch("")}
-                          >
-                            Clear search
-                          </button>
-                        </>
-                      ) : (
-                        "No incident report records yet. Click Add Record to get started."
-                      )}
-                    </TableCell>
-                  </TableRow>
+                          No records match the current filters.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      groupedBuckets.map(({ key, label, rows }) => {
+                        const collapsed = collapsedGroups.has(key);
+                        return (
+                          <>
+                            <TableRow
+                              key={`hdr-${key}`}
+                              className="bg-white border-b border-[#EDEDEA] cursor-pointer select-none hover:bg-[#F0EEFA]"
+                              onClick={() => toggleGroupCollapse(key)}
+                            >
+                              <TableCell colSpan={totalCols} className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  {collapsed ? (
+                                    <ChevronRight size={14} className="text-[#6b6b6b] shrink-0" />
+                                  ) : (
+                                    <ChevronDown size={14} className="text-[#6b6b6b] shrink-0" />
+                                  )}
+                                  <span className="text-base font-semibold text-[#1a1a1a]">
+                                    {label}
+                                  </span>
+                                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#4A5FD4] px-1.5 text-xs text-white font-medium">
+                                    {rows.length}
+                                  </span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {!collapsed && rows.map(renderRow)}
+                          </>
+                        );
+                      })
+                    )}
+                  </>
                 )}
               </TableBody>
             </Table>
