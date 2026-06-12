@@ -1,8 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,6 +11,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -28,7 +27,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
+import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
 import {
@@ -45,11 +47,13 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
-import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
-import { DGGI_GROUPS } from "@/lib/dggi-constants";
+import { exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import {
+  RegisterRecordDialog,
+  type RegisterColumn,
+  type WorkspaceUser,
+} from "./RegisterRecordDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,7 +65,6 @@ interface SCNRecord {
   noticee_name: string;
   gstin_pan: string;
   demand_tax: string;
-  demand_interest: string;
   demand_penalty: string;
   period_involved: string;
   last_date_oio: string;
@@ -103,7 +106,6 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   noticee_name: "",
   gstin_pan: "",
   demand_tax: "",
-  demand_interest: "",
   demand_penalty: "",
   period_involved: "",
   last_date_oio: "",
@@ -168,24 +170,108 @@ const ADJUDICATION_STATUS_OPTIONS = [
 ];
 
 const COLUMNS: RegisterColumn[] = [
-  { key: "record_id", label: "ID", type: "text", width: "200px", readOnly: true },
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "date_of_scn", label: "Date of SCN", type: "datepicker", width: "150px" },
-  { key: "noticee_name", label: "Name of Noticee", type: "text", width: "160px" },
+  {
+    key: "record_id",
+    label: "ID",
+    type: "text",
+    width: "200px",
+    readOnly: true,
+  },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
+  {
+    key: "date_of_scn",
+    label: "Date of SCN",
+    type: "datepicker",
+    width: "150px",
+  },
+  {
+    key: "noticee_name",
+    label: "Name of Noticee",
+    type: "text",
+    width: "160px",
+  },
   { key: "gstin_pan", label: "GSTIN/PAN", type: "text", width: "150px" },
-  { key: "demand_tax", label: "Demand - Tax (Rs.)", type: "number", width: "150px" },
-  { key: "demand_interest", label: "Demand - Interest (Rs.)", type: "number", width: "170px" },
-  { key: "demand_penalty", label: "Demand - Penalty (Rs.)", type: "number", width: "170px" },
-  { key: "period_involved", label: "Period Involved (YY-YY)", type: "text", width: "180px", dialogLabel: "Period Involved (YY-YY, e.g. 23-24)" },
-  { key: "last_date_oio", label: "Last Date of OIO", type: "datepicker", width: "150px" },
-  { key: "issue", label: "Issue", type: "select", options: ISSUE_OPTIONS, allowOther: true, width: "220px" },
-  { key: "adjudication_formation", label: "Adjudication Formation", type: "select", options: ADJUDICATION_FORMATION_OPTIONS, allowOther: true, width: "200px" },
+  {
+    key: "demand_tax",
+    label: "Demand - Tax (Rs.)",
+    type: "number",
+    width: "150px",
+  },
+  {
+    key: "demand_penalty",
+    label: "Demand - Penalty (Rs.)",
+    type: "number",
+    width: "170px",
+  },
+  {
+    key: "period_involved",
+    label: "Period Involved (YY-YY)",
+    type: "text",
+    width: "180px",
+    dialogLabel: "Period Involved (YY-YY, e.g. 23-24)",
+  },
+  {
+    key: "last_date_oio",
+    label: "Last Date of OIO",
+    type: "datepicker",
+    width: "150px",
+  },
+  {
+    key: "issue",
+    label: "Issue",
+    type: "select",
+    options: ISSUE_OPTIONS,
+    allowOther: true,
+    width: "220px",
+  },
+  {
+    key: "adjudication_formation",
+    label: "Adjudication Auhtority",
+    type: "select",
+    options: ADJUDICATION_FORMATION_OPTIONS,
+    allowOther: true,
+    width: "200px",
+  },
   { key: "file_no", label: "File No.", type: "text", width: "120px" },
-  { key: "date_uploading_bo", label: "Date of Uploading on BO Portal", type: "datepicker", width: "200px" },
-  { key: "adjudication_status", label: "Adjudication Status", type: "select", options: ADJUDICATION_STATUS_OPTIONS, allowOther: true, width: "180px" },
-  { key: "sio", label: "Name of SCN Issuing Authority", type: "usercombobox", width: "220px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
-  { key: "competency", label: "Competency", type: "select", options: COMPETENCY_OPTIONS, width: "170px" },
+  {
+    key: "date_uploading_bo",
+    label: "Date of Uploading on BO Portal",
+    type: "datepicker",
+    width: "200px",
+  },
+  {
+    key: "adjudication_status",
+    label: "Adjudication Status",
+    type: "select",
+    options: ADJUDICATION_STATUS_OPTIONS,
+    allowOther: true,
+    width: "180px",
+  },
+  {
+    key: "sio",
+    label: "Name of SCN Issuing Authority",
+    type: "usercombobox",
+    width: "220px",
+  },
+  {
+    key: "group",
+    label: "Group",
+    type: "select",
+    options: DGGI_GROUPS,
+    width: "120px",
+  },
+  {
+    key: "competency",
+    label: "Competency",
+    type: "select",
+    options: COMPETENCY_OPTIONS,
+    width: "170px",
+  },
   { key: "remarks", label: "Remarks", type: "text", width: "160px" },
 ];
 
@@ -267,7 +353,18 @@ const SCNRegisterComponent = () => {
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<SCNRecord>>({});
   // Map record_id → case details for auto-populating SCN fields
-  const [caseDetailsMap, setCaseDetailsMap] = useState<Map<string, { taxpayer_name: string; gstins: string; date_of_receipt: string; handling_io_sio: string; group: string }>>(new Map());
+  const [caseDetailsMap, setCaseDetailsMap] = useState<
+    Map<
+      string,
+      {
+        taxpayer_name: string;
+        gstins: string;
+        date_of_receipt: string;
+        handling_io_sio: string;
+        group: string;
+      }
+    >
+  >(new Map());
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -278,21 +375,44 @@ const SCNRegisterComponent = () => {
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
-        supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
+        supabase
+          .from("votum_users")
+          .select("dggi_role")
+          .eq("id", uid!)
+          .single(),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
 
       const [cases, caseDetails, , usersRes] = await Promise.all([
         fetchCaseOptions(supabase, wid),
-        supabase.from("dggi_records").select("record_id,taxpayer_name,gstins,date_of_receipt,handling_io_sio,group").eq("workspace_id", wid),
+        supabase
+          .from("dggi_records")
+          .select(
+            "record_id,taxpayer_name,gstins,date_of_receipt,handling_io_sio,group",
+          )
+          .eq("workspace_id", wid),
         fetchRecords(wid, role, groups, uid!),
         getAllUsers(),
       ]);
       setCaseOptions(cases);
       if (caseDetails.data) {
-        const map = new Map<string, { taxpayer_name: string; gstins: string; date_of_receipt: string; handling_io_sio: string; group: string }>();
+        const map = new Map<
+          string,
+          {
+            taxpayer_name: string;
+            gstins: string;
+            date_of_receipt: string;
+            handling_io_sio: string;
+            group: string;
+          }
+        >();
         for (const row of caseDetails.data) map.set(row.record_id, row);
         setCaseDetailsMap(map);
       }
@@ -302,7 +422,12 @@ const SCNRegisterComponent = () => {
     init();
   }, []);
 
-  const fetchRecords = async (wid: string, role?: string, groups?: string[], uid?: string) => {
+  const fetchRecords = async (
+    wid: string,
+    role?: string,
+    groups?: string[],
+    uid?: string,
+  ) => {
     let query = supabase
       .from("dggi_scn_records")
       .select("*")
@@ -350,8 +475,16 @@ const SCNRegisterComponent = () => {
       if (filters.dateFrom && r.date_of_scn < filters.dateFrom) return false;
       if (filters.dateTo && r.date_of_scn > filters.dateTo) return false;
       if (filters.noOioDate && r.last_date_oio) return false;
-      if (filters.oioDateFrom && (!r.last_date_oio || r.last_date_oio < filters.oioDateFrom)) return false;
-      if (filters.oioDateTo && (!r.last_date_oio || r.last_date_oio > filters.oioDateTo)) return false;
+      if (
+        filters.oioDateFrom &&
+        (!r.last_date_oio || r.last_date_oio < filters.oioDateFrom)
+      )
+        return false;
+      if (
+        filters.oioDateTo &&
+        (!r.last_date_oio || r.last_date_oio > filters.oioDateTo)
+      )
+        return false;
 
       return true;
     })
@@ -366,7 +499,9 @@ const SCNRegisterComponent = () => {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   const sanitizeDates = (draft: Partial<SCNRecord>) => {
-    const dateCols = COLUMNS.filter((c) => c.type === "datepicker").map((c) => c.key);
+    const dateCols = COLUMNS.filter((c) => c.type === "datepicker").map(
+      (c) => c.key,
+    );
     const out: Record<string, unknown> = { ...draft };
     for (const col of dateCols) {
       if (out[col] === "") out[col] = null;
@@ -385,7 +520,9 @@ const SCNRegisterComponent = () => {
       toast.error("Failed to save: " + error.message);
     } else {
       setRecords((prev) =>
-        prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r),
+        prev.map((r) =>
+          r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r,
+        ),
       );
       toast.success("Record saved");
       setDialogOpen(false);
@@ -399,7 +536,10 @@ const SCNRegisterComponent = () => {
     setRecords((prev) => prev.filter((r) => r.id !== id));
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_scn_records").delete().eq("id", id);
+      const { error } = await supabase
+        .from("dggi_scn_records")
+        .delete()
+        .eq("id", id);
       if (error) {
         setRecords((prev) => [...prev, record]);
         toast.error("Delete failed: " + error.message);
@@ -409,7 +549,11 @@ const SCNRegisterComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setRecords((prev) => [...prev, record]);
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -449,7 +593,9 @@ const SCNRegisterComponent = () => {
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("");
 
-  const generateSCNRecordId = async (draft: Partial<SCNRecord>): Promise<string> => {
+  const generateSCNRecordId = async (
+    draft: Partial<SCNRecord>,
+  ): Promise<string> => {
     const { count } = await supabase
       .from("dggi_scn_records")
       .select("*", { count: "exact", head: true })
@@ -476,9 +622,11 @@ const SCNRegisterComponent = () => {
       if (key === "linked_case_id" && dialogMode === "add") {
         const caseRow = caseDetailsMap.get(value);
         if (caseRow) {
-          if (!prev.noticee_name) next.noticee_name = caseRow.taxpayer_name ?? "";
+          if (!prev.noticee_name)
+            next.noticee_name = caseRow.taxpayer_name ?? "";
           if (!prev.gstin_pan) next.gstin_pan = caseRow.gstins ?? "";
-          if (!prev.period_involved) next.period_involved = fyFromDate(caseRow.date_of_receipt ?? "");
+          if (!prev.period_involved)
+            next.period_involved = fyFromDate(caseRow.date_of_receipt ?? "");
           if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
           if (!prev.group) next.group = caseRow.group ?? "";
         }
@@ -500,15 +648,31 @@ const SCNRegisterComponent = () => {
     setFilters((prev) => ({ ...prev, [key]: val }));
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "SCN", (msg) => toast.success(msg));
+    exportRegisterToExcel(tableRecords, COLUMNS, "SCN", (msg) =>
+      toast.success(msg),
+    );
   };
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
   const renderCell = (value: string, type: RegisterColumn["type"]) => {
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
-    if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
-    if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
+    if (type === "usercombobox")
+      return (
+        <span>
+          {workspaceUsers.find((u) => u.id === value)?.name || value || "—"}
+        </span>
+      );
+    if (type === "caselink")
+      return (
+        <CaseIdCombobox
+          value={value}
+          onChange={() => {}}
+          cases={caseOptions}
+          editing={false}
+        />
+      );
+    if (type === "datepicker")
+      return <span className="whitespace-nowrap">{fmt(value)}</span>;
     return <span>{value || "—"}</span>;
   };
 
@@ -533,13 +697,21 @@ const SCNRegisterComponent = () => {
                 SCN Register
               </h1>
               <p className="text-base text-[#9a9a96]">
-                Show Cause Notice Register &middot;{" "}
-                {tableRecords.length} record
+                Show Cause Notice Register &middot; {tableRecords.length} record
                 {tableRecords.length !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleExport} disabled={tableRecords.length === 0}><Download size={15} className="mr-1" />Export to Excel</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
+                onClick={handleExport}
+                disabled={tableRecords.length === 0}
+              >
+                <Download size={15} className="mr-1" />
+                Export to Excel
+              </Button>
               <Button
                 size="sm"
                 className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
@@ -572,227 +744,242 @@ const SCNRegisterComponent = () => {
 
           {COMPETENCY_OPTIONS.map((opt) => (
             <TabsContent key={opt} value={opt} className="space-y-4">
-        {/* ── Filter bar ──────────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 text-base text-[#6b6b6b] shrink-0">
-              <SlidersHorizontal size={14} />
-              <span className="font-medium">Filters</span>
-            </div>
+              {/* ── Filter bar ──────────────────────────────────────────────────── */}
+              <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 text-base text-[#6b6b6b] shrink-0">
+                    <SlidersHorizontal size={14} />
+                    <span className="font-medium">Filters</span>
+                  </div>
 
-            {/* Search */}
-            <div className="relative flex items-center">
-              <Search
-                size={13}
-                className="absolute left-3 text-[#9a9a96] pointer-events-none"
-              />
-              <Input
-                value={filters.search}
-                onChange={(e) => setFilter("search", e.target.value)}
-                placeholder="Search noticee, GSTIN/PAN, ID, file no…"
-                className="h-9 pl-8 pr-3 min-w-[280px] border-[#EDEDEA] text-base rounded-lg"
-              />
-              {filters.search && (
-                <button
-                  onClick={() => setFilter("search", "")}
-                  className="absolute right-2 text-[#9a9a96] hover:text-[#1a1a1a]"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
+                  {/* Search */}
+                  <div className="relative flex items-center">
+                    <Search
+                      size={13}
+                      className="absolute left-3 text-[#9a9a96] pointer-events-none"
+                    />
+                    <Input
+                      value={filters.search}
+                      onChange={(e) => setFilter("search", e.target.value)}
+                      placeholder="Search noticee, GSTIN/PAN, ID, file no…"
+                      className="h-9 pl-8 pr-3 min-w-[280px] border-[#EDEDEA] text-base rounded-lg"
+                    />
+                    {filters.search && (
+                      <button
+                        onClick={() => setFilter("search", "")}
+                        className="absolute right-2 text-[#9a9a96] hover:text-[#1a1a1a]"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
 
-            {/* Date of SCN range */}
-            <div className="flex items-center gap-1">
-              <span className="text-base text-[#9a9a96] shrink-0">
-                SCN Date:
-              </span>
-              <FilterDatePicker
-                value={filters.dateFrom}
-                placeholder="From"
-                onChange={(v) => setFilter("dateFrom", v)}
-              />
-              <span className="text-[#9a9a96]">—</span>
-              <FilterDatePicker
-                value={filters.dateTo}
-                placeholder="To"
-                onChange={(v) => setFilter("dateTo", v)}
-              />
-              {(filters.dateFrom || filters.dateTo) && (
-                <button
-                  onClick={() => {
-                    setFilter("dateFrom", "");
-                    setFilter("dateTo", "");
-                  }}
-                  className="ml-0.5 text-[#9a9a96] hover:text-[#1a1a1a]"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
+                  {/* Date of SCN range */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-base text-[#9a9a96] shrink-0">
+                      SCN Date:
+                    </span>
+                    <FilterDatePicker
+                      value={filters.dateFrom}
+                      placeholder="From"
+                      onChange={(v) => setFilter("dateFrom", v)}
+                    />
+                    <span className="text-[#9a9a96]">—</span>
+                    <FilterDatePicker
+                      value={filters.dateTo}
+                      placeholder="To"
+                      onChange={(v) => setFilter("dateTo", v)}
+                    />
+                    {(filters.dateFrom || filters.dateTo) && (
+                      <button
+                        onClick={() => {
+                          setFilter("dateFrom", "");
+                          setFilter("dateTo", "");
+                        }}
+                        className="ml-0.5 text-[#9a9a96] hover:text-[#1a1a1a]"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
 
-            {/* Last Date of OIO range */}
-            <div className="flex items-center gap-1">
-              <span className="text-base text-[#9a9a96] shrink-0">
-                OIO Date:
-              </span>
-              <FilterDatePicker
-                value={filters.oioDateFrom}
-                placeholder="From"
-                onChange={(v) => setFilter("oioDateFrom", v)}
-              />
-              <span className="text-[#9a9a96]">—</span>
-              <FilterDatePicker
-                value={filters.oioDateTo}
-                placeholder="To"
-                onChange={(v) => setFilter("oioDateTo", v)}
-              />
-              {(filters.oioDateFrom || filters.oioDateTo) && (
-                <button
-                  onClick={() => {
-                    setFilter("oioDateFrom", "");
-                    setFilter("oioDateTo", "");
-                  }}
-                  className="ml-0.5 text-[#9a9a96] hover:text-[#1a1a1a]"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
+                  {/* Last Date of OIO range */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-base text-[#9a9a96] shrink-0">
+                      OIO Date:
+                    </span>
+                    <FilterDatePicker
+                      value={filters.oioDateFrom}
+                      placeholder="From"
+                      onChange={(v) => setFilter("oioDateFrom", v)}
+                    />
+                    <span className="text-[#9a9a96]">—</span>
+                    <FilterDatePicker
+                      value={filters.oioDateTo}
+                      placeholder="To"
+                      onChange={(v) => setFilter("oioDateTo", v)}
+                    />
+                    {(filters.oioDateFrom || filters.oioDateTo) && (
+                      <button
+                        onClick={() => {
+                          setFilter("oioDateFrom", "");
+                          setFilter("oioDateTo", "");
+                        }}
+                        className="ml-0.5 text-[#9a9a96] hover:text-[#1a1a1a]"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
 
-            {/* No OIO Date toggle */}
-            <button
-              onClick={() => setFilter("noOioDate", !filters.noOioDate)}
-              className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-base transition-all ${
-                filters.noOioDate
-                  ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4] font-medium"
-                  : "border-[#EDEDEA] bg-white text-[#6b6b6b] hover:bg-[#F3F2EF]"
-              }`}
-            >
-              No OIO Date
-            </button>
+                  {/* No OIO Date toggle */}
+                  <button
+                    onClick={() => setFilter("noOioDate", !filters.noOioDate)}
+                    className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-base transition-all ${
+                      filters.noOioDate
+                        ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4] font-medium"
+                        : "border-[#EDEDEA] bg-white text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                    }`}
+                  >
+                    No OIO Date
+                  </button>
 
-            {activeFilterCount > 0 && (
-              <button
-                onClick={() => setFilters({ ...EMPTY_FILTERS })}
-                className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
-              >
-                <X size={12} />
-                Clear all
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#6b6b6b] text-xs text-white font-medium">
-                  {activeFilterCount}
-                </span>
-              </button>
-            )}
-          </div>
-        </div>
+                  {activeFilterCount > 0 && (
+                    <button
+                      onClick={() => setFilters({ ...EMPTY_FILTERS })}
+                      className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
+                    >
+                      <X size={12} />
+                      Clear all
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#6b6b6b] text-xs text-white font-medium">
+                        {activeFilterCount}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
 
               {/* ── Records table ───────────────────────────────────────────── */}
               <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-white border-b border-[#EDEDEA]">
-                  {COLUMNS.map((col) => (
-                    <TableHead
-                      key={col.key}
-                      style={{ minWidth: col.width }}
-                      className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
-                      onClick={() => toggleSort(col.key)}
-                    >
-                      <span className="flex items-center gap-1">
-                        {col.label}
-                        {sortCol === col.key &&
-                          (sortDir === "asc" ? (
-                            <ChevronUp size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          ))}
-                      </span>
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-white border-b border-[#EDEDEA]">
+                        {COLUMNS.map((col) => (
+                          <TableHead
+                            key={col.key}
+                            style={{ minWidth: col.width }}
+                            className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
+                            onClick={() => toggleSort(col.key)}
+                          >
+                            <span className="flex items-center gap-1">
+                              {col.label}
+                              {sortCol === col.key &&
+                                (sortDir === "asc" ? (
+                                  <ChevronUp size={12} />
+                                ) : (
+                                  <ChevronDown size={12} />
+                                ))}
+                            </span>
+                          </TableHead>
+                        ))}
+                        <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
+                          Actions
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
 
-              <TableBody>
-                {tableRecords.map((record) => (
-                  <TableRow
-                    key={record.id}
-                    data-record-id={record.record_id}
-                    className="border-b border-[#EDEDEA] text-base hover:bg-white"
-                  >
-                    {COLUMNS.map((col) => (
-                      <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                        {renderCell((record as any)[col.key] ?? "", col.type)}
-                      </TableCell>
-                    ))}
-                    <TableCell className="px-3 py-2">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
-                          onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}
+                    <TableBody>
+                      {tableRecords.map((record) => (
+                        <TableRow
+                          key={record.id}
+                          data-record-id={record.record_id}
+                          className="border-b border-[#EDEDEA] text-base hover:bg-white"
                         >
-                          <Pencil size={13} />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                          {COLUMNS.map((col) => (
+                            <TableCell
+                              key={col.key}
+                              className="px-3 py-2 text-[#1a1a1a]"
                             >
-                              <Trash2 size={13} />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete SCN record?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete {record.record_id} and cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-[#C0432A] hover:bg-[#a83823] text-white"
-                                onClick={() => deleteRecord(record.id)}
+                              {renderCell(
+                                (record as any)[col.key] ?? "",
+                                col.type,
+                              )}
+                            </TableCell>
+                          ))}
+                          <TableCell className="px-3 py-2">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                                onClick={() => {
+                                  setDialogMode("edit");
+                                  setDialogDraft({ ...record });
+                                  setDialogOpen(true);
+                                }}
                               >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                                <Pencil size={13} />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                                  >
+                                    <Trash2 size={13} />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Delete SCN record?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete{" "}
+                                      {record.record_id} and cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-[#C0432A] hover:bg-[#a83823] text-white"
+                                      onClick={() => deleteRecord(record.id)}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
 
-                {tableRecords.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={TOTAL_COLS}
-                      className="py-12 text-center text-base text-[#9a9a96]"
-                    >
-                      No SCN records match the current filters.{" "}
-                      {activeFilterCount > 0 && (
-                        <button
-                          className="text-[#4A5FD4] underline"
-                          onClick={() => setFilters({ ...EMPTY_FILTERS })}
-                        >
-                          Clear filters
-                        </button>
+                      {tableRecords.length === 0 && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={TOTAL_COLS}
+                            className="py-12 text-center text-base text-[#9a9a96]"
+                          >
+                            No SCN records match the current filters.{" "}
+                            {activeFilterCount > 0 && (
+                              <button
+                                className="text-[#4A5FD4] underline"
+                                onClick={() => setFilters({ ...EMPTY_FILTERS })}
+                              >
+                                Clear filters
+                              </button>
+                            )}
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </TabsContent>
           ))}

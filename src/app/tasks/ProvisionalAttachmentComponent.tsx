@@ -50,7 +50,7 @@ import { toast } from "react-toastify";
 import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
-import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
+import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ScnOption } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -59,6 +59,30 @@ const RECORD_PREFIX = REGISTER_PREFIXES.PROVISIONAL_ATTACHMENT;
 
 const SCN_DUE_DAYS = 273; // 9 months ≈ 273 days
 const EXPIRY_DAYS = 365;  // 1 year
+
+const DATE_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
+  "date_of_attachment",
+  "date_of_scn_issuance",
+  "date_of_release",
+];
+
+const NUMERIC_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
+  "expected_liability",
+  "value_immovable",
+  "value_movable",
+  "value_shares",
+  "value_bank",
+  "value_third_party",
+  "value_others",
+  "value_total",
+];
+
+function sanitizeForDb(draft: Partial<ProvisionalAttachmentRecord>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...draft };
+  for (const f of DATE_FIELDS) if (out[f] === "") out[f] = null;
+  for (const f of NUMERIC_FIELDS) if (out[f] === "") out[f] = null;
+  return out;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -167,7 +191,7 @@ const COLUMNS: RegisterColumn[] = [
   { key: "date_of_release", label: "Date of Release of Attachment", type: "datepicker", width: "210px" },
   { key: "group_sio", label: "Group/SIO", type: "text", width: "130px" },
   { key: "date_of_attachment", label: "Date of Attachment", type: "datepicker", width: "160px" },
-  { key: "linked_scn_no", label: "Linked SCN No.", type: "text", width: "180px" },
+  { key: "linked_scn_no", label: "Linked SCN No.", type: "scncombobox", width: "180px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
 ];
@@ -307,6 +331,7 @@ const ProvisionalAttachmentComponent = () => {
 
   // Map from GSTIN/PAN → SCN no fetched from dggi_scn_records
   const [scnByGstin, setScnByGstin] = useState<Map<string, string>>(new Map());
+  const [scnOptions, setScnOptions] = useState<ScnOption[]>([]);
 
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
   const [savingRow, setSavingRow] = useState(false);
@@ -374,17 +399,21 @@ const ProvisionalAttachmentComponent = () => {
   const fetchScnMap = async (wid: string) => {
     const { data } = await supabase
       .from("dggi_scn_records")
-      .select("gstin_pan,scn_no")
+      .select("gstin_pan,scn_no,date_of_scn,noticee_name")
       .eq("workspace_id", wid);
     if (!data) return;
     const map = new Map<string, string>();
+    const opts: ScnOption[] = [];
     for (const row of data) {
       if (row.gstin_pan && row.scn_no) {
-        // Keep the latest scn_no per GSTIN if there are multiple
         map.set(row.gstin_pan, row.scn_no);
+      }
+      if (row.scn_no) {
+        opts.push({ scn_no: row.scn_no, date_of_scn: row.date_of_scn ?? "", noticee_name: row.noticee_name ?? "" });
       }
     }
     setScnByGstin(map);
+    setScnOptions(opts);
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────────
@@ -435,7 +464,7 @@ const ProvisionalAttachmentComponent = () => {
     setSavingRow(true);
     const { error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .update(dialogDraft)
+      .update(sanitizeForDb(dialogDraft))
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -480,7 +509,7 @@ const ProvisionalAttachmentComponent = () => {
     setSavingRow(true);
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .insert({ ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, "dggi_provisional_attachment_records", RECORD_PREFIX, workspaceId), workspace_id: workspaceId })
+      .insert({ ...sanitizeForDb(dialogDraft), record_id: await generateWorkspaceRecordId(supabase, "dggi_provisional_attachment_records", RECORD_PREFIX, workspaceId), workspace_id: workspaceId })
       .select()
       .single();
     if (error) {
@@ -818,10 +847,12 @@ const ProvisionalAttachmentComponent = () => {
         columns={COLUMNS}
         draft={dialogDraft as Record<string, string>}
         onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
+        onMultiDraftChange={(patches) => setDialogDraft((prev) => ({ ...prev, ...patches }))}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
         users={workspaceUsers}
+        scnOptions={scnOptions}
       />
     </div>
   );

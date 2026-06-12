@@ -88,6 +88,7 @@ import {
 import {
   RegisterRecordDialog,
   type RegisterColumn,
+  type ScnOption,
 } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1647,7 +1648,6 @@ interface SCNSubRecord {
   noticee_name: string;
   gstin_pan: string;
   demand_tax: string;
-  demand_interest: string;
   demand_penalty: string;
   period_involved: string;
   last_date_oio: string;
@@ -1872,7 +1872,7 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
   {
     key: "linked_scn_no",
     label: "Linked SCN No.",
-    type: "text",
+    type: "scncombobox",
     width: "180px",
   },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
@@ -1911,12 +1911,6 @@ const SCN_COLUMNS: RegisterColumn[] = [
     label: "Demand - Tax (Rs.)",
     type: "number",
     width: "150px",
-  },
-  {
-    key: "demand_interest",
-    label: "Demand - Interest (Rs.)",
-    type: "number",
-    width: "170px",
   },
   {
     key: "demand_penalty",
@@ -2774,6 +2768,7 @@ const DGGIComponent = () => {
   const [scnRecordsMap, setScnRecordsMap] = useState<
     Map<string, SCNSubRecord[]>
   >(new Map());
+  const [allScnOptions, setAllScnOptions] = useState<ScnOption[]>([]);
 
   // Sub-dialogs
   const [arrestDialogOpen, setArrestDialogOpen] = useState(false);
@@ -2993,7 +2988,7 @@ const DGGIComponent = () => {
     if (!dialogEditingId) return;
     setSavingRow(true);
     const isIrRecord = dialogDraft.is_ir ?? false;
-    const isClosedAsConverted = dialogDraft.closure_by === "Converted to IR";
+    const isClosedAsConverted = dialogDraft.closure_by === "Convert to IR";
     const sourceRecordId = dialogDraft.record_id;
 
     const existingRecord = records.find((r) => r.id === dialogEditingId);
@@ -3357,9 +3352,12 @@ const DGGIComponent = () => {
   const saveEditProvisional = async () => {
     if (!provisionalDialogDraft.id) return;
     setSavingProvisional(true);
+    const sanitized = { ...provisionalDialogDraft };
+    for (const k of ["date_of_attachment", "date_of_scn_issuance", "date_of_release", "expected_liability", "value_immovable", "value_movable", "value_shares", "value_bank", "value_third_party", "value_others", "value_total"])
+      if (sanitized[k] === "") sanitized[k] = null as any;
     const { error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .update({ ...provisionalDialogDraft })
+      .update(sanitized)
       .eq("id", provisionalDialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -3432,8 +3430,11 @@ const DGGIComponent = () => {
   const saveNewProvisional = async () => {
     if (!workspaceId) return;
     setSavingProvisional(true);
+    const sanitized = { ...provisionalDialogDraft };
+    for (const k of ["date_of_attachment", "date_of_scn_issuance", "date_of_release", "expected_liability", "value_immovable", "value_movable", "value_shares", "value_bank", "value_third_party", "value_others", "value_total"])
+      if (sanitized[k] === "") sanitized[k] = null as any;
     const payload = {
-      ...provisionalDialogDraft,
+      ...sanitized,
       record_id: await generateWorkspaceRecordId(
         supabase,
         "dggi_provisional_attachment_records",
@@ -3510,7 +3511,6 @@ const DGGIComponent = () => {
       gstin_pan: rec?.gstins ?? "",
       // Detection amount → demand tax (best proxy before adjudication split)
       demand_tax: rec?.detection_amount ?? "",
-      demand_interest: "",
       demand_penalty: "",
       // FY as period involved
       period_involved: fyFromDate(rec?.date_of_receipt ?? ""),
