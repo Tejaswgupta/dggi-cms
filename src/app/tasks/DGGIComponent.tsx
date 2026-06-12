@@ -121,7 +121,7 @@ type GroupByField =
 const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
   { value: "group", label: "Group" },
   { value: "mode_of_initiation", label: "Mode of Initiation" },
-  { value: "handling_io_sio", label: "Handling IO/SIO" },
+  { value: "handling_io_sio", label: "Handling SIO" },
   { value: "is_ir", label: "IR / NON-IR" },
 ];
 
@@ -326,7 +326,7 @@ const COLUMNS: {
   },
   {
     key: "handling_io_sio",
-    label: "Handling IO/SIO",
+    label: "Handling SIO",
     type: "usercombobox",
     width: "170px",
   },
@@ -406,7 +406,7 @@ type ColDef = (typeof COLUMNS)[number];
 const NON_IR_FORM_EXTRA: ColDef[] = [
   {
     key: "date_of_receipt",
-    label: "Date of Receipt",
+    label: "Date of Receipt from Int Section",
     type: "datepicker",
     width: "150px",
   },
@@ -483,7 +483,7 @@ const NON_IR_COLUMNS: ColDef[] = [
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   {
     key: "handling_io_sio",
-    label: "Handling IO/SIO",
+    label: "Handling SIO",
     type: "usercombobox",
     width: "170px",
   },
@@ -1015,7 +1015,7 @@ function UserFilter({
           }`}
         >
           <span className="max-w-[120px] truncate">
-            {value || "Handling IO/SIO"}
+            {value || "Handling SIO"}
           </span>
           {value ? (
             <span
@@ -1648,6 +1648,7 @@ interface SCNSubRecord {
   noticee_name: string;
   gstin_pan: string;
   demand_tax: string;
+  demand_interest: string;
   demand_penalty: string;
   period_involved: string;
   last_date_oio: string;
@@ -1911,6 +1912,12 @@ const SCN_COLUMNS: RegisterColumn[] = [
     label: "Demand - Tax (Rs.)",
     type: "number",
     width: "150px",
+  },
+  {
+    key: "demand_interest",
+    label: "Demand - Interest (Rs.)",
+    type: "number",
+    width: "170px",
   },
   {
     key: "demand_penalty",
@@ -2366,7 +2373,7 @@ export function DGGIRecordDialog({
       <label className="text-sm font-medium text-[#6b6b6b]">Case Type</label>
       {mode === "edit" ? (
         // In edit mode, case type is locked to prevent accidental IR/NON-IR toggling.
-        // To convert NON-IR → IR, set closure_by = "Converted to IR" instead.
+        // To convert NON-IR → IR, set closure_by = "Convert to IR" instead.
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center rounded-lg border px-4 py-2 text-base font-medium ${isIr ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]" : "border-[#EDEDEA] bg-[#F9F9F8] text-[#6b6b6b]"}`}
@@ -2447,12 +2454,17 @@ export function DGGIRecordDialog({
                   {renderField(col)}
                 </div>
               ))}
-              {(draft.closure_by === "Transfer To" || draft.closure_by === "Transferred") && (
+              {(draft.closure_by === "Transfer To" ||
+                draft.closure_by === "Transferred") && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-[#6b6b6b]">Transferred To</label>
+                  <label className="text-sm font-medium text-[#6b6b6b]">
+                    Transferred To
+                  </label>
                   <Input
                     value={(draft.transferred_to as string) ?? ""}
-                    onChange={(e) => onDraftChange("transferred_to", e.target.value)}
+                    onChange={(e) =>
+                      onDraftChange("transferred_to", e.target.value)
+                    }
                     placeholder="Enter unit / formation name…"
                     className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
                   />
@@ -2620,20 +2632,26 @@ export function DGGIRecordDialog({
                         {renderField(col, !unlocked)}
                       </div>
                     ))}
-                    {stage.label === "Closure" && (draft.closure_by === "Transfer To" || draft.closure_by === "Transferred") && (
-                      <div className="flex flex-col gap-1.5">
-                        <label className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}>
-                          Transferred To
-                        </label>
-                        <Input
-                          value={(draft.transferred_to as string) ?? ""}
-                          onChange={(e) => onDraftChange("transferred_to", e.target.value)}
-                          placeholder="Enter unit / formation name…"
-                          disabled={!unlocked}
-                          className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
-                        />
-                      </div>
-                    )}
+                    {stage.label === "Closure" &&
+                      (draft.closure_by === "Transfer To" ||
+                        draft.closure_by === "Transferred") && (
+                        <div className="flex flex-col gap-1.5">
+                          <label
+                            className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
+                          >
+                            Transferred To
+                          </label>
+                          <Input
+                            value={(draft.transferred_to as string) ?? ""}
+                            onChange={(e) =>
+                              onDraftChange("transferred_to", e.target.value)
+                            }
+                            placeholder="Enter unit / formation name…"
+                            disabled={!unlocked}
+                            className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+                          />
+                        </div>
+                      )}
                   </div>
                 )}
               </div>
@@ -2997,7 +3015,9 @@ const DGGIComponent = () => {
     const isClosedOnMerits = !isIrRecord && dialogDraft.closure_by === "Closed";
     const isIrClosed = isIrRecord && isNowClosed;
     const shouldWriteClosureEntry =
-      !hadClosureBefore && (isClosedOnMerits || isIrClosed) && !isClosedAsConverted;
+      !hadClosureBefore &&
+      (isClosedOnMerits || isIrClosed) &&
+      !isClosedAsConverted;
 
     const { error } = await supabase
       .from("dggi_records")
@@ -3048,7 +3068,8 @@ const DGGIComponent = () => {
           date_of_initiation: dialogDraft.date_of_initiation || null,
           intel_approved_date: dialogDraft.intel_approved_date || null,
           mode_of_initiation: dialogDraft.mode_of_initiation || null,
-          intelligence_action_date: dialogDraft.intelligence_action_date || null,
+          intelligence_action_date:
+            dialogDraft.intelligence_action_date || null,
           handling_io_sio: dialogDraft.handling_io_sio || null,
           issue_involved: dialogDraft.issue_involved || null,
           latest_status: dialogDraft.latest_status || null,
@@ -3066,7 +3087,10 @@ const DGGIComponent = () => {
           converted_from_non_ir: dialogDraft.converted_from_non_ir || null,
         });
       if (closureErr) {
-        toast.error("Saved record but failed to write closure entry: " + closureErr.message);
+        toast.error(
+          "Saved record but failed to write closure entry: " +
+            closureErr.message,
+        );
       }
     }
 
@@ -3353,7 +3377,19 @@ const DGGIComponent = () => {
     if (!provisionalDialogDraft.id) return;
     setSavingProvisional(true);
     const sanitized = { ...provisionalDialogDraft };
-    for (const k of ["date_of_attachment", "date_of_scn_issuance", "date_of_release", "expected_liability", "value_immovable", "value_movable", "value_shares", "value_bank", "value_third_party", "value_others", "value_total"])
+    for (const k of [
+      "date_of_attachment",
+      "date_of_scn_issuance",
+      "date_of_release",
+      "expected_liability",
+      "value_immovable",
+      "value_movable",
+      "value_shares",
+      "value_bank",
+      "value_third_party",
+      "value_others",
+      "value_total",
+    ])
       if (sanitized[k] === "") sanitized[k] = null as any;
     const { error } = await supabase
       .from("dggi_provisional_attachment_records")
@@ -3431,7 +3467,19 @@ const DGGIComponent = () => {
     if (!workspaceId) return;
     setSavingProvisional(true);
     const sanitized = { ...provisionalDialogDraft };
-    for (const k of ["date_of_attachment", "date_of_scn_issuance", "date_of_release", "expected_liability", "value_immovable", "value_movable", "value_shares", "value_bank", "value_third_party", "value_others", "value_total"])
+    for (const k of [
+      "date_of_attachment",
+      "date_of_scn_issuance",
+      "date_of_release",
+      "expected_liability",
+      "value_immovable",
+      "value_movable",
+      "value_shares",
+      "value_bank",
+      "value_third_party",
+      "value_others",
+      "value_total",
+    ])
       if (sanitized[k] === "") sanitized[k] = null as any;
     const payload = {
       ...sanitized,
@@ -3511,6 +3559,7 @@ const DGGIComponent = () => {
       gstin_pan: rec?.gstins ?? "",
       // Detection amount → demand tax (best proxy before adjudication split)
       demand_tax: rec?.detection_amount ?? "",
+      demand_interest: "",
       demand_penalty: "",
       // FY as period involved
       period_involved: fyFromDate(rec?.date_of_receipt ?? ""),
@@ -4180,7 +4229,7 @@ const DGGIComponent = () => {
               onChange={(v) => setFilter("handlingIo", v)}
             />
 
-            {/* Date of Receipt range */}
+            {/* Date of Receipt from Int Section range */}
             <div className="flex items-center gap-1">
               <span className="text-base text-[#9a9a96] shrink-0">
                 Receipt:
