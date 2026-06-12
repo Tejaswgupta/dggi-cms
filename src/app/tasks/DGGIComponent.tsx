@@ -2529,7 +2529,9 @@ export function DGGIRecordDialog({
         {NON_IR_STAGES.filter(
           (stage) =>
             mode === "edit" ||
-            (stage.label !== "Closure" && stage.label !== "Related Registers"),
+            (stage.label !== "Closure" &&
+              stage.label !== "Related Registers" &&
+              stage.label !== "Intelligence Action"),
         ).map((stage, idx) => {
           const unlocked = isStageUnlocked(idx);
           const complete = isStageComplete(idx);
@@ -3176,7 +3178,10 @@ const DGGIComponent = () => {
       due_date: draft.due_date || null,
       date_of_ir:
         draft.is_ir && !draft.date_of_ir ? today() : draft.date_of_ir || null,
-      date_of_non_ir: draft.date_of_non_ir || null,
+      date_of_non_ir:
+        !draft.is_ir && !draft.date_of_non_ir
+          ? today()
+          : draft.date_of_non_ir || null,
       converted_from_non_ir: draft.converted_from_non_ir || null,
       workspace_id: workspaceId,
     };
@@ -3910,16 +3915,7 @@ const DGGIComponent = () => {
         mode={dialogMode}
         draft={dialogDraft}
         onDraftChange={(k, v) =>
-          setDialogDraft((prev) => {
-            const next = { ...prev, [k]: v };
-            if (k === "is_ir" && v === false && !prev.date_of_non_ir) {
-              next.date_of_non_ir = today();
-            }
-            if (k === "is_ir" && v === true && !prev.date_of_ir) {
-              next.date_of_ir = today();
-            }
-            return next;
-          })
+          setDialogDraft((prev) => ({ ...prev, [k]: v }))
         }
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
