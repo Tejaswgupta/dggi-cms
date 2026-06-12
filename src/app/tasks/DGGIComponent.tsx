@@ -482,6 +482,25 @@ const NON_IR_COLUMNS: ColDef[] = [
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   {
+    key: "intel_approved_date",
+    label: "Intel Approved Date",
+    type: "datepicker",
+    width: "160px",
+  },
+  {
+    key: "mode_of_initiation",
+    label: "Mode of Initiation",
+    type: "select",
+    options: MODE_OPTIONS,
+    width: "160px",
+  },
+  {
+    key: "intelligence_action_date",
+    label: "Intelligence Action Date",
+    type: "datepicker",
+    width: "180px",
+  },
+  {
     key: "handling_io_sio",
     label: "Handling SIO",
     type: "usercombobox",
@@ -2528,10 +2547,10 @@ export function DGGIRecordDialog({
       <div className="space-y-3">
         {NON_IR_STAGES.filter(
           (stage) =>
-            mode === "edit" ||
-            (stage.label !== "Closure" &&
-              stage.label !== "Related Registers" &&
-              stage.label !== "Intelligence Action"),
+            stage.label !== "Related Registers" &&
+            (mode === "edit" ||
+              (stage.label !== "Closure" &&
+                stage.label !== "Intelligence Action")),
         ).map((stage, idx) => {
           const unlocked = isStageUnlocked(idx);
           const complete = isStageComplete(idx);
