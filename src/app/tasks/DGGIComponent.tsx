@@ -4115,6 +4115,7 @@ const DGGIComponent = () => {
                   setDialogDraft({
                     ...EMPTY_RECORD,
                     is_ir: topFilter === "ir",
+                    group: (userGroups[0] as GroupName) ?? "Group A",
                   });
                   setDialogMode("add");
                   setDialogOpen(true);
