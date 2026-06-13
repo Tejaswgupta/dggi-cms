@@ -9,7 +9,8 @@ export const REGISTER_PREFIXES = {
   INCIDENT_REPORT: "IRR",
   ARREST: "ARR",
   NON_IR: "NIR",
-  CLOSURE: "CLR",
+  CLOSURE_IR: "CIR",
+  CLOSURE_NON_IR: "CNR",
   INTEL_RAPID: "RPD",
   INTEL_OTHER: "IOS",
   ALERT_CIRCULAR: "ALC",
@@ -68,9 +69,10 @@ export const fetchCaseOptions = async (
 ): Promise<DGGICaseOption[]> => {
   const { data, error } = await supabase
     .from("dggi_records")
-    .select("record_id, taxpayer_name, file_no, is_ir")
+    .select("record_id, taxpayer_name, file_no, is_ir, handling_io_sio, group, detection_amount, date_of_initiation, date_of_receipt, gstins, closure_by")
     .eq("workspace_id", workspaceId)
     .not("record_id", "is", null)
+    .is("closure_by", null)
     .order("record_id");
   if (error) {
     console.error("fetchCaseOptions error:", error);

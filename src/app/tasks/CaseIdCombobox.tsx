@@ -21,6 +21,13 @@ export interface DGGICaseOption {
   taxpayer_name: string;
   file_no: string;
   is_ir: boolean;
+  financial_year?: string;
+  handling_io_sio?: string;
+  group?: string;
+  detection_amount?: string;
+  date_of_initiation?: string;
+  date_of_receipt?: string;
+  gstins?: string;
 }
 
 export function CaseIdCombobox({
@@ -70,7 +77,7 @@ export function CaseIdCombobox({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <button className="flex h-8 w-[180px] items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate">
           <span className="truncate">
@@ -90,7 +97,7 @@ export function CaseIdCombobox({
         className="w-[280px] p-0 border border-[#EDEDEA] shadow-none rounded-xl"
         align="start"
       >
-        <Command>
+        <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search case ID, name, file no…"
             value={query}

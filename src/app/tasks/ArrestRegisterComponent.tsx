@@ -66,7 +66,6 @@ interface ArrestRecord {
   arrested_age: string;
   date_of_arrest: string;
   financial_year: string;
-  commissionerate: string;
   unit_name_reg: string;
   amount_crore: string;
   role_evidence: string;
@@ -93,6 +92,20 @@ const EMPTY_FILTERS: Filters = {
 
 const today = () => format(new Date(), "yyyy-MM-dd");
 
+const fyFromDate = (iso: string): string => {
+  if (!iso) {
+    const now = new Date();
+    const yr = now.getFullYear();
+    const start = now.getMonth() >= 3 ? yr : yr - 1;
+    return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+  }
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return fyFromDate("");
+  const yr = d.getFullYear();
+  const start = d.getMonth() >= 3 ? yr : yr - 1;
+  return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
+};
+
 const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   record_id: "",
   linked_case_id: "",
@@ -101,7 +114,6 @@ const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   arrested_age: "",
   date_of_arrest: today(),
   financial_year: "",
-  commissionerate: "",
   unit_name_reg: "",
   amount_crore: "",
   role_evidence: "",
@@ -138,12 +150,6 @@ const COLUMNS: {
     label: "Financial Year",
     type: "text",
     width: "130px",
-  },
-  {
-    key: "commissionerate",
-    label: "Commissionerate / Directorate",
-    type: "text",
-    width: "210px",
   },
   {
     key: "unit_name_reg",
@@ -387,7 +393,6 @@ const ArrestRegisterComponent = () => {
         const hit = [
           r.arrested_name,
           r.arrested_designation,
-          r.commissionerate,
           r.unit_name_reg,
         ].some((v) => v?.toLowerCase().includes(q));
         if (!hit) return false;
@@ -476,6 +481,27 @@ const ArrestRegisterComponent = () => {
       toast.success("Record added");
     }
     setSavingRow(false);
+  };
+
+  const handleDraftChange = (key: string, val: string) => {
+    if (key === "linked_case_id" && dialogMode === "add") {
+      const rec = caseOptions.find((c) => c.record_id === val);
+      if (rec) {
+        setDialogDraft((prev) => ({
+          ...prev,
+          linked_case_id: val,
+          financial_year: rec.financial_year || fyFromDate(rec.date_of_initiation ?? rec.date_of_receipt ?? ""),
+          unit_name_reg: [rec.taxpayer_name, rec.gstins].filter(Boolean).join(" / "),
+          amount_crore: rec.detection_amount
+            ? String(parseFloat(rec.detection_amount) / 10_000_000 || "")
+            : (prev.amount_crore ?? ""),
+          sio: rec.handling_io_sio || prev.sio || "",
+          group: rec.group || prev.group || "",
+        }));
+        return;
+      }
+    }
+    setDialogDraft((prev) => ({ ...prev, [key]: val }));
   };
 
   const toggleSort = (col: string) => {
@@ -614,7 +640,7 @@ const ArrestRegisterComponent = () => {
               <Input
                 value={filters.search}
                 onChange={(e) => setFilter("search", e.target.value)}
-                placeholder="Search person, commissionerate, unit, zonal unit…"
+                placeholder="Search person, unit…"
                 className="h-9 pl-8 pr-3 min-w-[300px] border-[#EDEDEA] text-base rounded-lg"
               />
               {filters.search && (
@@ -735,7 +761,7 @@ const ArrestRegisterComponent = () => {
         mode={dialogMode}
         columns={COLUMNS}
         draft={dialogDraft as Record<string, string>}
-        onDraftChange={(key, val) => setDialogDraft((prev) => ({ ...prev, [key]: val }))}
+        onDraftChange={handleDraftChange}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}

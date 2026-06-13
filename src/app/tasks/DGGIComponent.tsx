@@ -141,6 +141,7 @@ export interface DGGIRecord {
   mode_of_initiation: ModeOfInitiation | "";
   intelligence_action_date: string;
   handling_io_sio: string;
+  handling_io_sio_name: string;
   issue_involved: string;
   latest_status: string;
   pr_adg_comments: string;
@@ -216,6 +217,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   mode_of_initiation: "",
   intelligence_action_date: today(),
   handling_io_sio: "",
+  handling_io_sio_name: "",
   issue_involved: "",
   latest_status: "",
   pr_adg_comments: "",
@@ -746,6 +748,7 @@ function EditableCell({
   editing,
   users,
   readOnly,
+  storedName,
 }: {
   value: string | boolean;
   type:
@@ -760,6 +763,7 @@ function EditableCell({
   editing: boolean;
   users?: WorkspaceUser[];
   readOnly?: boolean;
+  storedName?: string;
 }) {
   if (!editing || readOnly) {
     if (type === "boolean") {
@@ -782,6 +786,7 @@ function EditableCell({
       return (
         <span>
           {users?.find((u) => u.id === (value as string))?.name ||
+            storedName ||
             (value as string) ||
             "—"}
         </span>
@@ -3045,6 +3050,7 @@ const DGGIComponent = () => {
       .update({
         ...dialogDraft,
         handling_io_sio: dialogDraft.handling_io_sio || null,
+        handling_io_sio_name: workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)?.name || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
         date_of_initiation: dialogDraft.date_of_initiation || null,
@@ -3062,7 +3068,15 @@ const DGGIComponent = () => {
 
     setRecords((prev) =>
       prev.map((r) =>
-        r.id === dialogEditingId ? { ...r, ...dialogDraft } : r,
+        r.id === dialogEditingId
+          ? {
+              ...r,
+              ...dialogDraft,
+              handling_io_sio_name:
+                workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)?.name ||
+                r.handling_io_sio_name,
+            }
+          : r,
       ),
     );
 
@@ -3070,8 +3084,9 @@ const DGGIComponent = () => {
       const closureRecordId = await generateWorkspaceRecordId(
         supabase,
         "dggi_closure_records",
-        REGISTER_PREFIXES.CLOSURE,
+        isIrRecord ? REGISTER_PREFIXES.CLOSURE_IR : REGISTER_PREFIXES.CLOSURE_NON_IR,
         workspaceId,
+        { filter: { is_ir: isIrRecord } },
       );
       const { error: closureErr } = await supabase
         .from("dggi_closure_records")
@@ -3193,6 +3208,7 @@ const DGGIComponent = () => {
         { filter: { is_ir: draft.is_ir }, separator: "-" },
       ),
       handling_io_sio: draft.handling_io_sio || null,
+      handling_io_sio_name: workspaceUsers.find((u) => u.id === draft.handling_io_sio)?.name || null,
       mode_of_initiation: draft.mode_of_initiation || null,
       due_date: draft.due_date || null,
       date_of_ir:
@@ -3858,6 +3874,7 @@ const DGGIComponent = () => {
                 editing={false}
                 users={workspaceUsers}
                 readOnly={col.readOnly}
+                storedName={col.key === "handling_io_sio" ? record.handling_io_sio_name : undefined}
                 onChange={() => {}}
               />
             )}

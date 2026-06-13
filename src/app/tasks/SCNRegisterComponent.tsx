@@ -353,18 +353,6 @@ const SCNRegisterComponent = () => {
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<SCNRecord>>({});
   // Map record_id → case details for auto-populating SCN fields
-  const [caseDetailsMap, setCaseDetailsMap] = useState<
-    Map<
-      string,
-      {
-        taxpayer_name: string;
-        gstins: string;
-        date_of_receipt: string;
-        handling_io_sio: string;
-        group: string;
-      }
-    >
-  >(new Map());
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -390,32 +378,12 @@ const SCNRegisterComponent = () => {
         (g: { group_name: string }) => g.group_name,
       );
 
-      const [cases, caseDetails, , usersRes] = await Promise.all([
+      const [cases, , usersRes] = await Promise.all([
         fetchCaseOptions(supabase, wid),
-        supabase
-          .from("dggi_records")
-          .select(
-            "record_id,taxpayer_name,gstins,date_of_receipt,handling_io_sio,group",
-          )
-          .eq("workspace_id", wid),
         fetchRecords(wid, role, groups, uid!),
         getAllUsers(),
       ]);
       setCaseOptions(cases);
-      if (caseDetails.data) {
-        const map = new Map<
-          string,
-          {
-            taxpayer_name: string;
-            gstins: string;
-            date_of_receipt: string;
-            handling_io_sio: string;
-            group: string;
-          }
-        >();
-        for (const row of caseDetails.data) map.set(row.record_id, row);
-        setCaseDetailsMap(map);
-      }
       if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setLoading(false);
     };
@@ -620,7 +588,7 @@ const SCNRegisterComponent = () => {
     setDialogDraft((prev) => {
       const next = { ...prev, [key]: value };
       if (key === "linked_case_id" && dialogMode === "add") {
-        const caseRow = caseDetailsMap.get(value);
+        const caseRow = caseOptions.find((c) => c.record_id === value);
         if (caseRow) {
           if (!prev.noticee_name)
             next.noticee_name = caseRow.taxpayer_name ?? "";
