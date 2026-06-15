@@ -4,6 +4,12 @@
 
 ### 2026-06-15
 
+#### Arrest Register (batch grouping)
+- One arrest event can now have multiple arrested persons — each person gets their own row (`record_id`), all rows in the same event share an **Arrest No.** (`arrest_batch_id`, prefix `ARB/`)
+- Table groups rows by `arrest_batch_id`: single-person events render as flat rows; multi-person events show a collapsible header with shared fields and a person count
+- **Add Person** button on multi-person batch headers opens a dialog pre-filled with batch-level fields (case, date, party, GSTIN, amount, SIO, group) — only person-level fields are editable
+- DB migration: adds `arrest_batch_id TEXT` column to `dggi_arrest_records`
+
 #### Arrest Register
 - Split "Name & Registration No. of Unit" column into two separate fields: **Name of Party** and **GSTIN of Unit**
 - Added **Whether Prosecution Filed** selector with options: Yes / No / Pending
