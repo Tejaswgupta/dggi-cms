@@ -66,12 +66,14 @@ interface ArrestRecord {
   arrested_age: string;
   date_of_arrest: string;
   financial_year: string;
-  unit_name_reg: string;
+  party_name: string;
+  unit_gstin: string;
   amount_crore: string;
   role_evidence: string;
   relative_name: string;
   relative_address: string;
   relative_tel: string;
+  prosecution_filed: string;
   sio: string;
   group: string;
 }
@@ -114,12 +116,14 @@ const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   arrested_age: "",
   date_of_arrest: today(),
   financial_year: "",
-  unit_name_reg: "",
+  party_name: "",
+  unit_gstin: "",
   amount_crore: "",
   role_evidence: "",
   relative_name: "",
   relative_address: "",
   relative_tel: "",
+  prosecution_filed: "",
   sio: "",
   group: "",
 };
@@ -152,10 +156,16 @@ const COLUMNS: {
     width: "130px",
   },
   {
-    key: "unit_name_reg",
-    label: "Name & Registration No. of Unit",
+    key: "party_name",
+    label: "Name of Party",
     type: "text",
-    width: "210px",
+    width: "200px",
+  },
+  {
+    key: "unit_gstin",
+    label: "GSTIN of Unit",
+    type: "text",
+    width: "180px",
   },
   {
     key: "amount_crore",
@@ -172,6 +182,13 @@ const COLUMNS: {
   { key: "relative_name", label: "Relative Name", type: "text", width: "160px" },
   { key: "relative_address", label: "Relative Address", type: "text", width: "200px" },
   { key: "relative_tel", label: "Relative Tel.", type: "text", width: "140px" },
+  {
+    key: "prosecution_filed",
+    label: "Whether Prosecution Filed",
+    type: "select",
+    options: ["Yes", "No", "Pending"],
+    width: "200px",
+  },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
 ];
@@ -393,7 +410,8 @@ const ArrestRegisterComponent = () => {
         const hit = [
           r.arrested_name,
           r.arrested_designation,
-          r.unit_name_reg,
+          r.party_name,
+          r.unit_gstin,
         ].some((v) => v?.toLowerCase().includes(q));
         if (!hit) return false;
       }
@@ -491,7 +509,8 @@ const ArrestRegisterComponent = () => {
           ...prev,
           linked_case_id: val,
           financial_year: rec.financial_year || fyFromDate(rec.date_of_initiation ?? rec.date_of_receipt ?? ""),
-          unit_name_reg: [rec.taxpayer_name, rec.gstins].filter(Boolean).join(" / "),
+          party_name: rec.taxpayer_name || "",
+          unit_gstin: rec.gstins || "",
           amount_crore: rec.detection_amount
             ? String(parseFloat(rec.detection_amount) / 10_000_000 || "")
             : (prev.amount_crore ?? ""),

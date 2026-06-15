@@ -147,6 +147,7 @@ export interface DGGIRecord {
   pr_adg_comments: string;
   due_date: string;
   closure_by: string;
+  closure_reason: string;
   transferred_to: string;
   is_ir: boolean;
   date_of_ir: string;
@@ -195,6 +196,9 @@ const IR_CLOSURE_OPTIONS = [
   "Show Cause Notice",
 ];
 const NON_IR_CLOSURE_OPTIONS = ["Closed", "Transferred", "Convert to IR"];
+const CLOSURE_NEEDS_REASON = new Set([
+  "Closed", "On Merit", "Closed After Payment of Tax", "Show Cause Notice",
+]);
 const SOURCE_OPTIONS = ["Int", "Group", "STR"];
 const DUE_DATE_YEAR_OPTIONS = ["2026", "2027", "2028"];
 const ISSUE_INVOLVED_OPTIONS = [
@@ -223,6 +227,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   pr_adg_comments: "",
   due_date: "",
   closure_by: "",
+  closure_reason: "",
   transferred_to: "",
   is_ir: true,
   date_of_ir: "",
@@ -483,6 +488,12 @@ const NON_IR_COLUMNS: ColDef[] = [
   },
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
+  {
+    key: "date_of_initiation",
+    label: "Date of Initiation of File",
+    type: "datepicker",
+    width: "180px",
+  },
   {
     key: "intel_approved_date",
     label: "Intel Approved Date",
@@ -2489,6 +2500,21 @@ export function DGGIRecordDialog({
                   />
                 </div>
               )}
+              {CLOSURE_NEEDS_REASON.has(draft.closure_by as string) && (
+                <div className="flex flex-col gap-1.5 col-span-2">
+                  <label className="text-sm font-medium text-[#6b6b6b]">
+                    Reason for Closure
+                  </label>
+                  <Input
+                    value={(draft.closure_reason as string) ?? ""}
+                    onChange={(e) =>
+                      onDraftChange("closure_reason", e.target.value)
+                    }
+                    placeholder="Enter reason for closure…"
+                    className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2668,6 +2694,25 @@ export function DGGIRecordDialog({
                               onDraftChange("transferred_to", e.target.value)
                             }
                             placeholder="Enter unit / formation name…"
+                            disabled={!unlocked}
+                            className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+                          />
+                        </div>
+                      )}
+                    {stage.label === "Closure" &&
+                      CLOSURE_NEEDS_REASON.has(draft.closure_by as string) && (
+                        <div className="flex flex-col gap-1.5 col-span-2">
+                          <label
+                            className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
+                          >
+                            Reason for Closure
+                          </label>
+                          <Input
+                            value={(draft.closure_reason as string) ?? ""}
+                            onChange={(e) =>
+                              onDraftChange("closure_reason", e.target.value)
+                            }
+                            placeholder="Enter reason for closure…"
                             disabled={!unlocked}
                             className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
                           />
@@ -3116,6 +3161,8 @@ const DGGIComponent = () => {
           bo_id: dialogDraft.bo_id || null,
           hsn_code: dialogDraft.hsn_code || null,
           closure_by: dialogDraft.closure_by || null,
+          closure_reason: dialogDraft.closure_reason || null,
+          transferred_to: dialogDraft.transferred_to || null,
           due_date: dialogDraft.due_date || null,
           date_of_ir: dialogDraft.date_of_ir || null,
           date_of_non_ir: dialogDraft.date_of_non_ir || null,

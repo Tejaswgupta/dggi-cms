@@ -62,6 +62,8 @@ interface ClosureRecord {
   bo_id: string;
   hsn_code: string;
   closure_by: string;
+  closure_reason: string;
+  transferred_to: string;
   due_date: string;
   date_of_ir: string;
   date_of_non_ir: string;
@@ -104,7 +106,9 @@ const SHARED_COLUMNS: ColDef[] = [
     type: "usercombobox",
     width: "170px",
   },
-  { key: "closure_by", label: "Closure Reason", type: "text", width: "180px" },
+  { key: "closure_by", label: "Closure Type", type: "text", width: "160px" },
+  { key: "closure_reason", label: "Closure Reason", type: "text", width: "200px" },
+  { key: "transferred_to", label: "Transferred To", type: "text", width: "180px" },
   {
     key: "due_date",
     label: "Closure Date",
