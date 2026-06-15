@@ -60,6 +60,7 @@ const RECORD_PREFIX = REGISTER_PREFIXES.ARREST;
 interface ArrestRecord {
   id: string;
   record_id: string;
+  arrest_batch_id: string;
   linked_case_id: string;
   arrested_name: string;
   arrested_designation: string;
@@ -110,6 +111,7 @@ const fyFromDate = (iso: string): string => {
 
 const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   record_id: "",
+  arrest_batch_id: "",
   linked_case_id: "",
   arrested_name: "",
   arrested_designation: "",
@@ -128,6 +130,31 @@ const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   group: "",
 };
 
+// Fields that belong to the "batch" (shared across all persons in an arrest event)
+const BATCH_FIELDS = new Set<keyof ArrestRecord>([
+  "arrest_batch_id",
+  "linked_case_id",
+  "date_of_arrest",
+  "financial_year",
+  "party_name",
+  "unit_gstin",
+  "amount_crore",
+  "sio",
+  "group",
+]);
+
+// Fields that belong to the individual person
+const PERSON_FIELDS = new Set<keyof ArrestRecord>([
+  "arrested_name",
+  "arrested_designation",
+  "arrested_age",
+  "role_evidence",
+  "relative_name",
+  "relative_address",
+  "relative_tel",
+  "prosecution_filed",
+]);
+
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const COLUMNS: {
@@ -139,6 +166,7 @@ const COLUMNS: {
   readOnly?: boolean;
 }[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
+  { key: "arrest_batch_id", label: "Arrest No.", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
   { key: "arrested_name", label: "Name of Arrested Person", type: "text", width: "180px" },
   { key: "arrested_designation", label: "Designation", type: "text", width: "160px" },
@@ -341,8 +369,9 @@ const ArrestRegisterComponent = () => {
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
+  const [dialogMode, setDialogMode] = useState<"add" | "add-person" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<ArrestRecord>>({});
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
   const [savingRow, setSavingRow] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -481,9 +510,14 @@ const ArrestRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
+    const [record_id, arrest_batch_id] = await Promise.all([
+      generateWorkspaceRecordId(supabase, "dggi_arrest_records", RECORD_PREFIX, workspaceId),
+      generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARB", workspaceId, { separator: "/" }),
+    ]);
     const payload = {
       ...dialogDraft,
-      record_id: await generateWorkspaceRecordId(supabase, "dggi_arrest_records", RECORD_PREFIX, workspaceId),
+      record_id,
+      arrest_batch_id,
       workspace_id: workspaceId,
     };
     const { data, error } = await supabase
@@ -501,7 +535,34 @@ const ArrestRegisterComponent = () => {
     setSavingRow(false);
   };
 
+  const saveNewPerson = async () => {
+    if (!workspaceId || !dialogDraft.arrest_batch_id) return;
+    setSavingRow(true);
+    const record_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", RECORD_PREFIX, workspaceId);
+    const payload = {
+      ...dialogDraft,
+      record_id,
+      workspace_id: workspaceId,
+    };
+    const { data, error } = await supabase
+      .from("dggi_arrest_records")
+      .insert(payload)
+      .select()
+      .single();
+    if (error) {
+      toast.error("Failed to add person: " + error.message);
+    } else {
+      setRecords((prev) => [...prev, data]);
+      setDialogOpen(false);
+      toast.success("Person added to batch");
+    }
+    setSavingRow(false);
+  };
+
   const handleDraftChange = (key: string, val: string) => {
+    // In add-person mode, batch-level fields are locked
+    if (dialogMode === "add-person" && BATCH_FIELDS.has(key as keyof ArrestRecord)) return;
+
     if (key === "linked_case_id" && dialogMode === "add") {
       const rec = caseOptions.find((c) => c.record_id === val);
       if (rec) {
@@ -539,12 +600,33 @@ const ArrestRegisterComponent = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Arrest", (msg) => toast.success(msg));
   };
 
-  // ── Row renderer ───────────────────────────────────────────────────────────
+  // ── Batch grouping ─────────────────────────────────────────────────────────
 
-  const renderRow = (record: ArrestRecord) => (
+  const toggleBatch = (batchId: string) => {
+    setExpandedBatches((prev) => {
+      const next = new Set(prev);
+      if (next.has(batchId)) next.delete(batchId);
+      else next.add(batchId);
+      return next;
+    });
+  };
+
+  // Group sorted records by arrest_batch_id, preserving order of first occurrence
+  const batches: { batchId: string; persons: ArrestRecord[] }[] = [];
+  const batchIndex = new Map<string, number>();
+  for (const r of tableRecords) {
+    const bid = r.arrest_batch_id || r.id;
+    if (!batchIndex.has(bid)) {
+      batchIndex.set(bid, batches.length);
+      batches.push({ batchId: bid, persons: [] });
+    }
+    batches[batchIndex.get(bid)!].persons.push(r);
+  }
+
+  const renderPersonRow = (record: ArrestRecord, isExpanded: boolean) => (
     <TableRow
       key={record.id}
-      className="border-b border-[#EDEDEA] text-base hover:bg-white"
+      className={`border-b border-[#EDEDEA] text-base hover:bg-white ${isExpanded ? "bg-[#FAFAF8]" : ""}`}
     >
       {COLUMNS.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
@@ -601,6 +683,77 @@ const ArrestRegisterComponent = () => {
       </TableCell>
     </TableRow>
   );
+
+  const renderBatchGroup = ({ batchId, persons }: { batchId: string; persons: ArrestRecord[] }) => {
+    const isMulti = persons.length > 1;
+    const isExpanded = expandedBatches.has(batchId);
+    const representative = persons[0];
+
+    if (!isMulti) return renderPersonRow(representative, false);
+
+    return (
+      <>
+        {/* Batch header row */}
+        <TableRow
+          key={`batch-${batchId}`}
+          className="border-b border-[#EDEDEA] text-base bg-[#F7F7F4] hover:bg-[#F3F2EF] cursor-pointer"
+          onClick={() => toggleBatch(batchId)}
+        >
+          {COLUMNS.map((col) => (
+            <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
+              {col.key === "arrest_batch_id" ? (
+                <span className="flex items-center gap-1.5 font-medium">
+                  {isExpanded ? <ChevronUp size={13} className="text-[#6b6b6b]" /> : <ChevronDown size={13} className="text-[#6b6b6b]" />}
+                  {batchId}
+                </span>
+              ) : col.key === "arrested_name" ? (
+                <span className="text-[#6b6b6b] text-sm">{persons.length} persons</span>
+              ) : col.key === "record_id" ? (
+                <span className="text-[#9a9a96]">—</span>
+              ) : PERSON_FIELDS.has(col.key as keyof ArrestRecord) ? (
+                <span className="text-[#9a9a96]">—</span>
+              ) : (
+                <EditableCell
+                  value={((representative as any)[col.key] as string) ?? ""}
+                  type={col.type}
+                  editing={false}
+                  readOnly={col.readOnly}
+                  onChange={() => {}}
+                  cases={caseOptions}
+                  users={workspaceUsers}
+                />
+              )}
+            </TableCell>
+          ))}
+          <TableCell className="px-3 py-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 rounded-lg text-[#4A5FD4] hover:bg-[#EEF0FB] text-xs font-medium"
+              onClick={(e) => {
+                e.stopPropagation();
+                const batchDraft: Partial<ArrestRecord> = {};
+                for (const k of Object.keys(representative) as (keyof ArrestRecord)[]) {
+                  if (BATCH_FIELDS.has(k)) (batchDraft as any)[k] = (representative as any)[k];
+                }
+                // Clear person-level fields
+                for (const k of PERSON_FIELDS) (batchDraft as any)[k] = "";
+                batchDraft.date_of_arrest = representative.date_of_arrest;
+                setDialogMode("add-person");
+                setDialogDraft(batchDraft);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus size={12} className="mr-1" />
+              Add Person
+            </Button>
+          </TableCell>
+        </TableRow>
+        {/* Person sub-rows */}
+        {isExpanded && persons.map((p) => renderPersonRow(p, true))}
+      </>
+    );
+  };
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -747,7 +900,7 @@ const ArrestRegisterComponent = () => {
               </TableHeader>
 
               <TableBody>
-                {tableRecords.map(renderRow)}
+                {batches.map(renderBatchGroup)}
 
                 {/* Empty state */}
                 {tableRecords.length === 0 && (
@@ -778,10 +931,19 @@ const ArrestRegisterComponent = () => {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         mode={dialogMode}
-        columns={COLUMNS}
+        title={
+          dialogMode === "add-person"
+            ? `Add Person — ${dialogDraft.arrest_batch_id ?? "batch"}`
+            : undefined
+        }
+        columns={
+          dialogMode === "add-person"
+            ? COLUMNS.filter((c) => PERSON_FIELDS.has(c.key as keyof ArrestRecord))
+            : COLUMNS
+        }
         draft={dialogDraft as Record<string, string>}
         onDraftChange={handleDraftChange}
-        onSave={dialogMode === "add" ? saveNew : saveEdit}
+        onSave={dialogMode === "add" ? saveNew : dialogMode === "add-person" ? saveNewPerson : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
         users={workspaceUsers}

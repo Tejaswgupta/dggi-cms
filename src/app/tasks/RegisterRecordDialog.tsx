@@ -58,7 +58,8 @@ export interface RegisterColumn {
 interface RegisterRecordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: "add" | "edit";
+  mode: "add" | "add-person" | "edit";
+  title?: string;
   columns: RegisterColumn[];
   draft: Record<string, string>;
   onDraftChange: (key: string, value: string) => void;
@@ -217,6 +218,7 @@ export function RegisterRecordDialog({
   open,
   onOpenChange,
   mode,
+  title,
   columns,
   draft,
   onDraftChange,
@@ -342,7 +344,7 @@ export function RegisterRecordDialog({
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border border-[#EDEDEA] shadow-none font-['DM_Sans']">
         <DialogHeader>
           <DialogTitle className="text-lg font-medium text-[#1a1a1a]">
-            {mode === "add" ? "Add Record" : "Edit Record"}
+            {title ?? (mode === "add" ? "Add Record" : mode === "add-person" ? "Add Person to Batch" : "Edit Record")}
           </DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-2">
@@ -368,7 +370,7 @@ export function RegisterRecordDialog({
             onClick={onSave}
             disabled={saving}
           >
-            {saving ? "Saving…" : mode === "add" ? "Add Record" : "Save Changes"}
+            {saving ? "Saving…" : mode === "add" ? "Add Record" : mode === "add-person" ? "Add Person" : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>
