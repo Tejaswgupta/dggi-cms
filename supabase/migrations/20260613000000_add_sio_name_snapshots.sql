@@ -10,9 +10,12 @@ ALTER TABLE dggi_prosecution_arrest_records      ADD COLUMN IF NOT EXISTS sio_na
 ALTER TABLE dggi_prosecution_non_arrest_records  ADD COLUMN IF NOT EXISTS sio_name text;
 ALTER TABLE dggi_provisional_attachment_records  ADD COLUMN IF NOT EXISTS sio_name text;
 ALTER TABLE dggi_incident_report_records         ADD COLUMN IF NOT EXISTS sio_name text;
--- dggi_non_ir_case_records and dggi_alert_circular_records already have a sio_name column
--- that stores a user ID (separate from sio). Snapshot columns for those two tables to be
--- added once the role distinction between sio vs sio_name is clarified.
+-- dggi_alert_circular_records and dggi_non_ir_case_records had a redundant sio_name column
+-- storing a user ID (duplicate of sio). Drop it, then add sio_name as the text snapshot.
+ALTER TABLE dggi_alert_circular_records DROP COLUMN IF EXISTS sio_name;
+ALTER TABLE dggi_non_ir_case_records    DROP COLUMN IF EXISTS sio_name;
+ALTER TABLE dggi_alert_circular_records ADD COLUMN IF NOT EXISTS sio_name text;
+ALTER TABLE dggi_non_ir_case_records    ADD COLUMN IF NOT EXISTS sio_name text;
 ALTER TABLE dggi_intel_rapid_records             ADD COLUMN IF NOT EXISTS sio_name text;
 ALTER TABLE dggi_intel_other_source_records      ADD COLUMN IF NOT EXISTS sio_name text;
 ALTER TABLE dggi_str_records                     ADD COLUMN IF NOT EXISTS sio_name text;

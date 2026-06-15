@@ -51,7 +51,6 @@ interface NonIRRecord {
   linked_case_id: string;
   file_number: string;
   date_of_initiation: string;
-  sio_name: string;
   group_name: string;
   remarks: string;
   sio: string;
@@ -79,7 +78,6 @@ const EMPTY_RECORD: Omit<NonIRRecord, "id"> = {
   linked_case_id: "",
   file_number: "",
   date_of_initiation: today(),
-  sio_name: "",
   group_name: "",
   remarks: "",
   sio: "",
@@ -105,7 +103,6 @@ const COLUMNS: {
     type: "datepicker",
     width: "160px",
   },
-  { key: "sio_name", label: "SIO Name", type: "usercombobox", width: "170px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group_name", label: "Group Name", type: "text", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
@@ -228,7 +225,7 @@ const NonIRCaseRegisterComponent = () => {
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const hit = [r.file_number, r.sio_name, r.group_name].some((v) =>
+        const hit = [r.file_number, r.group_name].some((v) =>
           v?.toLowerCase().includes(q),
         );
         if (!hit) return false;

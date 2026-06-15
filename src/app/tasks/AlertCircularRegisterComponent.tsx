@@ -69,7 +69,6 @@ interface AlertCircularRecord {
   docs_shared: string;
   scn_ruds_shared: string;
   remarks: string;
-  sio_name: string;
   sio: string;
   group: string;
 }
@@ -129,7 +128,6 @@ const COLUMNS: {
     options: ["Y", "N"],
     width: "150px",
   },
-  { key: "sio_name", label: "SIO Name", type: "usercombobox", width: "170px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   {
     key: "group",
@@ -157,7 +155,6 @@ const EMPTY_RECORD: Omit<AlertCircularRecord, "id"> = {
   docs_shared: "",
   scn_ruds_shared: "",
   remarks: "",
-  sio_name: "",
   sio: "",
   group: "",
 };
@@ -263,7 +260,6 @@ const AlertCircularRegisterComponent = () => {
         r.gstin,
         r.legal_trade_name,
         r.alert_circular_no_date,
-        r.sio_name,
       ].some((v) => v?.toLowerCase().includes(q));
     })
     .sort((a, b) => {
