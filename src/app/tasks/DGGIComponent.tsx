@@ -213,9 +213,9 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   gstins: "",
   file_no: "",
   date_of_initiation: today(),
-  intel_approved_date: today(),
+  intel_approved_date: "",
   mode_of_initiation: "",
-  intelligence_action_date: today(),
+  intelligence_action_date: "",
   handling_io_sio: "",
   handling_io_sio_name: "",
   issue_involved: "",
@@ -508,21 +508,21 @@ const NON_IR_COLUMNS: ColDef[] = [
     type: "usercombobox",
     width: "170px",
   },
-  { key: "latest_status", label: "Action Taken", type: "text", width: "160px" },
+  // { key: "latest_status", label: "Action Taken", type: "text", width: "160px" },
   {
     key: "pr_adg_comments",
     label: "Pr.ADG Comments",
     type: "text",
     width: "200px",
   },
-  { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
-  {
-    key: "date_of_ir",
-    label: "Date of IR",
-    type: "datepicker",
-    width: "150px",
-    readOnly: true,
-  },
+  // { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
+  // {
+  //   key: "date_of_ir",
+  //   label: "Date of IR",
+  //   type: "datepicker",
+  //   width: "150px",
+  //   readOnly: true,
+  // },
 ];
 
 const NON_IR_CLOSURE_FORM_COLS: ColDef[] = [
@@ -1232,8 +1232,8 @@ function CreateFromIntelDialog({
       : "Group A") as GroupName,
     intel_source: "Int",
     date_of_initiation: r.ir_date ?? today(),
-    intel_approved_date: r.adg_putup_date ?? today(),
-    intelligence_action_date: r.date_of_action_taken ?? today(),
+    intel_approved_date: r.adg_putup_date ?? "",
+    intelligence_action_date: r.date_of_action_taken ?? "",
     is_ir: true,
   });
 
@@ -1606,6 +1606,7 @@ export interface DGGIRecordDialogProps {
   onDeleteArrest?: (id: string) => void;
   onDeleteProvisional?: (id: string) => void;
   onDeleteSCN?: (id: string) => void;
+  userRole?: string;
 }
 
 // ─── Register sub-record types ────────────────────────────────────────────────
@@ -2211,6 +2212,7 @@ export function DGGIRecordDialog({
   onDeleteArrest,
   onDeleteProvisional,
   onDeleteSCN,
+  userRole = "",
 }: DGGIRecordDialogProps) {
   const isIr = draft.is_ir ?? true;
   const formColumns = isIr ? COLUMNS : NON_IR_COLUMNS;
@@ -2446,7 +2448,7 @@ export function DGGIRecordDialog({
               <label className="text-sm font-medium text-[#6b6b6b]">
                 {col.label}
               </label>
-              {renderField(col)}
+              {renderField(col, col.key === "pr_adg_comments" && userRole !== "ADG")}
             </div>
           ))}
         </div>
@@ -2468,7 +2470,7 @@ export function DGGIRecordDialog({
                   <label className="text-sm font-medium text-[#6b6b6b]">
                     {col.label}
                   </label>
-                  {renderField(col)}
+                  {renderField(col, col.key === "pr_adg_comments" && userRole !== "ADG")}
                 </div>
               ))}
               {(draft.closure_by === "Transfer To" ||
@@ -2648,7 +2650,7 @@ export function DGGIRecordDialog({
                             col.key as keyof DGGIRecord,
                           ) && <span className="text-[#C0432A] ml-0.5">*</span>}
                         </label>
-                        {renderField(col, !unlocked)}
+                        {renderField(col, !unlocked || (col.key === "pr_adg_comments" && userRole !== "ADG"))}
                       </div>
                     ))}
                     {stage.label === "Closure" &&
@@ -3043,7 +3045,9 @@ const DGGIComponent = () => {
       .update({
         ...dialogDraft,
         handling_io_sio: dialogDraft.handling_io_sio || null,
-        handling_io_sio_name: workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)?.name || null,
+        handling_io_sio_name:
+          workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
+            ?.name || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
         date_of_initiation: dialogDraft.date_of_initiation || null,
@@ -3066,8 +3070,8 @@ const DGGIComponent = () => {
               ...r,
               ...dialogDraft,
               handling_io_sio_name:
-                workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)?.name ||
-                r.handling_io_sio_name,
+                workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
+                  ?.name || r.handling_io_sio_name,
             }
           : r,
       ),
@@ -3077,7 +3081,9 @@ const DGGIComponent = () => {
       const closureRecordId = await generateWorkspaceRecordId(
         supabase,
         "dggi_closure_records",
-        isIrRecord ? REGISTER_PREFIXES.CLOSURE_IR : REGISTER_PREFIXES.CLOSURE_NON_IR,
+        isIrRecord
+          ? REGISTER_PREFIXES.CLOSURE_IR
+          : REGISTER_PREFIXES.CLOSURE_NON_IR,
         workspaceId,
         { filter: { is_ir: isIrRecord } },
       );
@@ -3201,7 +3207,9 @@ const DGGIComponent = () => {
         { filter: { is_ir: draft.is_ir }, separator: "-" },
       ),
       handling_io_sio: draft.handling_io_sio || null,
-      handling_io_sio_name: workspaceUsers.find((u) => u.id === draft.handling_io_sio)?.name || null,
+      handling_io_sio_name:
+        workspaceUsers.find((u) => u.id === draft.handling_io_sio)?.name ||
+        null,
       mode_of_initiation: draft.mode_of_initiation || null,
       due_date: draft.due_date || null,
       date_of_ir:
@@ -3867,7 +3875,11 @@ const DGGIComponent = () => {
                 editing={false}
                 users={workspaceUsers}
                 readOnly={col.readOnly}
-                storedName={col.key === "handling_io_sio" ? record.handling_io_sio_name : undefined}
+                storedName={
+                  col.key === "handling_io_sio"
+                    ? record.handling_io_sio_name
+                    : undefined
+                }
                 onChange={() => {}}
               />
             )}
@@ -3949,6 +3961,7 @@ const DGGIComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         users={workspaceUsers}
+        userRole={userRole}
         caseRecordId={dialogDraft.record_id}
         arrestRecords={arrestRecordsMap.get(dialogDraft.record_id ?? "") ?? []}
         provisionalRecords={
