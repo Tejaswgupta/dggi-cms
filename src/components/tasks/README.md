@@ -152,8 +152,3 @@ Manages document upload, display, and actions with enhanced features including d
 6. **Error Handling**: Centralized error handling and user feedback
 
 ---
-
-12th June,
-
-1. Introduce SCN dropdown in provision attachment
-2. Remove Commissionerate / Directorate

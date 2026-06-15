@@ -1619,7 +1619,6 @@ interface ArrestSubRecord {
   arrested_age: string;
   date_of_arrest: string;
   financial_year: string;
-  commissionerate: string;
   unit_name_reg: string;
   amount_crore: string;
   role_evidence: string;
@@ -1721,12 +1720,6 @@ const ARREST_COLUMNS: RegisterColumn[] = [
     label: "Financial Year",
     type: "text",
     width: "130px",
-  },
-  {
-    key: "commissionerate",
-    label: "Commissionerate / Directorate",
-    type: "text",
-    width: "210px",
   },
   {
     key: "unit_name_reg",
@@ -3367,7 +3360,7 @@ const DGGIComponent = () => {
       arrested_name: "",
       arrested_designation: "",
       arrested_age: "",
-      commissionerate: "",
+
       role_evidence: "",
       relative_name: "",
       relative_address: "",
