@@ -3078,12 +3078,7 @@ const DGGIComponent = () => {
     const existingRecord = records.find((r) => r.id === dialogEditingId);
     const hadClosureBefore = !!existingRecord?.closure_by;
     const isNowClosed = !!dialogDraft.closure_by;
-    const isClosedOnMerits = !isIrRecord && dialogDraft.closure_by === "Closed";
-    const isIrClosed = isIrRecord && isNowClosed;
-    const shouldWriteClosureEntry =
-      !hadClosureBefore &&
-      (isClosedOnMerits || isIrClosed) &&
-      !isClosedAsConverted;
+    const shouldWriteClosureEntry = !hadClosureBefore && isNowClosed;
 
     const { error } = await supabase
       .from("dggi_records")
