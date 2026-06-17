@@ -3083,9 +3083,11 @@ const DGGIComponent = () => {
     // For "Convert to IR": don't close the NON-IR yet — open the IR form first,
     // and only close the source after the new IR record is successfully saved.
     if (isClosedAsConverted && sourceRecordId) {
-      setPendingConvertSourceId(dialogEditingId);
-      setPendingConvertDraft({ ...dialogDraft });
+      const convertSourceId = dialogEditingId;
+      const convertDraft = { ...dialogDraft };
       cancelDialog();
+      setPendingConvertSourceId(convertSourceId);
+      setPendingConvertDraft(convertDraft);
       setDialogDraft({
         ...EMPTY_RECORD,
         is_ir: true,
