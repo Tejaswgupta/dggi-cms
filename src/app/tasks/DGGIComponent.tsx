@@ -2202,11 +2202,6 @@ const NON_IR_STAGES: {
     fields: ["due_date", "closure_by"],
     requiredFields: [],
   },
-  {
-    label: "Related Registers",
-    fields: [],
-    requiredFields: [],
-  },
 ];
 
 export function DGGIRecordDialog({
@@ -3122,6 +3117,7 @@ const DGGIComponent = () => {
         issue_involved: dialogDraft.issue_involved ?? "",
         mode_of_initiation: dialogDraft.mode_of_initiation ?? "",
         intel_approved_date: dialogDraft.intel_approved_date ?? "",
+        intelligence_action_date: dialogDraft.intelligence_action_date ?? "",
         date_of_initiation: today(),
         date_of_ir: today(),
         converted_from_non_ir: sourceRecordId,

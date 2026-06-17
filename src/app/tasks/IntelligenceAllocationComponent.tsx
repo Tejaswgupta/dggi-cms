@@ -977,7 +977,7 @@ const IntelligenceAllocationComponent = () => {
   ) =>
     records
       .filter((r) => {
-        if (hideClosed && String(r.action_taken ?? "").toLowerCase() === "closed") return false;
+        if (hideClosed && ["closed", "transferred"].includes(String(r.action_taken ?? "").toLowerCase())) return false;
         if (!search) return true;
         const q = search.toLowerCase();
         return fields.some((f) =>
@@ -1326,7 +1326,7 @@ const IntelligenceAllocationComponent = () => {
               ) : (
                 <Eye size={14} className="mr-1.5" />
               )}
-              {hideClosed ? "Show Closed" : "Hide Closed"}
+              {hideClosed ? "Show Closed/Transferred" : "Hide Closed/Transferred"}
             </Button>
           </div>
 
