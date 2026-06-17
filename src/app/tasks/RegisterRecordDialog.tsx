@@ -43,11 +43,25 @@ export interface ScnOption {
   noticee_name: string;
 }
 
+export interface ArrestOption {
+  id: string;
+  record_id: string;
+  arrested_name: string;
+  party_name: string;
+  unit_gstin: string;
+  arrested_age: string;
+  date_of_arrest: string;
+  amount_crore: string;
+  role_evidence: string;
+  sio: string;
+  group: string;
+}
+
 export interface RegisterColumn {
   key: string;
   label: string;
   dialogLabel?: string;
-  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox";
+  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox" | "arrestlink";
   options?: string[];
   allowOther?: boolean;
   readOnly?: boolean;
@@ -75,6 +89,7 @@ interface RegisterRecordDialogProps {
   users?: WorkspaceUser[];
   caseOptions?: DGGICaseOption[];
   scnOptions?: ScnOption[];
+  arrestOptions?: ArrestOption[];
 }
 
 
@@ -220,6 +235,80 @@ function ScnCombobox({
   );
 }
 
+function ArrestLinkCombobox({
+  value,
+  onChange,
+  arrestOptions,
+}: {
+  value: string;
+  onChange: (arrest: ArrestOption | null) => void;
+  arrestOptions: ArrestOption[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const filtered = arrestOptions.filter(
+    (a) =>
+      a.record_id.toLowerCase().includes(query.toLowerCase()) ||
+      a.arrested_name?.toLowerCase().includes(query.toLowerCase()) ||
+      a.party_name?.toLowerCase().includes(query.toLowerCase()),
+  );
+  const selected = arrestOptions.find((a) => a.id === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
+      <PopoverTrigger asChild>
+        <button className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate">
+          <span className="truncate">
+            {selected
+              ? `${selected.record_id} — ${selected.arrested_name || selected.party_name}`
+              : <span className="text-[#9a9a96]">Select arrest case…</span>}
+          </span>
+          <ChevronsUpDown size={12} className="text-[#9a9a96] shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[360px] p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Search arrest ID or name…"
+            value={query}
+            onValueChange={setQuery}
+            className="text-base"
+          />
+          <CommandList className="max-h-[220px] overflow-y-auto">
+            <CommandEmpty className="py-3 text-center text-base text-[#9a9a96]">No arrest records found.</CommandEmpty>
+            <CommandGroup>
+              {value && (
+                <CommandItem
+                  value="__clear__"
+                  onSelect={() => { onChange(null); setOpen(false); setQuery(""); }}
+                  className="text-base text-[#9a9a96]"
+                >
+                  Clear selection
+                </CommandItem>
+              )}
+              {filtered.map((a) => (
+                <CommandItem
+                  key={a.id}
+                  value={a.record_id}
+                  onSelect={() => { onChange(a); setOpen(false); setQuery(""); }}
+                  className="text-base"
+                >
+                  <Check size={13} className={`mr-2 shrink-0 ${value === a.id ? "opacity-100" : "opacity-0"}`} />
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate font-medium">{a.record_id}</span>
+                    <span className="truncate text-[#9a9a96] text-sm">
+                      {a.arrested_name}{a.party_name ? ` · ${a.party_name}` : ""}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function RegisterRecordDialog({
   open,
   onOpenChange,
@@ -235,6 +324,7 @@ export function RegisterRecordDialog({
   users = [],
   caseOptions = [],
   scnOptions = [],
+  arrestOptions = [],
 }: RegisterRecordDialogProps) {
   const editableColumns = columns.filter((col) => {
     if (col.readOnly) return false;
@@ -268,6 +358,40 @@ export function RegisterRecordDialog({
             } else {
               if (onMultiDraftChange) {
                 onMultiDraftChange({ linked_scn_no: "", date_of_scn_issuance: "", scn_issued: "" });
+              } else {
+                onChange("");
+              }
+            }
+          }}
+        />
+      );
+    }
+    if (col.type === "arrestlink") {
+      return (
+        <ArrestLinkCombobox
+          value={value}
+          arrestOptions={arrestOptions}
+          onChange={(arrest) => {
+            if (arrest) {
+              if (onMultiDraftChange) {
+                onMultiDraftChange({
+                  linked_arrest_id: arrest.id,
+                  arrested_person_name: arrest.arrested_name ?? "",
+                  age: arrest.arrested_age ?? "",
+                  date_of_arrest: arrest.date_of_arrest ?? "",
+                  amount_evaded_crore: arrest.amount_crore ?? "",
+                  entity_name: arrest.party_name ?? "",
+                  gstin: arrest.unit_gstin ?? "",
+                  brief_modus_operandi: arrest.role_evidence ?? "",
+                  sio: arrest.sio ?? "",
+                  group: arrest.group ?? "",
+                });
+              } else {
+                onChange(arrest.record_id);
+              }
+            } else {
+              if (onMultiDraftChange) {
+                onMultiDraftChange({ linked_arrest_id: "" });
               } else {
                 onChange("");
               }
