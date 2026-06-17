@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +11,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -27,9 +27,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
+import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
-import { addDays, differenceInCalendarDays, format, isValid, parseISO } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parseISO,
+} from "date-fns";
 import {
   AlertTriangle,
   CalendarIcon,
@@ -47,18 +55,26 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
-import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ScnOption } from "./RegisterRecordDialog";
-import { DGGI_GROUPS } from "@/lib/dggi-constants";
+import {
+  REGISTER_PREFIXES,
+  exportRegisterToExcel,
+  fetchCaseOptions,
+  generateWorkspaceRecordId,
+} from "./register-utils";
+import {
+  RegisterRecordDialog,
+  type RegisterColumn,
+  type ScnOption,
+  type WorkspaceUser,
+} from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const RECORD_PREFIX = REGISTER_PREFIXES.PROVISIONAL_ATTACHMENT;
 
 const SCN_DUE_DAYS = 273; // 9 months ≈ 273 days
-const EXPIRY_DAYS = 365;  // 1 year
+const EXPIRY_DAYS = 365; // 1 year
 
 const DATE_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
   "date_of_attachment",
@@ -77,7 +93,9 @@ const NUMERIC_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
   "value_total",
 ];
 
-function sanitizeForDb(draft: Partial<ProvisionalAttachmentRecord>): Record<string, unknown> {
+function sanitizeForDb(
+  draft: Partial<ProvisionalAttachmentRecord>,
+): Record<string, unknown> {
   const out: Record<string, unknown> = { ...draft };
   for (const f of DATE_FIELDS) if (out[f] === "") out[f] = null;
   for (const f of NUMERIC_FIELDS) if (out[f] === "") out[f] = null;
@@ -126,7 +144,12 @@ interface Filters {
   alarmOnly: boolean;
 }
 
-const EMPTY_FILTERS: Filters = { search: "", dateFrom: "", dateTo: "", alarmOnly: false };
+const EMPTY_FILTERS: Filters = {
+  search: "",
+  dateFrom: "",
+  dateTo: "",
+  alarmOnly: false,
+};
 
 const today = () => format(new Date(), "yyyy-MM-dd");
 
@@ -165,35 +188,152 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const COLUMNS: RegisterColumn[] = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "person_name", label: "Name of Person (Sec. 83)", type: "text", width: "200px" },
+  {
+    key: "record_id",
+    label: "ID",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
+  {
+    key: "person_name",
+    label: "Name of Person (Sec. 83)",
+    type: "text",
+    width: "200px",
+  },
   { key: "gstin_pan", label: "GSTIN/PAN", type: "text", width: "160px" },
-  { key: "person_status", label: "Status of Person", type: "text", width: "180px" },
-  { key: "expected_liability", label: "Expected Liability (Cr.)", type: "number", width: "160px" },
-  { key: "entity_gstin", label: "GSTIN of Entity", type: "text", width: "160px" },
-  { key: "issue_involved", label: "Issue Involved", type: "text", width: "160px" },
-  { key: "person_involvement", label: "Brief Description of Involvement", type: "text", width: "220px" },
+  {
+    key: "person_status",
+    label: "Status of Person",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "expected_liability",
+    label: "Expected Liability (Cr.)",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "entity_gstin",
+    label: "GSTIN of Entity",
+    type: "text",
+    width: "160px",
+  },
+  {
+    key: "issue_involved",
+    label: "Issue Involved",
+    type: "text",
+    width: "160px",
+  },
+  {
+    key: "person_involvement",
+    label: "Brief Description of Involvement",
+    type: "text",
+    width: "220px",
+  },
   { key: "arrest", label: "Arrest (Yes/No)", type: "text", width: "130px" },
-  { key: "description_of_property", label: "Description of Property", type: "text", width: "220px" },
-  { key: "value_immovable", label: "Value – Immovable Property (Cr.)", type: "number", width: "200px" },
-  { key: "value_movable", label: "Value – Movable Property (Cr.)", type: "number", width: "190px" },
-  { key: "value_shares", label: "Value – Share/Insurance/FD (Cr.)", type: "number", width: "200px" },
-  { key: "value_bank", label: "Value – Bank A/c (Cr.)", type: "number", width: "160px" },
-  { key: "value_third_party", label: "Value – Third Party (Cr.)", type: "number", width: "170px" },
-  { key: "value_others", label: "Value – Others (Cr.)", type: "number", width: "150px" },
-  { key: "value_total", label: "Value – Total (Cr.)", type: "number", width: "150px" },
-  { key: "investigation_completed", label: "Investigation Completed?", type: "text", width: "180px" },
+  {
+    key: "description_of_property",
+    label: "Description of Property",
+    type: "text",
+    width: "220px",
+  },
+  {
+    key: "value_immovable",
+    label: "Value – Immovable Property (Cr.)",
+    type: "number",
+    width: "200px",
+  },
+  {
+    key: "value_movable",
+    label: "Value – Movable Property (Cr.)",
+    type: "number",
+    width: "190px",
+  },
+  {
+    key: "value_shares",
+    label: "Value – Share/Insurance/FD (Cr.)",
+    type: "number",
+    width: "200px",
+  },
+  {
+    key: "value_bank",
+    label: "Value – Bank A/c (Cr.)",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "value_third_party",
+    label: "Value – Third Party (Cr.)",
+    type: "number",
+    width: "170px",
+  },
+  {
+    key: "value_others",
+    label: "Value – Others (Cr.)",
+    type: "number",
+    width: "150px",
+  },
+  {
+    key: "value_total",
+    label: "Value – Total (Cr.)",
+    type: "number",
+    width: "150px",
+  },
+  {
+    key: "investigation_completed",
+    label: "Investigation Completed?",
+    type: "text",
+    width: "180px",
+  },
   { key: "scn_issued", label: "SCN Issued?", type: "text", width: "120px" },
-  { key: "date_of_scn_issuance", label: "Date of SCN Issuance", type: "datepicker", width: "180px" },
-  { key: "letter_issued", label: "Letter to Commissionerate?", type: "text", width: "200px" },
+  {
+    key: "date_of_scn_issuance",
+    label: "Date of SCN Issuance",
+    type: "datepicker",
+    width: "180px",
+  },
+  {
+    key: "letter_issued",
+    label: "Letter to Commissionerate?",
+    type: "text",
+    width: "200px",
+  },
   { key: "oio_issued", label: "OIO Issued?", type: "text", width: "120px" },
-  { key: "date_of_release", label: "Date of Release of Attachment", type: "datepicker", width: "210px" },
-  { key: "group_sio", label: "Group/SIO", type: "text", width: "130px" },
-  { key: "date_of_attachment", label: "Date of Attachment", type: "datepicker", width: "160px" },
-  { key: "linked_scn_no", label: "Linked SCN No.", type: "scncombobox", width: "180px" },
+  {
+    key: "date_of_release",
+    label: "Date of Release of Attachment",
+    type: "datepicker",
+    width: "210px",
+  },
+  // { key: "group_sio", label: "Group/SIO", type: "text", width: "130px" },
+  {
+    key: "date_of_attachment",
+    label: "Date of Attachment",
+    type: "datepicker",
+    width: "160px",
+  },
+  {
+    key: "linked_scn_no",
+    label: "Linked SCN No.",
+    type: "scncombobox",
+    width: "180px",
+  },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
+  {
+    key: "group",
+    label: "Group",
+    type: "select",
+    options: DGGI_GROUPS,
+    width: "120px",
+  },
 ];
 
 const TOTAL_COLS = COLUMNS.length + 3; // +3 for SCN Due Date, Expiry Date, Actions
@@ -210,9 +350,21 @@ function computedDates(
   daysToExpiry: number | null;
   daysToScnDue: number | null;
 } {
-  if (!dateOfAttachment) return { expiryDate: null, scnDueDate: null, daysToExpiry: null, daysToScnDue: null };
+  if (!dateOfAttachment)
+    return {
+      expiryDate: null,
+      scnDueDate: null,
+      daysToExpiry: null,
+      daysToScnDue: null,
+    };
   const base = parseISO(dateOfAttachment);
-  if (!isValid(base)) return { expiryDate: null, scnDueDate: null, daysToExpiry: null, daysToScnDue: null };
+  if (!isValid(base))
+    return {
+      expiryDate: null,
+      scnDueDate: null,
+      daysToExpiry: null,
+      daysToScnDue: null,
+    };
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const expiryDate = addDays(base, EXPIRY_DAYS);
@@ -221,9 +373,13 @@ function computedDates(
     expiryDate,
     scnDueDate,
     // Suppress SCN alarm if issuance date has been entered
-    daysToScnDue: dateOfScnIssuance ? null : differenceInCalendarDays(scnDueDate, now),
+    daysToScnDue: dateOfScnIssuance
+      ? null
+      : differenceInCalendarDays(scnDueDate, now),
     // Suppress expiry alarm if attachment has been released
-    daysToExpiry: dateOfRelease ? null : differenceInCalendarDays(expiryDate, now),
+    daysToExpiry: dateOfRelease
+      ? null
+      : differenceInCalendarDays(expiryDate, now),
   };
 }
 
@@ -237,33 +393,70 @@ function alarmLevel(daysLeft: number | null): AlarmLevel {
   return null;
 }
 
-function AlarmBadge({ daysLeft, label }: { daysLeft: number | null; label: string }) {
+function AlarmBadge({
+  daysLeft,
+  label,
+}: {
+  daysLeft: number | null;
+  label: string;
+}) {
   const level = alarmLevel(daysLeft);
   if (!level) return null;
   const cfg = {
-    overdue: { cls: "bg-red-100 text-red-700 border border-red-200", icon: <AlertTriangle size={10} className="shrink-0" /> },
-    critical: { cls: "bg-orange-100 text-orange-700 border border-orange-200", icon: <AlertTriangle size={10} className="shrink-0" /> },
-    warning: { cls: "bg-amber-100 text-amber-700 border border-amber-200", icon: <Clock size={10} className="shrink-0" /> },
+    overdue: {
+      cls: "bg-red-100 text-red-700 border border-red-200",
+      icon: <AlertTriangle size={10} className="shrink-0" />,
+    },
+    critical: {
+      cls: "bg-orange-100 text-orange-700 border border-orange-200",
+      icon: <AlertTriangle size={10} className="shrink-0" />,
+    },
+    warning: {
+      cls: "bg-amber-100 text-amber-700 border border-amber-200",
+      icon: <Clock size={10} className="shrink-0" />,
+    },
   }[level];
-  const text = daysLeft! < 0 ? `${Math.abs(daysLeft!)}d overdue` : `${daysLeft}d left`;
+  const text =
+    daysLeft! < 0 ? `${Math.abs(daysLeft!)}d overdue` : `${daysLeft}d left`;
   return (
-    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cfg.cls}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cfg.cls}`}
+    >
       {cfg.icon}
       {label}: {text}
     </span>
   );
 }
 
-function DateComputedCell({ daysLeft, date }: { daysLeft: number | null; date: Date | null }) {
+function DateComputedCell({
+  daysLeft,
+  date,
+}: {
+  daysLeft: number | null;
+  date: Date | null;
+}) {
   if (!date) return <span className="text-[#9a9a96]">—</span>;
   const level = alarmLevel(daysLeft);
   const fmtd = format(date, "dd/MM/yyyy");
-  if (!level) return <span className="text-base text-[#1a1a1a] whitespace-nowrap">{fmtd}</span>;
-  const textCls = level === "overdue" ? "text-red-600" : level === "critical" ? "text-orange-600" : "text-amber-600";
+  if (!level)
+    return (
+      <span className="text-base text-[#1a1a1a] whitespace-nowrap">{fmtd}</span>
+    );
+  const textCls =
+    level === "overdue"
+      ? "text-red-600"
+      : level === "critical"
+        ? "text-orange-600"
+        : "text-amber-600";
   return (
     <div className="flex flex-col gap-0.5">
-      <span className={`text-base font-medium whitespace-nowrap ${textCls}`}>{fmtd}</span>
-      <AlarmBadge daysLeft={daysLeft} label={level === "overdue" ? "Overdue" : "Due"} />
+      <span className={`text-base font-medium whitespace-nowrap ${textCls}`}>
+        {fmtd}
+      </span>
+      <AlarmBadge
+        daysLeft={daysLeft}
+        label={level === "overdue" ? "Overdue" : "Due"}
+      />
     </div>
   );
 }
@@ -292,7 +485,8 @@ function FilterDatePicker({
   placeholder: string;
   onChange: (v: string) => void;
 }) {
-  const parsed = value && isValid(parseISO(value)) ? parseISO(value) : undefined;
+  const parsed =
+    value && isValid(parseISO(value)) ? parseISO(value) : undefined;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -343,7 +537,9 @@ const ProvisionalAttachmentComponent = () => {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
-  const [dialogDraft, setDialogDraft] = useState<Partial<ProvisionalAttachmentRecord>>({});
+  const [dialogDraft, setDialogDraft] = useState<
+    Partial<ProvisionalAttachmentRecord>
+  >({});
 
   // ── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -354,11 +550,20 @@ const ProvisionalAttachmentComponent = () => {
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
-        supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
+        supabase
+          .from("votum_users")
+          .select("dggi_role")
+          .eq("id", uid!)
+          .single(),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
 
       const [cases, , usersRes] = await Promise.all([
         fetchCaseOptions(supabase, wid),
@@ -372,7 +577,12 @@ const ProvisionalAttachmentComponent = () => {
     init();
   }, []);
 
-  const fetchRecords = async (wid: string, role?: string, groups?: string[], uid?: string) => {
+  const fetchRecords = async (
+    wid: string,
+    role?: string,
+    groups?: string[],
+    uid?: string,
+  ) => {
     let query = supabase
       .from("dggi_provisional_attachment_records")
       .select("*")
@@ -409,7 +619,11 @@ const ProvisionalAttachmentComponent = () => {
         map.set(row.gstin_pan, row.scn_no);
       }
       if (row.scn_no) {
-        opts.push({ scn_no: row.scn_no, date_of_scn: row.date_of_scn ?? "", noticee_name: row.noticee_name ?? "" });
+        opts.push({
+          scn_no: row.scn_no,
+          date_of_scn: row.date_of_scn ?? "",
+          noticee_name: row.noticee_name ?? "",
+        });
       }
     }
     setScnByGstin(map);
@@ -428,17 +642,36 @@ const ProvisionalAttachmentComponent = () => {
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const hit = [r.person_name, r.gstin_pan, r.entity_gstin, r.issue_involved, r.group_sio].some(
-          (v) => v?.toLowerCase().includes(q),
-        );
+        const hit = [
+          r.person_name,
+          r.gstin_pan,
+          r.entity_gstin,
+          r.issue_involved,
+          r.group_sio,
+        ].some((v) => v?.toLowerCase().includes(q));
         if (!hit) return false;
       }
-      if (filters.dateFrom && r.date_of_attachment && r.date_of_attachment < filters.dateFrom) return false;
-      if (filters.dateTo && r.date_of_attachment && r.date_of_attachment > filters.dateTo) return false;
+      if (
+        filters.dateFrom &&
+        r.date_of_attachment &&
+        r.date_of_attachment < filters.dateFrom
+      )
+        return false;
+      if (
+        filters.dateTo &&
+        r.date_of_attachment &&
+        r.date_of_attachment > filters.dateTo
+      )
+        return false;
       if (filters.alarmOnly) {
-        const { daysToExpiry, daysToScnDue } = computedDates(r.date_of_attachment, r.date_of_scn_issuance, r.date_of_release);
+        const { daysToExpiry, daysToScnDue } = computedDates(
+          r.date_of_attachment,
+          r.date_of_scn_issuance,
+          r.date_of_release,
+        );
         const hasAlarm =
-          alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+          alarmLevel(daysToExpiry) !== null ||
+          alarmLevel(daysToScnDue) !== null;
         if (!hasAlarm) return false;
       }
       return true;
@@ -453,8 +686,14 @@ const ProvisionalAttachmentComponent = () => {
 
   // Count records with active alarms for the badge
   const alarmCount = records.filter((r) => {
-    const { daysToExpiry, daysToScnDue } = computedDates(r.date_of_attachment, r.date_of_scn_issuance, r.date_of_release);
-    return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+    const { daysToExpiry, daysToScnDue } = computedDates(
+      r.date_of_attachment,
+      r.date_of_scn_issuance,
+      r.date_of_release,
+    );
+    return (
+      alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null
+    );
   }).length;
 
   // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -470,7 +709,9 @@ const ProvisionalAttachmentComponent = () => {
       toast.error("Failed to save: " + error.message);
     } else {
       setRecords((prev) =>
-        prev.map((r) => (r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)),
+        prev.map((r) =>
+          r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r,
+        ),
       );
       toast.success("Record saved");
       setDialogOpen(false);
@@ -484,7 +725,10 @@ const ProvisionalAttachmentComponent = () => {
     setRecords((prev) => prev.filter((r) => r.id !== id));
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_provisional_attachment_records").delete().eq("id", id);
+      const { error } = await supabase
+        .from("dggi_provisional_attachment_records")
+        .delete()
+        .eq("id", id);
       if (error) {
         setRecords((prev) => [...prev, record]);
         toast.error("Delete failed: " + error.message);
@@ -494,7 +738,11 @@ const ProvisionalAttachmentComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setRecords((prev) => [...prev, record]);
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -509,7 +757,16 @@ const ProvisionalAttachmentComponent = () => {
     setSavingRow(true);
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .insert({ ...sanitizeForDb(dialogDraft), record_id: await generateWorkspaceRecordId(supabase, "dggi_provisional_attachment_records", RECORD_PREFIX, workspaceId), workspace_id: workspaceId })
+      .insert({
+        ...sanitizeForDb(dialogDraft),
+        record_id: await generateWorkspaceRecordId(
+          supabase,
+          "dggi_provisional_attachment_records",
+          RECORD_PREFIX,
+          workspaceId,
+        ),
+        workspace_id: workspaceId,
+      })
       .select()
       .single();
     if (error) {
@@ -535,24 +792,40 @@ const ProvisionalAttachmentComponent = () => {
     setFilters((prev) => ({ ...prev, [key]: val }));
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "Provisional_Attachment", (msg) => toast.success(msg));
+    exportRegisterToExcel(
+      tableRecords,
+      COLUMNS,
+      "Provisional_Attachment",
+      (msg) => toast.success(msg),
+    );
   };
 
   // ── Row renderer ──────────────────────────────────────────────────────────────
 
-  const renderCell = (value: string, colKey: string, type: RegisterColumn["type"], record: ProvisionalAttachmentRecord) => {
+  const renderCell = (
+    value: string,
+    colKey: string,
+    type: RegisterColumn["type"],
+    record: ProvisionalAttachmentRecord,
+  ) => {
     // Special display for linked_scn_no: show auto-detected or manually-entered SCN
     if (colKey === "linked_scn_no") {
-      const autoScn = record.gstin_pan ? (scnByGstin.get(record.gstin_pan) ?? null) : null;
+      const autoScn = record.gstin_pan
+        ? (scnByGstin.get(record.gstin_pan) ?? null)
+        : null;
       const displayLinkedScn = record.linked_scn_no || autoScn;
       return (
         <div className="flex flex-col gap-0.5">
           {displayLinkedScn ? (
             <div className="flex items-center gap-1">
               <Link2 size={11} className="text-[#4A5FD4] shrink-0" />
-              <span className="text-base text-[#4A5FD4] font-medium">{displayLinkedScn}</span>
+              <span className="text-base text-[#4A5FD4] font-medium">
+                {displayLinkedScn}
+              </span>
               {autoScn && !record.linked_scn_no && (
-                <span className="text-[10px] text-[#9a9a96] bg-[#F3F2EF] rounded px-1">auto</span>
+                <span className="text-[10px] text-[#9a9a96] bg-[#F3F2EF] rounded px-1">
+                  auto
+                </span>
               )}
             </div>
           ) : (
@@ -561,9 +834,23 @@ const ProvisionalAttachmentComponent = () => {
         </div>
       );
     }
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
-    if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
-    if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
+    if (type === "usercombobox")
+      return (
+        <span>
+          {workspaceUsers.find((u) => u.id === value)?.name || value || "—"}
+        </span>
+      );
+    if (type === "caselink")
+      return (
+        <CaseIdCombobox
+          value={value}
+          onChange={() => {}}
+          cases={caseOptions}
+          editing={false}
+        />
+      );
+    if (type === "datepicker")
+      return <span className="whitespace-nowrap">{fmt(value)}</span>;
     return <span>{value || "—"}</span>;
   };
 
@@ -588,7 +875,8 @@ const ProvisionalAttachmentComponent = () => {
                 Provisional Attachment Register
               </h1>
               <p className="text-base text-[#9a9a96]">
-                {tableRecords.length} record{tableRecords.length !== 1 ? "s" : ""}
+                {tableRecords.length} record
+                {tableRecords.length !== 1 ? "s" : ""}
                 {alarmCount > 0 && (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
                     <AlertTriangle size={10} />
@@ -598,7 +886,16 @@ const ProvisionalAttachmentComponent = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleExport} disabled={tableRecords.length === 0}><Download size={15} className="mr-1" />Export to Excel</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
+                onClick={handleExport}
+                disabled={tableRecords.length === 0}
+              >
+                <Download size={15} className="mr-1" />
+                Export to Excel
+              </Button>
               <Button
                 size="sm"
                 className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
@@ -625,7 +922,10 @@ const ProvisionalAttachmentComponent = () => {
 
             {/* Search */}
             <div className="relative flex items-center">
-              <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
+              <Search
+                size={13}
+                className="absolute left-3 text-[#9a9a96] pointer-events-none"
+              />
               <Input
                 value={filters.search}
                 onChange={(e) => setFilter("search", e.target.value)}
@@ -644,7 +944,9 @@ const ProvisionalAttachmentComponent = () => {
 
             {/* Date of Attachment range */}
             <div className="flex items-center gap-1">
-              <span className="text-base text-[#9a9a96] shrink-0">Attachment:</span>
+              <span className="text-base text-[#9a9a96] shrink-0">
+                Attachment:
+              </span>
               <FilterDatePicker
                 value={filters.dateFrom}
                 placeholder="From"
@@ -681,7 +983,9 @@ const ProvisionalAttachmentComponent = () => {
               <AlertTriangle size={12} />
               Alarms only
               {alarmCount > 0 && (
-                <span className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${filters.alarmOnly ? "bg-red-200 text-red-700" : "bg-[#6b6b6b] text-white"}`}>
+                <span
+                  className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${filters.alarmOnly ? "bg-red-200 text-red-700" : "bg-[#6b6b6b] text-white"}`}
+                >
                   {alarmCount}
                 </span>
               )}
@@ -731,14 +1035,18 @@ const ProvisionalAttachmentComponent = () => {
                     <span className="flex items-center gap-1">
                       <Clock size={12} className="text-amber-500" />
                       SCN Due Date
-                      <span className="text-[10px] font-normal text-[#9a9a96]">(9mo)</span>
+                      <span className="text-[10px] font-normal text-[#9a9a96]">
+                        (9mo)
+                      </span>
                     </span>
                   </TableHead>
                   <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap min-w-[160px]">
                     <span className="flex items-center gap-1">
                       <AlertTriangle size={12} className="text-orange-500" />
                       Expiry Date
-                      <span className="text-[10px] font-normal text-[#9a9a96]">(1yr)</span>
+                      <span className="text-[10px] font-normal text-[#9a9a96]">
+                        (1yr)
+                      </span>
                     </span>
                   </TableHead>
                   <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
@@ -749,7 +1057,12 @@ const ProvisionalAttachmentComponent = () => {
 
               <TableBody>
                 {tableRecords.map((record) => {
-                  const { expiryDate, scnDueDate, daysToExpiry, daysToScnDue } = computedDates(record.date_of_attachment ?? "", record.date_of_scn_issuance, record.date_of_release);
+                  const { expiryDate, scnDueDate, daysToExpiry, daysToScnDue } =
+                    computedDates(
+                      record.date_of_attachment ?? "",
+                      record.date_of_scn_issuance,
+                      record.date_of_release,
+                    );
                   return (
                     <TableRow
                       key={record.id}
@@ -757,19 +1070,33 @@ const ProvisionalAttachmentComponent = () => {
                       className="border-b border-[#EDEDEA] text-base hover:bg-white"
                     >
                       {COLUMNS.map((col) => (
-                        <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                          {renderCell((record as any)[col.key] ?? "", col.key, col.type, record)}
+                        <TableCell
+                          key={col.key}
+                          className="px-3 py-2 text-[#1a1a1a]"
+                        >
+                          {renderCell(
+                            (record as any)[col.key] ?? "",
+                            col.key,
+                            col.type,
+                            record,
+                          )}
                         </TableCell>
                       ))}
 
                       {/* Computed: SCN Due Date (9 months) */}
                       <TableCell className="px-3 py-2">
-                        <DateComputedCell daysLeft={daysToScnDue} date={scnDueDate} />
+                        <DateComputedCell
+                          daysLeft={daysToScnDue}
+                          date={scnDueDate}
+                        />
                       </TableCell>
 
                       {/* Computed: Expiry Date (1 year) */}
                       <TableCell className="px-3 py-2">
-                        <DateComputedCell daysLeft={daysToExpiry} date={expiryDate} />
+                        <DateComputedCell
+                          daysLeft={daysToExpiry}
+                          date={expiryDate}
+                        />
                       </TableCell>
 
                       <TableCell className="px-3 py-2">
@@ -778,7 +1105,11 @@ const ProvisionalAttachmentComponent = () => {
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
-                            onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}
+                            onClick={() => {
+                              setDialogMode("edit");
+                              setDialogDraft({ ...record });
+                              setDialogOpen(true);
+                            }}
                           >
                             <Pencil size={13} />
                           </Button>
@@ -794,9 +1125,12 @@ const ProvisionalAttachmentComponent = () => {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Delete attachment record?</AlertDialogTitle>
+                                <AlertDialogTitle>
+                                  Delete attachment record?
+                                </AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently delete {record.record_id} and cannot be undone.
+                                  This will permanently delete{" "}
+                                  {record.record_id} and cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -853,8 +1187,10 @@ const ProvisionalAttachmentComponent = () => {
               const caseRow = caseOptions.find((c) => c.record_id === v);
               if (caseRow) {
                 if (!prev.gstin_pan) next.gstin_pan = caseRow.gstins ?? "";
-                if (!prev.entity_gstin) next.entity_gstin = caseRow.gstins ?? "";
-                if (!prev.group_sio) next.group_sio = caseRow.handling_io_sio ?? "";
+                if (!prev.entity_gstin)
+                  next.entity_gstin = caseRow.gstins ?? "";
+                if (!prev.group_sio)
+                  next.group_sio = caseRow.handling_io_sio ?? "";
                 if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
                 if (!prev.group) next.group = caseRow.group ?? "";
               }
@@ -862,7 +1198,9 @@ const ProvisionalAttachmentComponent = () => {
             return next;
           });
         }}
-        onMultiDraftChange={(patches) => setDialogDraft((prev) => ({ ...prev, ...patches }))}
+        onMultiDraftChange={(patches) =>
+          setDialogDraft((prev) => ({ ...prev, ...patches }))
+        }
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}

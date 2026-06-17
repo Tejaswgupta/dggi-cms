@@ -435,7 +435,21 @@ const ProsecutionRegisterComponent = () => {
         mode={arrestDialogMode}
         columns={ARREST_COLS}
         draft={arrestDialogDraft as Record<string, string>}
-        onDraftChange={(k, v) => setArrestDialogDraft((prev) => ({ ...prev, [k]: v }))}
+        onDraftChange={(k, v) => {
+          setArrestDialogDraft((prev) => {
+            const next = { ...prev, [k]: v };
+            if (k === "linked_case_id" && arrestDialogMode === "add") {
+              const caseRow = caseOptions.find((c) => c.record_id === v);
+              if (caseRow) {
+                if (!prev.entity_name) next.entity_name = caseRow.taxpayer_name ?? "";
+                if (!prev.gstin) next.gstin = caseRow.gstins ?? "";
+                if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
+                if (!prev.group) next.group = caseRow.group ?? "";
+              }
+            }
+            return next;
+          });
+        }}
         onSave={arrestDialogMode === "add" ? saveArrestNew : saveArrestEdit}
         saving={arrestSaving}
         caseOptions={caseOptions}
@@ -448,7 +462,19 @@ const ProsecutionRegisterComponent = () => {
         mode={nonArrestDialogMode}
         columns={NON_ARREST_COLS}
         draft={nonArrestDialogDraft as Record<string, string>}
-        onDraftChange={(k, v) => setNonArrestDialogDraft((prev) => ({ ...prev, [k]: v }))}
+        onDraftChange={(k, v) => {
+          setNonArrestDialogDraft((prev) => {
+            const next = { ...prev, [k]: v };
+            if (k === "linked_case_id" && nonArrestDialogMode === "add") {
+              const caseRow = caseOptions.find((c) => c.record_id === v);
+              if (caseRow) {
+                if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
+                if (!prev.group) next.group = caseRow.group ?? "";
+              }
+            }
+            return next;
+          });
+        }}
         onSave={nonArrestDialogMode === "add" ? saveNonArrestNew : saveNonArrestEdit}
         saving={nonArrestSaving}
         caseOptions={caseOptions}
