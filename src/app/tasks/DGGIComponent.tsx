@@ -197,7 +197,10 @@ const IR_CLOSURE_OPTIONS = [
 ];
 const NON_IR_CLOSURE_OPTIONS = ["Closed", "Transferred", "Convert to IR"];
 const CLOSURE_NEEDS_REASON = new Set([
-  "Closed", "On Merit", "Closed After Payment of Tax", "Show Cause Notice",
+  "Closed",
+  "On Merit",
+  "Closed After Payment of Tax",
+  "Show Cause Notice",
 ]);
 const SOURCE_OPTIONS = ["Int", "Group", "STR"];
 const DUE_DATE_YEAR_OPTIONS = ["2026", "2027", "2028"];
@@ -519,7 +522,12 @@ const NON_IR_COLUMNS: ColDef[] = [
     type: "usercombobox",
     width: "170px",
   },
-  // { key: "latest_status", label: "Action Taken", type: "text", width: "160px" },
+  {
+    key: "latest_status",
+    label: "Latest Status",
+    type: "text",
+    width: "160px",
+  },
   {
     key: "pr_adg_comments",
     label: "Pr.ADG Comments",
@@ -2459,7 +2467,10 @@ export function DGGIRecordDialog({
               <label className="text-sm font-medium text-[#6b6b6b]">
                 {col.label}
               </label>
-              {renderField(col, col.key === "pr_adg_comments" && userRole !== "ADG")}
+              {renderField(
+                col,
+                col.key === "pr_adg_comments" && userRole !== "ADG",
+              )}
             </div>
           ))}
         </div>
@@ -2481,7 +2492,10 @@ export function DGGIRecordDialog({
                   <label className="text-sm font-medium text-[#6b6b6b]">
                     {col.label}
                   </label>
-                  {renderField(col, col.key === "pr_adg_comments" && userRole !== "ADG")}
+                  {renderField(
+                    col,
+                    col.key === "pr_adg_comments" && userRole !== "ADG",
+                  )}
                 </div>
               ))}
               {(draft.closure_by === "Transfer To" ||
@@ -2676,7 +2690,12 @@ export function DGGIRecordDialog({
                             col.key as keyof DGGIRecord,
                           ) && <span className="text-[#C0432A] ml-0.5">*</span>}
                         </label>
-                        {renderField(col, !unlocked || (col.key === "pr_adg_comments" && userRole !== "ADG"))}
+                        {renderField(
+                          col,
+                          !unlocked ||
+                            (col.key === "pr_adg_comments" &&
+                              userRole !== "ADG"),
+                        )}
                       </div>
                     ))}
                     {stage.label === "Closure" &&
@@ -2812,8 +2831,11 @@ const DGGIComponent = () => {
   const [dialogEditingId, setDialogEditingId] = useState<string | null>(null);
   const [savingRow, setSavingRow] = useState(false);
   // When converting NON-IR → IR, hold the source record's id and draft until the new IR record is saved.
-  const [pendingConvertSourceId, setPendingConvertSourceId] = useState<string | null>(null);
-  const [pendingConvertDraft, setPendingConvertDraft] = useState<Partial<DGGIRecord> | null>(null);
+  const [pendingConvertSourceId, setPendingConvertSourceId] = useState<
+    string | null
+  >(null);
+  const [pendingConvertDraft, setPendingConvertDraft] =
+    useState<Partial<DGGIRecord> | null>(null);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [intelDialogOpen, setIntelDialogOpen] = useState(false);
@@ -3307,19 +3329,23 @@ const DGGIComponent = () => {
           ...sourceDraft,
           handling_io_sio: sourceDraft.handling_io_sio || null,
           handling_io_sio_name:
-            workspaceUsers.find((u) => u.id === sourceDraft.handling_io_sio)?.name || null,
+            workspaceUsers.find((u) => u.id === sourceDraft.handling_io_sio)
+              ?.name || null,
           mode_of_initiation: sourceDraft.mode_of_initiation || null,
           date_of_receipt: sourceDraft.date_of_receipt || null,
           date_of_initiation: sourceDraft.date_of_initiation || null,
           intel_approved_date: sourceDraft.intel_approved_date || null,
-          intelligence_action_date: sourceDraft.intelligence_action_date || null,
+          intelligence_action_date:
+            sourceDraft.intelligence_action_date || null,
           due_date: sourceDraft.due_date || null,
           date_of_non_ir: sourceDraft.date_of_non_ir || null,
         })
         .eq("id", sourceDbId);
 
       if (updateErr) {
-        toast.error("IR created but failed to close the NON-IR: " + updateErr.message);
+        toast.error(
+          "IR created but failed to close the NON-IR: " + updateErr.message,
+        );
       } else {
         setRecords((prev) =>
           prev.map((r) =>
@@ -3328,8 +3354,9 @@ const DGGIComponent = () => {
                   ...r,
                   ...sourceDraft,
                   handling_io_sio_name:
-                    workspaceUsers.find((u) => u.id === sourceDraft.handling_io_sio)?.name ||
-                    r.handling_io_sio_name,
+                    workspaceUsers.find(
+                      (u) => u.id === sourceDraft.handling_io_sio,
+                    )?.name || r.handling_io_sio_name,
                 }
               : r,
           ),
@@ -3359,7 +3386,8 @@ const DGGIComponent = () => {
             date_of_initiation: sourceDraft.date_of_initiation || null,
             intel_approved_date: sourceDraft.intel_approved_date || null,
             mode_of_initiation: sourceDraft.mode_of_initiation || null,
-            intelligence_action_date: sourceDraft.intelligence_action_date || null,
+            intelligence_action_date:
+              sourceDraft.intelligence_action_date || null,
             handling_io_sio: sourceDraft.handling_io_sio || null,
             issue_involved: sourceDraft.issue_involved || null,
             latest_status: sourceDraft.latest_status || null,
@@ -3379,9 +3407,14 @@ const DGGIComponent = () => {
             converted_from_non_ir: sourceDraft.converted_from_non_ir || null,
           });
         if (closureErr) {
-          toast.error("IR created, NON-IR closed, but failed to write closure entry: " + closureErr.message);
+          toast.error(
+            "IR created, NON-IR closed, but failed to write closure entry: " +
+              closureErr.message,
+          );
         } else {
-          toast.success(`IR record created and NON-IR ${sourceDraft.record_id} closed.`);
+          toast.success(
+            `IR record created and NON-IR ${sourceDraft.record_id} closed.`,
+          );
         }
       }
     } else {
@@ -4329,7 +4362,7 @@ const DGGIComponent = () => {
         </div>
 
         {/* ── Group filter cards ──────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="flex flex-wrap gap-3">
           {GROUPS.map((name) => {
             const count = records.filter(
               (r) =>
@@ -4337,6 +4370,7 @@ const DGGIComponent = () => {
                 !r.closure_by &&
                 (topFilter === "ir" ? r.is_ir : !r.is_ir),
             ).length;
+            if (count === 0) return null;
             return (
               <GroupCard
                 key={name}

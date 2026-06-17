@@ -13,6 +13,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import {
@@ -357,6 +371,205 @@ function FilterDatePicker({
   );
 }
 
+// ─── Add Arrest Dialog ────────────────────────────────────────────────────────
+
+type PersonDraft = Omit<typeof EMPTY_RECORD, "record_id" | "arrest_batch_id" | "linked_case_id" | "date_of_arrest" | "financial_year" | "party_name" | "unit_gstin" | "amount_crore" | "sio" | "group">;
+
+const EMPTY_PERSON = (): Record<string, string> => ({
+  arrested_name: "",
+  arrested_designation: "",
+  arrested_age: "",
+  role_evidence: "",
+  relative_name: "",
+  relative_address: "",
+  relative_tel: "",
+  prosecution_filed: "",
+});
+
+const BATCH_COLUMNS = COLUMNS.filter((c) => BATCH_FIELDS.has(c.key as keyof ArrestRecord) && c.key !== "arrest_batch_id");
+const PERSON_COLUMNS = COLUMNS.filter((c) => PERSON_FIELDS.has(c.key as keyof ArrestRecord));
+
+function AddArrestDialog({
+  open,
+  onOpenChange,
+  onSave,
+  saving,
+  caseOptions,
+  users,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSave: (batch: Record<string, string>, persons: Record<string, string>[]) => void;
+  saving: boolean;
+  caseOptions: DGGICaseOption[];
+  users: WorkspaceUser[];
+}) {
+  const [batch, setBatch] = useState<Record<string, string>>({
+    linked_case_id: "",
+    date_of_arrest: format(new Date(), "yyyy-MM-dd"),
+    financial_year: "",
+    party_name: "",
+    unit_gstin: "",
+    amount_crore: "",
+    sio: "",
+    group: "",
+  });
+  const [persons, setPersons] = useState<Record<string, string>[]>([EMPTY_PERSON()]);
+
+  // Reset when dialog opens
+  const handleOpenChange = (v: boolean) => {
+    if (v) {
+      setBatch({ linked_case_id: "", date_of_arrest: format(new Date(), "yyyy-MM-dd"), financial_year: "", party_name: "", unit_gstin: "", amount_crore: "", sio: "", group: "" });
+      setPersons([EMPTY_PERSON()]);
+    }
+    onOpenChange(v);
+  };
+
+  const setBatchField = (key: string, val: string) => {
+    if (key === "linked_case_id") {
+      const rec = caseOptions.find((c) => c.record_id === val);
+      if (rec) {
+        setBatch((prev) => ({
+          ...prev,
+          linked_case_id: val,
+          financial_year: rec.financial_year || fyFromDate(rec.date_of_initiation ?? rec.date_of_receipt ?? ""),
+          party_name: rec.taxpayer_name || "",
+          unit_gstin: rec.gstins || "",
+          amount_crore: rec.detection_amount ? String(parseFloat(rec.detection_amount) / 10_000_000 || "") : prev.amount_crore,
+          sio: rec.handling_io_sio || prev.sio,
+          group: rec.group || prev.group,
+        }));
+        return;
+      }
+    }
+    setBatch((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const setPersonField = (idx: number, key: string, val: string) => {
+    setPersons((prev) => prev.map((p, i) => i === idx ? { ...p, [key]: val } : p));
+  };
+
+  const renderBatchField = (col: typeof BATCH_COLUMNS[number]) => {
+    const value = batch[col.key] ?? "";
+    if (col.type === "caselink") return <CaseIdCombobox value={value} onChange={(v) => setBatchField(col.key, v)} cases={caseOptions} editing={true} />;
+    if (col.type === "datepicker") return <DateInput value={value} onChange={(v) => setBatchField(col.key, v)} />;
+    if (col.type === "usercombobox") {
+      const selected = users.find((u) => u.id === value);
+      return (
+        <Select value={value} onValueChange={(v) => setBatchField(col.key, v)}>
+          <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
+            <SelectValue placeholder="Select user…">{selected?.name ?? ""}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      );
+    }
+    if (col.type === "select") {
+      return (
+        <Select value={value} onValueChange={(v) => setBatchField(col.key, v)}>
+          <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
+            <SelectValue placeholder="Select…" />
+          </SelectTrigger>
+          <SelectContent>{col.options?.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+        </Select>
+      );
+    }
+    return (
+      <Input value={value} onChange={(e) => {
+        const v = e.target.value;
+        if (col.type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v)) return;
+        setBatchField(col.key, v);
+      }} inputMode={col.type === "number" ? "decimal" : undefined} className="h-9 border-[#EDEDEA] text-base rounded-lg w-full" />
+    );
+  };
+
+  const renderPersonField = (col: typeof PERSON_COLUMNS[number], idx: number) => {
+    const value = persons[idx][col.key] ?? "";
+    if (col.type === "select") {
+      return (
+        <Select value={value} onValueChange={(v) => setPersonField(idx, col.key, v)}>
+          <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
+            <SelectValue placeholder="Select…" />
+          </SelectTrigger>
+          <SelectContent>{col.options?.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+        </Select>
+      );
+    }
+    return (
+      <Input value={value} onChange={(e) => setPersonField(idx, col.key, e.target.value)} className="h-9 border-[#EDEDEA] text-base rounded-lg w-full" />
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[#EDEDEA] shadow-none font-['DM_Sans']">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-medium text-[#1a1a1a]">Add Arrest Record</DialogTitle>
+        </DialogHeader>
+
+        {/* Batch fields */}
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Arrest Details</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+            {BATCH_COLUMNS.map((col) => (
+              <div key={col.key} className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-[#6b6b6b]">{col.label}</label>
+                {renderBatchField(col)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Person forms */}
+        <div className="space-y-3 mt-2">
+          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Arrested Person{persons.length > 1 ? "s" : ""}</p>
+          {persons.map((_, idx) => (
+            <div key={idx} className="rounded-xl border border-[#EDEDEA] px-4 py-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-[#1a1a1a]">Person {idx + 1}</span>
+                {persons.length > 1 && (
+                  <button
+                    onClick={() => setPersons((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-[#9a9a96] hover:text-[#C0432A]"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                {PERSON_COLUMNS.map((col) => (
+                  <div key={col.key} className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-[#6b6b6b]">{col.label}</label>
+                    {renderPersonField(col, idx)}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() => setPersons((prev) => [...prev, EMPTY_PERSON()])}
+            className="flex items-center gap-1.5 text-sm text-[#4A5FD4] hover:text-[#3B4EC5] font-medium"
+          >
+            <Plus size={14} />
+            Add Another Person
+          </button>
+        </div>
+
+        <DialogFooter className="gap-2 pt-2">
+          <Button variant="outline" className="rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none" onClick={() => onSave(batch, persons)} disabled={saving}>
+            {saving ? "Saving…" : persons.length > 1 ? `Add ${persons.length} Persons` : "Add Record"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const ArrestRegisterComponent = () => {
@@ -368,8 +581,9 @@ const ArrestRegisterComponent = () => {
 
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
 
+  const [addOpen, setAddOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"add" | "add-person" | "edit">("add");
+  const [dialogMode, setDialogMode] = useState<"add-person" | "edit">("edit");
   const [dialogDraft, setDialogDraft] = useState<Partial<ArrestRecord>>({});
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
   const [savingRow, setSavingRow] = useState(false);
@@ -507,30 +721,27 @@ const ArrestRegisterComponent = () => {
     );
   };
 
-  const saveNew = async () => {
+  const saveNewBatch = async (batch: Record<string, string>, persons: Record<string, string>[]) => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const [record_id, arrest_batch_id] = await Promise.all([
-      generateWorkspaceRecordId(supabase, "dggi_arrest_records", RECORD_PREFIX, workspaceId),
-      generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARB", workspaceId, { separator: "/" }),
-    ]);
-    const payload = {
-      ...dialogDraft,
-      record_id,
-      arrest_batch_id,
-      workspace_id: workspaceId,
-    };
-    const { data, error } = await supabase
-      .from("dggi_arrest_records")
-      .insert(payload)
-      .select()
-      .single();
+    const arrest_batch_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARB", workspaceId, { separator: "/" });
+    const payloads = await Promise.all(
+      persons.map(async (person) => ({
+        ...batch,
+        ...person,
+        arrest_batch_id,
+        record_id: await generateWorkspaceRecordId(supabase, "dggi_arrest_records", RECORD_PREFIX, workspaceId),
+        workspace_id: workspaceId,
+      }))
+    );
+    const { data, error } = await supabase.from("dggi_arrest_records").insert(payloads).select();
     if (error) {
       toast.error("Failed to add record: " + error.message);
     } else {
-      setRecords((prev) => [...prev, data]);
-      setDialogOpen(false);
-      toast.success("Record added");
+      setRecords((prev) => [...prev, ...(data ?? [])]);
+      setAddOpen(false);
+      if (persons.length > 1) setExpandedBatches((prev) => new Set([...prev, arrest_batch_id]));
+      toast.success(persons.length > 1 ? `${persons.length} persons added` : "Record added");
     }
     setSavingRow(false);
   };
@@ -560,27 +771,7 @@ const ArrestRegisterComponent = () => {
   };
 
   const handleDraftChange = (key: string, val: string) => {
-    // In add-person mode, batch-level fields are locked
     if (dialogMode === "add-person" && BATCH_FIELDS.has(key as keyof ArrestRecord)) return;
-
-    if (key === "linked_case_id" && dialogMode === "add") {
-      const rec = caseOptions.find((c) => c.record_id === val);
-      if (rec) {
-        setDialogDraft((prev) => ({
-          ...prev,
-          linked_case_id: val,
-          financial_year: rec.financial_year || fyFromDate(rec.date_of_initiation ?? rec.date_of_receipt ?? ""),
-          party_name: rec.taxpayer_name || "",
-          unit_gstin: rec.gstins || "",
-          amount_crore: rec.detection_amount
-            ? String(parseFloat(rec.detection_amount) / 10_000_000 || "")
-            : (prev.amount_crore ?? ""),
-          sio: rec.handling_io_sio || prev.sio || "",
-          group: rec.group || prev.group || "",
-        }));
-        return;
-      }
-    }
     setDialogDraft((prev) => ({ ...prev, [key]: val }));
   };
 
@@ -623,10 +814,21 @@ const ArrestRegisterComponent = () => {
     batches[batchIndex.get(bid)!].persons.push(r);
   }
 
-  const renderPersonRow = (record: ArrestRecord, isExpanded: boolean) => (
+  const openAddPerson = (record: ArrestRecord) => {
+    const batchDraft: Partial<ArrestRecord> = {};
+    for (const k of Object.keys(record) as (keyof ArrestRecord)[]) {
+      if (BATCH_FIELDS.has(k)) (batchDraft as any)[k] = (record as any)[k];
+    }
+    for (const k of PERSON_FIELDS) (batchDraft as any)[k] = "";
+    setDialogMode("add-person");
+    setDialogDraft(batchDraft);
+    setDialogOpen(true);
+  };
+
+  const renderPersonRow = (record: ArrestRecord, isSubRow: boolean) => (
     <TableRow
       key={record.id}
-      className={`border-b border-[#EDEDEA] text-base hover:bg-white ${isExpanded ? "bg-[#FAFAF8]" : ""}`}
+      className={`border-b border-[#EDEDEA] text-base hover:bg-white ${isSubRow ? "bg-[#FAFAF8]" : ""}`}
     >
       {COLUMNS.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
@@ -643,6 +845,17 @@ const ArrestRegisterComponent = () => {
       ))}
       <TableCell className="px-3 py-2">
         <div className="flex items-center gap-1">
+          {!isSubRow && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 rounded-lg text-[#4A5FD4] hover:bg-[#EEF0FB]"
+              title="Add another person to this arrest"
+              onClick={() => openAddPerson(record)}
+            >
+              <Plus size={13} />
+            </Button>
+          )}
           <Button
             size="icon"
             variant="ghost"
@@ -730,26 +943,14 @@ const ArrestRegisterComponent = () => {
               size="sm"
               variant="ghost"
               className="h-7 px-2 rounded-lg text-[#4A5FD4] hover:bg-[#EEF0FB] text-xs font-medium"
-              onClick={(e) => {
-                e.stopPropagation();
-                const batchDraft: Partial<ArrestRecord> = {};
-                for (const k of Object.keys(representative) as (keyof ArrestRecord)[]) {
-                  if (BATCH_FIELDS.has(k)) (batchDraft as any)[k] = (representative as any)[k];
-                }
-                // Clear person-level fields
-                for (const k of PERSON_FIELDS) (batchDraft as any)[k] = "";
-                batchDraft.date_of_arrest = representative.date_of_arrest;
-                setDialogMode("add-person");
-                setDialogDraft(batchDraft);
-                setDialogOpen(true);
-              }}
+              onClick={(e) => { e.stopPropagation(); openAddPerson(representative); }}
             >
               <Plus size={12} className="mr-1" />
               Add Person
             </Button>
           </TableCell>
         </TableRow>
-        {/* Person sub-rows */}
+        {/* Person sub-rows — no "Add Person" button on sub-rows */}
         {isExpanded && persons.map((p) => renderPersonRow(p, true))}
       </>
     );
@@ -786,7 +987,7 @@ const ArrestRegisterComponent = () => {
               <Button
                 size="sm"
                 className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
-                onClick={() => { setDialogMode("add"); setDialogDraft({ ...EMPTY_RECORD }); setDialogOpen(true); }}
+                onClick={() => setAddOpen(true)}
               >
                 <Plus size={15} className="mr-1" />
                 Add Record
@@ -927,6 +1128,15 @@ const ArrestRegisterComponent = () => {
         </div>
       </div>
 
+      <AddArrestDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onSave={saveNewBatch}
+        saving={savingRow}
+        caseOptions={caseOptions}
+        users={workspaceUsers}
+      />
+
       <RegisterRecordDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -943,7 +1153,7 @@ const ArrestRegisterComponent = () => {
         }
         draft={dialogDraft as Record<string, string>}
         onDraftChange={handleDraftChange}
-        onSave={dialogMode === "add" ? saveNew : dialogMode === "add-person" ? saveNewPerson : saveEdit}
+        onSave={dialogMode === "add-person" ? saveNewPerson : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
         users={workspaceUsers}

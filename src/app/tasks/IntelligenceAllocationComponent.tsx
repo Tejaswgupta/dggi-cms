@@ -977,7 +977,7 @@ const IntelligenceAllocationComponent = () => {
   ) =>
     records
       .filter((r) => {
-        if (hideClosed && r.action_taken === "Closed") return false;
+        if (hideClosed && String(r.action_taken ?? "").toLowerCase() === "closed") return false;
         if (!search) return true;
         const q = search.toLowerCase();
         return fields.some((f) =>
@@ -1555,6 +1555,7 @@ const IntelligenceAllocationComponent = () => {
               const today = new Date().toISOString().split("T")[0];
               next.date_of_action_taken = today;
               if (v === "Allocated") next.group_allocation_date = today;
+              else next.group_allocation_date = "";
             }
             return next;
           });
@@ -1581,6 +1582,7 @@ const IntelligenceAllocationComponent = () => {
               const today = new Date().toISOString().split("T")[0];
               next.date_of_action_taken = today;
               if (v === "Allocated") next.group_allocation_date = today;
+              else next.group_allocation_date = "";
             }
             return next;
           });
@@ -1607,6 +1609,7 @@ const IntelligenceAllocationComponent = () => {
               const today = new Date().toISOString().split("T")[0];
               next.date_of_action_taken = today;
               if (v === "Allocated") next.group_allocation_date = today;
+              else next.group_allocation_date = "";
             }
             return next;
           });
