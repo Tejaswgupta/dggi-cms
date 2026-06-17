@@ -34,28 +34,23 @@ import {
   Columns2,
   Download,
   Layers,
-  Pencil,
-  Plus,
   Search,
   SlidersHorizontal,
-  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
-import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
+import { exportRegisterToExcel } from "./register-utils";
+import type { RegisterColumn, WorkspaceUser } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const RECORD_PREFIX = REGISTER_PREFIXES.INCIDENT_REPORT;
 const LS_HIDDEN_COLS_KEY = "ir_hidden_columns";
 
-type GroupByField = "group" | "sio";
+type GroupByField = "group" | "handling_io_sio";
 const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
   { value: "group", label: "Group" },
-  { value: "sio", label: "SIO" },
+  { value: "handling_io_sio", label: "SIO" },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -63,62 +58,45 @@ const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
 interface IncidentReportRecord {
   id: string;
   record_id: string;
-  linked_case_id: string;
-  int_no: string;
-  incident_date: string;
-  file_number: string;
-  company_name: string;
+  intel_source: string;
+  date_of_receipt: string;
+  file_no: string;
+  taxpayer_name: string;
   detection_amount: string;
   recovery_itc: string;
   recovery_cash: string;
-  description: string;
+  issue_involved: string;
+  latest_status: string;
+  mode_of_initiation: string;
   group: string;
-  bo_id_no: string;
-  sio: string;
+  bo_id: string;
+  handling_io_sio: string;
   digit_id: string;
-  gstin: string;
+  gstins: string;
+  is_ir: boolean;
 }
 
 type SortDir = "asc" | "desc";
-
-// ─── Empty record ─────────────────────────────────────────────────────────────
-
-const EMPTY_RECORD: Omit<IncidentReportRecord, "id"> = {
-  record_id: "",
-  linked_case_id: "",
-  int_no: "",
-  incident_date: "",
-  file_number: "",
-  company_name: "",
-  detection_amount: "",
-  recovery_itc: "",
-  recovery_cash: "",
-  description: "",
-  group: "",
-  bo_id_no: "",
-  sio: "",
-  digit_id: "",
-  gstin: "",
-};
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const COLUMNS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "int_no", label: "Int. No.", type: "text", width: "140px" },
-  { key: "incident_date", label: "Date", type: "datepicker", width: "130px" },
-  { key: "file_number", label: "File Number", type: "text", width: "140px" },
-  { key: "company_name", label: "Trade Name", type: "text", width: "180px" },
+  { key: "intel_source", label: "Intel Source", type: "text", width: "140px" },
+  { key: "date_of_receipt", label: "Date", type: "datepicker", width: "130px" },
+  { key: "file_no", label: "File No.", type: "text", width: "140px" },
+  { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
   { key: "detection_amount", label: "Detection (₹)", type: "number", width: "150px" },
   { key: "recovery_itc", label: "Recovery ITC (₹)", type: "number", width: "160px" },
   { key: "recovery_cash", label: "Recovery Cash (₹)", type: "number", width: "160px" },
-  { key: "description", label: "Description", type: "text", width: "220px" },
+  { key: "issue_involved", label: "Issue Involved", type: "text", width: "220px" },
+  { key: "latest_status", label: "Status", type: "text", width: "180px" },
+  { key: "mode_of_initiation", label: "Mode", type: "text", width: "140px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
-  { key: "bo_id_no", label: "BO ID No.", type: "text", width: "130px" },
+  { key: "bo_id", label: "BO ID", type: "text", width: "130px" },
   { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
-  { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
-  { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
+  { key: "gstins", label: "GSTIN(s)", type: "text", width: "160px" },
+  { key: "handling_io_sio", label: "SIO", type: "usercombobox", width: "160px" },
 ];
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -134,8 +112,6 @@ const IncidentReportComponent = () => {
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
-
-  const [savingRow, setSavingRow] = useState(false);
 
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -155,15 +131,10 @@ const IncidentReportComponent = () => {
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
-  const [dialogDraft, setDialogDraft] = useState<Partial<IncidentReportRecord>>({});
-
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
-  const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
 
   const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
-  const totalCols = visibleColumns.length + 1;
+  const totalCols = visibleColumns.length;
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -197,13 +168,11 @@ const IncidentReportComponent = () => {
       setUserRole(role);
       setUserGroups(groups);
 
-      const [, usersRes, cases] = await Promise.all([
+      const [, usersRes] = await Promise.all([
         fetchRecords(wid, role, groups, uid),
         getAllUsers(),
-        fetchCaseOptions(supabase, wid),
       ]);
       if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
-      setCaseOptions(cases);
       setLoading(false);
     };
     init();
@@ -216,13 +185,14 @@ const IncidentReportComponent = () => {
     uid?: string,
   ) => {
     let query = supabase
-      .from("dggi_incident_report_records")
+      .from("dggi_records")
       .select("*")
-      .eq("workspace_id", wid);
+      .eq("workspace_id", wid)
+      .eq("is_ir", true);
 
     if (role && role !== "ADG" && role !== "DD_INT") {
       if (role === "IO" || role === "SIO") {
-        query = query.eq("sio", uid ?? "__none__");
+        query = query.eq("handling_io_sio", uid ?? "__none__");
       } else if (groups && groups.length > 0) {
         query = query.in("group", groups);
       } else {
@@ -245,7 +215,7 @@ const IncidentReportComponent = () => {
       if (groupFilter && r.group !== groupFilter) return false;
       if (!search) return true;
       const q = search.toLowerCase();
-      return [r.company_name, r.file_number, r.bo_id_no, r.group, r.int_no, r.gstin].some(
+      return [r.taxpayer_name, r.file_no, r.bo_id, r.group, r.intel_source, r.gstins].some(
         (v) => v?.toLowerCase().includes(q),
       );
     })
@@ -274,7 +244,7 @@ const IncidentReportComponent = () => {
             .map(([key, rows]) => ({
               key,
               label:
-                groupBy === "sio"
+                groupBy === "handling_io_sio"
                   ? workspaceUsers.find((u) => u.id === key)?.name || key || "—"
                   : key || "—",
               rows,
@@ -287,105 +257,6 @@ const IncidentReportComponent = () => {
       next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
-  };
-
-  // ── CRUD ───────────────────────────────────────────────────────────────────
-
-  const saveEdit = async () => {
-    if (!dialogDraft.id) return;
-    setSavingRow(true);
-    const { error } = await supabase
-      .from("dggi_incident_report_records")
-      .update({ ...dialogDraft })
-      .eq("id", dialogDraft.id);
-    if (error) {
-      toast.error("Failed to save: " + error.message);
-    } else {
-      setRecords((prev) =>
-        prev.map((r) => (r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)),
-      );
-      toast.success("Record saved");
-      const savedInt = ((dialogDraft.int_no as string) ?? "").trim();
-      if (savedInt) {
-        await supabase
-          .from("dggi_intel_rapid_records")
-          .update({ ir_date: new Date().toISOString().split("T")[0] })
-          .eq("rapid_id", savedInt)
-          .eq("workspace_id", workspaceId)
-          .is("ir_date", null);
-      }
-      setDialogOpen(false);
-    }
-    setSavingRow(false);
-  };
-
-  const deleteRecord = (id: string) => {
-    const record = records.find((r) => r.id === id);
-    if (!record) return;
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    let toastId: ReturnType<typeof toast.info>;
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase
-        .from("dggi_incident_report_records")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setRecords((prev) => [...prev, record]);
-        toast.error("Delete failed: " + error.message);
-      }
-    }, 5000);
-    toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id} deleted</span>
-        <button
-          onClick={() => {
-            clearTimeout(timerId);
-            setRecords((prev) => [...prev, record]);
-            toast.dismiss(toastId);
-          }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
-      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
-    );
-  };
-
-  const saveNew = async () => {
-    if (!workspaceId) return;
-    setSavingRow(true);
-    const { data, error } = await supabase
-      .from("dggi_incident_report_records")
-      .insert({
-        ...dialogDraft,
-        record_id: await generateWorkspaceRecordId(
-          supabase,
-          "dggi_incident_report_records",
-          RECORD_PREFIX,
-          workspaceId,
-        ),
-        workspace_id: workspaceId,
-      })
-      .select()
-      .single();
-    if (error) {
-      toast.error("Failed to add record: " + error.message);
-    } else {
-      setRecords((prev) => [...prev, data]);
-      toast.success("Record added");
-      const savedInt = ((dialogDraft.int_no as string) ?? "").trim();
-      if (savedInt) {
-        await supabase
-          .from("dggi_intel_rapid_records")
-          .update({ ir_date: new Date().toISOString().split("T")[0] })
-          .eq("rapid_id", savedInt)
-          .eq("workspace_id", workspaceId)
-          .is("ir_date", null);
-      }
-      setDialogOpen(false);
-    }
-    setSavingRow(false);
   };
 
   const toggleSort = (col: string) => {
@@ -408,8 +279,6 @@ const IncidentReportComponent = () => {
   // ── Row renderer ───────────────────────────────────────────────────────────
 
   const renderCell = (value: string, col: RegisterColumn) => {
-    if (col.type === "caselink")
-      return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (col.type === "usercombobox")
       return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
     return <span>{value || "—"}</span>;
@@ -422,30 +291,6 @@ const IncidentReportComponent = () => {
           {renderCell((record as any)[col.key] ?? "", col)}
         </TableCell>
       ))}
-      <TableCell className="px-3 py-2">
-        <div className="flex items-center gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
-            onClick={() => {
-              setDialogMode("edit");
-              setDialogDraft({ ...record });
-              setDialogOpen(true);
-            }}
-          >
-            <Pencil size={13} />
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-            onClick={() => deleteRecord(record.id)}
-          >
-            <Trash2 size={13} />
-          </Button>
-        </div>
-      </TableCell>
     </TableRow>
   );
 
@@ -549,19 +394,6 @@ const IncidentReportComponent = () => {
                   </div>
                 </PopoverContent>
               </Popover>
-
-              <Button
-                size="sm"
-                className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
-                onClick={() => {
-                  setDialogMode("add");
-                  setDialogDraft({ ...EMPTY_RECORD });
-                  setDialogOpen(true);
-                }}
-              >
-                <Plus size={15} className="mr-1" />
-                Add Record
-              </Button>
             </div>
           </div>
         </div>
@@ -580,7 +412,7 @@ const IncidentReportComponent = () => {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search company, file no., BO ID, GSTIN…"
+                placeholder="Search trade name, file no., BO ID, GSTIN…"
                 className="h-9 pl-8 pr-3 min-w-[300px] border-[#EDEDEA] text-base rounded-lg"
               />
               {search && (
@@ -711,9 +543,6 @@ const IncidentReportComponent = () => {
                       </span>
                     </TableHead>
                   ))}
-                  <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
-                    Actions
-                  </TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -792,19 +621,6 @@ const IncidentReportComponent = () => {
           </div>
         </div>
       </div>
-
-      <RegisterRecordDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        mode={dialogMode}
-        columns={COLUMNS}
-        draft={dialogDraft as Record<string, string>}
-        onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
-        onSave={dialogMode === "add" ? saveNew : saveEdit}
-        saving={savingRow}
-        users={workspaceUsers}
-        caseOptions={caseOptions}
-      />
     </div>
   );
 };
