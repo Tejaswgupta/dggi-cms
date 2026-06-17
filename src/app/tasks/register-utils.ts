@@ -1,5 +1,5 @@
-import { SupabaseClient } from "@supabase/supabase-js";
 import { exportToExcel, type ExcelColumn } from "@/lib/excel-export";
+import { SupabaseClient } from "@supabase/supabase-js";
 import type { DGGICaseOption } from "./CaseIdCombobox";
 
 export const REGISTER_PREFIXES = {
@@ -42,7 +42,10 @@ export const generateWorkspaceRecordId = async (
   table: string,
   prefix: string,
   workspaceId: string,
-  options?: { filter?: Record<string, string | number | boolean | null>; separator?: string },
+  options?: {
+    filter?: Record<string, string | number | boolean | null>;
+    separator?: string;
+  },
 ): Promise<string> => {
   const sep = options?.separator ?? "/";
   let query = supabase
@@ -69,11 +72,15 @@ export const fetchCaseOptions = async (
 ): Promise<DGGICaseOption[]> => {
   const { data, error } = await supabase
     .from("dggi_records")
-    .select("record_id, taxpayer_name, file_no, is_ir, handling_io_sio, group, detection_amount, date_of_initiation, date_of_receipt, gstins, closure_by")
+    .select(
+      "record_id, taxpayer_name, file_no, is_ir, handling_io_sio, group, detection_amount, date_of_initiation, date_of_receipt, gstins, closure_by",
+    )
     .eq("workspace_id", workspaceId)
     .not("record_id", "is", null)
-    .is("closure_by", null)
+    .not("closure_by", "is", null)
     .order("record_id");
+
+  console.log("fetchCaseOptions data:", data, "error:", error);
   if (error) {
     console.error("fetchCaseOptions error:", error);
     return [];
@@ -96,7 +103,7 @@ export const exportRegisterToExcel = <T extends Record<string, any>>(
     type?: "text" | "datepicker" | "date" | "number" | "select" | string;
   }>,
   registerName: string,
-  toast?: (message: string) => void
+  toast?: (message: string) => void,
 ) => {
   const excelColumns: ExcelColumn<T>[] = columns.map((col) => ({
     key: col.key as keyof T,
@@ -112,7 +119,7 @@ export const exportRegisterToExcel = <T extends Record<string, any>>(
 
   if (toast) {
     toast(
-      `Exported ${records.length} record${records.length !== 1 ? "s" : ""} to Excel`
+      `Exported ${records.length} record${records.length !== 1 ? "s" : ""} to Excel`,
     );
   }
 };

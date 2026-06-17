@@ -2228,6 +2228,19 @@ export function DGGIRecordDialog({
   onDeleteSCN,
   userRole = "",
 }: DGGIRecordDialogProps) {
+  const FROZEN_ON_EDIT = new Set<keyof DGGIRecord>([
+    "group",
+    "intel_source",
+    "taxpayer_name",
+    "gstins",
+    "file_no",
+    "mode_of_initiation",
+    "intelligence_action_date",
+    "handling_io_sio",
+    "issue_involved",
+    "pr_adg_comments",
+  ]);
+
   const isIr = draft.is_ir ?? true;
   const formColumns = isIr ? COLUMNS : NON_IR_COLUMNS;
   const editableColumns = formColumns.filter(
@@ -2464,7 +2477,8 @@ export function DGGIRecordDialog({
               </label>
               {renderField(
                 col,
-                col.key === "pr_adg_comments" && userRole !== "ADG",
+                (mode === "edit" && FROZEN_ON_EDIT.has(col.key as keyof DGGIRecord)) ||
+                  (col.key === "pr_adg_comments" && userRole !== "ADG"),
               )}
             </div>
           ))}
@@ -2688,6 +2702,7 @@ export function DGGIRecordDialog({
                         {renderField(
                           col,
                           !unlocked ||
+                            (mode === "edit" && FROZEN_ON_EDIT.has(col.key as keyof DGGIRecord)) ||
                             (col.key === "pr_adg_comments" &&
                               userRole !== "ADG"),
                         )}
@@ -3029,15 +3044,14 @@ const DGGIComponent = () => {
       return true;
     })
     .sort((a, b) => {
-      const todayStr = format(new Date(), "yyyy-MM-dd");
-      const aOverdue = a.due_date && a.due_date < todayStr ? 0 : 1;
-      const bOverdue = b.due_date && b.due_date < todayStr ? 0 : 1;
-      if (aOverdue !== bOverdue) return aOverdue - bOverdue;
-      if (!sortCol) return 0;
-      const av = (a as any)[sortCol] ?? "";
-      const bv = (b as any)[sortCol] ?? "";
-      const cmp = String(av).localeCompare(String(bv));
-      return sortDir === "asc" ? cmp : -cmp;
+      if (sortCol) {
+        const av = (a as any)[sortCol] ?? "";
+        const bv = (b as any)[sortCol] ?? "";
+        const cmp = String(av).localeCompare(String(bv));
+        return sortDir === "asc" ? cmp : -cmp;
+      }
+      const numOf = (id: string) => parseInt(id.replace(/^.*-/, ""), 10) || 0;
+      return numOf(a.record_id) - numOf(b.record_id);
     });
 
   // ── Grouped buckets (only when groupBy is active) ──────────────────────────

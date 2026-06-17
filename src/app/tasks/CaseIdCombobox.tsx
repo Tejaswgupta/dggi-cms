@@ -77,7 +77,14 @@ export function CaseIdCombobox({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={true}>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery("");
+      }}
+      modal={true}
+    >
       <PopoverTrigger asChild>
         <button className="flex h-8 w-[180px] items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate">
           <span className="truncate">
@@ -105,9 +112,11 @@ export function CaseIdCombobox({
             className="text-base"
           />
           <CommandList>
-            <CommandEmpty className="py-3 text-center text-base text-[#9a9a96]">
-              No cases found.
-            </CommandEmpty>
+            {filtered.length === 0 && (
+              <p className="py-3 text-center text-base text-[#9a9a96]">
+                No cases found.
+              </p>
+            )}
             <CommandGroup>
               <CommandItem
                 value="__clear__"

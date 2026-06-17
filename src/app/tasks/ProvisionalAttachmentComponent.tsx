@@ -846,7 +846,22 @@ const ProvisionalAttachmentComponent = () => {
         mode={dialogMode}
         columns={COLUMNS}
         draft={dialogDraft as Record<string, string>}
-        onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
+        onDraftChange={(k, v) => {
+          setDialogDraft((prev) => {
+            const next = { ...prev, [k]: v };
+            if (k === "linked_case_id" && dialogMode === "add") {
+              const caseRow = caseOptions.find((c) => c.record_id === v);
+              if (caseRow) {
+                if (!prev.gstin_pan) next.gstin_pan = caseRow.gstins ?? "";
+                if (!prev.entity_gstin) next.entity_gstin = caseRow.gstins ?? "";
+                if (!prev.group_sio) next.group_sio = caseRow.handling_io_sio ?? "";
+                if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
+                if (!prev.group) next.group = caseRow.group ?? "";
+              }
+            }
+            return next;
+          });
+        }}
         onMultiDraftChange={(patches) => setDialogDraft((prev) => ({ ...prev, ...patches }))}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
