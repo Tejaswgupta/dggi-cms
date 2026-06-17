@@ -62,7 +62,7 @@ import { toast } from "react-toastify";
 import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
-import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
+import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ColumnGroup } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -388,6 +388,11 @@ const EMPTY_PERSON = (): Record<string, string> => ({
 
 const BATCH_COLUMNS = COLUMNS.filter((c) => BATCH_FIELDS.has(c.key as keyof ArrestRecord) && c.key !== "arrest_batch_id");
 const PERSON_COLUMNS = COLUMNS.filter((c) => PERSON_FIELDS.has(c.key as keyof ArrestRecord));
+
+const EDIT_COLUMN_GROUPS: ColumnGroup[] = [
+  { label: "Arrest Details", keys: Array.from(BATCH_FIELDS) as string[] },
+  { label: "Arrested Person", keys: Array.from(PERSON_FIELDS) as string[] },
+];
 
 function AddArrestDialog({
   open,
@@ -1151,6 +1156,7 @@ const ArrestRegisterComponent = () => {
             ? COLUMNS.filter((c) => PERSON_FIELDS.has(c.key as keyof ArrestRecord))
             : COLUMNS
         }
+        columnGroups={dialogMode === "edit" ? EDIT_COLUMN_GROUPS : undefined}
         draft={dialogDraft as Record<string, string>}
         onDraftChange={handleDraftChange}
         onSave={dialogMode === "add-person" ? saveNewPerson : saveEdit}

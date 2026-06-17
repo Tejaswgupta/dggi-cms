@@ -55,12 +55,18 @@ export interface RegisterColumn {
   showWhen?: { field: string; values: string[] };
 }
 
+export interface ColumnGroup {
+  label: string;
+  keys: string[];
+}
+
 interface RegisterRecordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: "add" | "add-person" | "edit";
   title?: string;
   columns: RegisterColumn[];
+  columnGroups?: ColumnGroup[];
   draft: Record<string, string>;
   onDraftChange: (key: string, value: string) => void;
   onMultiDraftChange?: (patches: Record<string, string>) => void;
@@ -220,6 +226,7 @@ export function RegisterRecordDialog({
   mode,
   title,
   columns,
+  columnGroups,
   draft,
   onDraftChange,
   onMultiDraftChange,
@@ -347,16 +354,40 @@ export function RegisterRecordDialog({
             {title ?? (mode === "add" ? "Add Record" : mode === "add-person" ? "Add Person to Batch" : "Edit Record")}
           </DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-2">
-          {editableColumns.map((col) => (
-            <div key={col.key} className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#6b6b6b]">
-                {col.dialogLabel ?? col.label}
-              </label>
-              {renderField(col)}
-            </div>
-          ))}
-        </div>
+        {columnGroups ? (
+          <div className="space-y-4 py-2">
+            {columnGroups.map((group) => {
+              const groupCols = editableColumns.filter((c) => group.keys.includes(c.key));
+              if (groupCols.length === 0) return null;
+              return (
+                <div key={group.label} className="space-y-3">
+                  <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">{group.label}</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                    {groupCols.map((col) => (
+                      <div key={col.key} className="flex flex-col gap-1.5">
+                        <label className="text-sm font-medium text-[#6b6b6b]">
+                          {col.dialogLabel ?? col.label}
+                        </label>
+                        {renderField(col)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-2">
+            {editableColumns.map((col) => (
+              <div key={col.key} className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-[#6b6b6b]">
+                  {col.dialogLabel ?? col.label}
+                </label>
+                {renderField(col)}
+              </div>
+            ))}
+          </div>
+        )}
         <DialogFooter className="gap-2 pt-2">
           <Button
             variant="outline"
