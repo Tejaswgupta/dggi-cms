@@ -2234,11 +2234,8 @@ export function DGGIRecordDialog({
     "taxpayer_name",
     "gstins",
     "file_no",
-    "mode_of_initiation",
-    "intelligence_action_date",
     "handling_io_sio",
     "issue_involved",
-    "pr_adg_comments",
   ]);
 
   const isIr = draft.is_ir ?? true;
@@ -2272,9 +2269,18 @@ export function DGGIRecordDialog({
     const value = rawValue ?? "";
 
     if (disabled) {
+      const displayValue =
+        col.type === "usercombobox"
+          ? users.find((u) => u.id === (value as string))?.name ||
+            (col.key === "handling_io_sio"
+              ? (draft as any).handling_io_sio_name
+              : undefined) ||
+            (value as string) ||
+            "—"
+          : (value as string) || "—";
       return (
         <div className="h-9 flex items-center px-3 rounded-lg border border-[#EDEDEA] bg-[#F9F9F8] text-base text-[#9a9a96]">
-          {value || "—"}
+          {displayValue}
         </div>
       );
     }
@@ -2477,7 +2483,8 @@ export function DGGIRecordDialog({
               </label>
               {renderField(
                 col,
-                (mode === "edit" && FROZEN_ON_EDIT.has(col.key as keyof DGGIRecord)) ||
+                (mode === "edit" &&
+                  FROZEN_ON_EDIT.has(col.key as keyof DGGIRecord)) ||
                   (col.key === "pr_adg_comments" && userRole !== "ADG"),
               )}
             </div>
@@ -2543,7 +2550,7 @@ export function DGGIRecordDialog({
         )}
 
         {/* Related Registers section for IR — edit only */}
-        {mode === "edit" && (
+        {/* {mode === "edit" && (
           <div className="rounded-xl border border-[#EDEDEA] overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3 border-b border-[#EDEDEA] bg-white">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#EEF2FF] text-[#4A5FD4] border border-[#4A5FD4] text-xs font-semibold">
@@ -2583,7 +2590,7 @@ export function DGGIRecordDialog({
               />
             </div>
           </div>
-        )}
+        )} */}
       </div>
     );
   };
@@ -2702,7 +2709,10 @@ export function DGGIRecordDialog({
                         {renderField(
                           col,
                           !unlocked ||
-                            (mode === "edit" && FROZEN_ON_EDIT.has(col.key as keyof DGGIRecord)) ||
+                            (mode === "edit" &&
+                              FROZEN_ON_EDIT.has(
+                                col.key as keyof DGGIRecord,
+                              )) ||
                             (col.key === "pr_adg_comments" &&
                               userRole !== "ADG"),
                         )}
@@ -3050,7 +3060,7 @@ const DGGIComponent = () => {
         const cmp = String(av).localeCompare(String(bv));
         return sortDir === "asc" ? cmp : -cmp;
       }
-      const numOf = (id: string) => parseInt(id.replace(/^.*-/, ""), 10) || 0;
+      const numOf = (id: string) => parseInt(id.split("-")[1] ?? "0", 10) || 0;
       return numOf(a.record_id) - numOf(b.record_id);
     });
 

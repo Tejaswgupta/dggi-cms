@@ -59,15 +59,13 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ColumnGroup } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const RECORD_PREFIX = REGISTER_PREFIXES.ARREST;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -729,16 +727,14 @@ const ArrestRegisterComponent = () => {
   const saveNewBatch = async (batch: Record<string, string>, persons: Record<string, string>[]) => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const arrest_batch_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARB", workspaceId, { separator: "/" });
-    const payloads = await Promise.all(
-      persons.map(async (person) => ({
-        ...batch,
-        ...person,
-        arrest_batch_id,
-        record_id: await generateWorkspaceRecordId(supabase, "dggi_arrest_records", RECORD_PREFIX, workspaceId),
-        workspace_id: workspaceId,
-      }))
-    );
+    const arrest_batch_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARR", workspaceId, { separator: "/" });
+    const payloads = persons.map((person, idx) => ({
+      ...batch,
+      ...person,
+      arrest_batch_id,
+      record_id: `${arrest_batch_id}-${idx + 1}`,
+      workspace_id: workspaceId,
+    }));
     const { data, error } = await supabase.from("dggi_arrest_records").insert(payloads).select();
     if (error) {
       toast.error("Failed to add record: " + error.message);
@@ -754,7 +750,8 @@ const ArrestRegisterComponent = () => {
   const saveNewPerson = async () => {
     if (!workspaceId || !dialogDraft.arrest_batch_id) return;
     setSavingRow(true);
-    const record_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", RECORD_PREFIX, workspaceId);
+    const batchPersons = records.filter((r) => r.arrest_batch_id === dialogDraft.arrest_batch_id);
+    const record_id = `${dialogDraft.arrest_batch_id}-${batchPersons.length + 1}`;
     const payload = {
       ...dialogDraft,
       record_id,

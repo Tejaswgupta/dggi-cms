@@ -61,7 +61,7 @@ export interface RegisterColumn {
   key: string;
   label: string;
   dialogLabel?: string;
-  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox" | "arrestlink";
+  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox" | "arrestlink" | "searchcombobox";
   options?: string[];
   allowOther?: boolean;
   readOnly?: boolean;
@@ -309,6 +309,63 @@ function ArrestLinkCombobox({
   );
 }
 
+function SearchCombobox({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const filtered = query
+    ? options.filter((o) => o.toLowerCase().includes(query.toLowerCase()))
+    : options;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full items-center justify-between rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]"
+        >
+          <span className={value ? "text-[#1a1a1a]" : "text-[#9a9a96]"}>
+            {value || "Select…"}
+          </span>
+          <ChevronsUpDown size={14} className="text-[#9a9a96] shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search commissionerate…"
+            value={query}
+            onValueChange={setQuery}
+            className="text-base"
+          />
+          <CommandList className="max-h-60">
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {filtered.map((o) => (
+                <CommandItem
+                  key={o}
+                  value={o}
+                  onSelect={() => { onChange(o); setOpen(false); setQuery(""); }}
+                  className="text-base"
+                >
+                  <Check size={13} className={`mr-2 shrink-0 ${value === o ? "opacity-100" : "opacity-0"}`} />
+                  {o}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function RegisterRecordDialog({
   open,
   onOpenChange,
@@ -416,6 +473,11 @@ export function RegisterRecordDialog({
     if (col.type === "usercombobox") {
       return (
         <DialogUserCombobox value={value} onChange={onChange} users={users} />
+      );
+    }
+    if (col.type === "searchcombobox") {
+      return (
+        <SearchCombobox value={value} options={col.options ?? []} onChange={onChange} />
       );
     }
     if (col.type === "select") {

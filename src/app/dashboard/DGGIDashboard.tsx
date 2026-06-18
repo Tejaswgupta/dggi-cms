@@ -458,15 +458,7 @@ const REGISTERS: RegisterMeta[] = [
     accentColor: "#EA580C",
     category: "register",
   },
-  {
-    href: "/tasks/alert-circular",
-    label: "Alert Circular",
-    shortLabel: "Alert",
-    icon: Bell,
-    table: "dggi_alert_circular_records",
-    accentColor: "#D97706",
-    category: "register",
-  },
+
   {
     href: "/tasks/scn-register",
     label: "SCN Register",
@@ -501,6 +493,15 @@ const REGISTERS: RegisterMeta[] = [
     icon: Archive,
     table: "dggi_closure_records",
     accentColor: "#374151",
+    category: "register",
+  },
+  {
+    href: "/tasks/alert-circular",
+    label: "Alert Circular",
+    shortLabel: "Alert",
+    icon: Bell,
+    table: "dggi_alert_circular_records",
+    accentColor: "#D97706",
     category: "register",
   },
   {

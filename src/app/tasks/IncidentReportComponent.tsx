@@ -220,7 +220,10 @@ const IncidentReportComponent = () => {
       );
     })
     .sort((a, b) => {
-      if (!sortCol) return 0;
+      if (!sortCol) {
+        const numOf = (id: string) => parseInt(id.split("-")[1] ?? "0", 10) || 0;
+        return numOf(a.record_id) - numOf(b.record_id);
+      }
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
       const cmp = String(av).localeCompare(String(bv));

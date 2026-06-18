@@ -320,7 +320,10 @@ const ClosureRegisterComponent = () => {
       return true;
     })
     .sort((a, b) => {
-      if (!sortCol) return 0;
+      if (!sortCol) {
+        const numOf = (id: string) => parseInt(id.split("-")[1] ?? "0", 10) || 0;
+        return numOf(a.record_id) - numOf(b.record_id);
+      }
       const cmp = String((a as any)[sortCol] ?? "").localeCompare(
         String((b as any)[sortCol] ?? ""),
       );

@@ -1,5 +1,6 @@
 "use client";
 
+import { signOut } from "@/auth/client";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -23,7 +24,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "@/auth/client";
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -33,27 +33,60 @@ const DASHBOARD_ITEMS: SidebarItem[] = [
 ];
 
 const REGISTER_ITEMS: SidebarItem[] = [
-  { href: "/tasks/intelligence-allocation", label: "Intelligence Monitoring", icon: Brain },
-  { href: "/tasks/incident-report", label: "Incident Report", icon: AlertTriangle },
-  { href: "/tasks/arrest-register", label: "Arrest Register", icon: ClipboardList },
-  { href: "/tasks/provisional-attachment", label: "Provisional Attachment", icon: Paperclip },
-  { href: "/tasks/alert-circular", label: "Alert Circular", icon: Bell },
+  {
+    href: "/tasks/intelligence-allocation",
+    label: "Intelligence Monitoring",
+    icon: Brain,
+  },
+  {
+    href: "/tasks/incident-report",
+    label: "Incident Report",
+    icon: AlertTriangle,
+  },
+  {
+    href: "/tasks/arrest-register",
+    label: "Arrest Register",
+    icon: ClipboardList,
+  },
+  {
+    href: "/tasks/provisional-attachment",
+    label: "Provisional Attachment",
+    icon: Paperclip,
+  },
+
   { href: "/tasks/scn-register", label: "SCN Register", icon: FileSearch },
-  { href: "/tasks/prosecution-register", label: "Prosecution Register", icon: Scale },
+  {
+    href: "/tasks/prosecution-register",
+    label: "Prosecution Register",
+    icon: Scale,
+  },
   { href: "/tasks/closure-register", label: "Closure Register", icon: Archive },
-  { href: "/tasks/modus-operandi", label: "Modus Operandi", icon: FlaskConical },
+  { href: "/tasks/alert-circular", label: "Alert Circular", icon: Bell },
+  {
+    href: "/tasks/modus-operandi",
+    label: "Modus Operandi",
+    icon: FlaskConical,
+  },
 ];
 
 const MONITORING_ITEMS: SidebarItem[] = [
   { href: "/tasks/cpgram", label: "CPGRAM", icon: MessageSquare },
   { href: "/tasks/informer-reward", label: "Informer Reward", icon: Gift },
   { href: "/tasks/dfl-register", label: "DFL", icon: HardDrive },
-  { href: "/tasks/report-compliance", label: "Report Compliance", icon: ClipboardCheck },
+  {
+    href: "/tasks/report-compliance",
+    label: "Report Compliance",
+    icon: ClipboardCheck,
+  },
   { href: "/tasks/evidence-room", label: "Evidence Room", icon: Package },
 ];
 
 const INVESTIGATION_ITEMS: SidebarItem[] = [
-  { href: "/tasks/investigation-cases", label: "Investigation Cases", icon: ShieldAlert },
+  {
+    href: "/tasks/investigation-cases",
+    label: "Investigation Cases",
+    icon: ShieldAlert,
+  },
 ];
 
 const NAV_SECTIONS = [
