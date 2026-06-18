@@ -28,6 +28,7 @@ export interface DGGICaseOption {
   date_of_initiation?: string;
   date_of_receipt?: string;
   gstins?: string;
+  issue_involved?: string;
 }
 
 export function CaseIdCombobox({

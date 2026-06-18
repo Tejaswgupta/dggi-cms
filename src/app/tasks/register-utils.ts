@@ -73,7 +73,7 @@ export const fetchCaseOptions = async (
   const { data, error } = await supabase
     .from("dggi_records")
     .select(
-      "record_id, taxpayer_name, file_no, is_ir, handling_io_sio, group, detection_amount, date_of_initiation, date_of_receipt, gstins, closure_by",
+      "record_id, taxpayer_name, file_no, is_ir, handling_io_sio, group, detection_amount, date_of_initiation, date_of_receipt, gstins, closure_by, issue_involved",
     )
     .eq("workspace_id", workspaceId)
     .not("record_id", "is", null)

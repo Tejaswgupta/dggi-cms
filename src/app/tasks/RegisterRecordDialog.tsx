@@ -324,7 +324,7 @@ function SearchCombobox({
     ? options.filter((o) => o.toLowerCase().includes(query.toLowerCase()))
     : options;
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -336,7 +336,7 @@ function SearchCombobox({
           <ChevronsUpDown size={14} className="text-[#9a9a96] shrink-0" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
+      <PopoverContent className="w-[320px] p-0 border border-[#EDEDEA] shadow-none rounded-xl overflow-hidden" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search commissionerate…"
@@ -344,7 +344,7 @@ function SearchCombobox({
             onValueChange={setQuery}
             className="text-base"
           />
-          <CommandList className="max-h-60">
+          <CommandList className="max-h-56 overflow-y-auto">
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               {filtered.map((o) => (
