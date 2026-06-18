@@ -204,6 +204,8 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
 const BATCH_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
   "attachment_batch_id",
   "linked_case_id",
+  "person_name",
+  "gstin_pan",
   "date_of_attachment",
   "entity_gstin",
   "issue_involved",
@@ -221,8 +223,6 @@ const BATCH_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
 
 // Fields that belong to each individual attached property / person
 const PROPERTY_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
-  "person_name",
-  "gstin_pan",
   "person_status",
   "person_involvement",
   "arrest",
@@ -246,19 +246,19 @@ const COLUMNS: RegisterColumn[] = [
   { key: "person_name", label: "Name of Person (Sec. 83)", type: "text", width: "200px" },
   { key: "gstin_pan", label: "GSTIN/PAN", type: "text", width: "160px" },
   { key: "person_status", label: "Status of Person", type: "text", width: "180px" },
-  { key: "expected_liability", label: "Expected Liability (Cr.)", type: "number", width: "160px" },
+  { key: "expected_liability", label: "Expected Liability", type: "number", width: "160px" },
   { key: "entity_gstin", label: "GSTIN of Entity", type: "text", width: "160px" },
   { key: "issue_involved", label: "Issue Involved", type: "text", width: "160px" },
   { key: "person_involvement", label: "Brief Description of Involvement", type: "text", width: "220px" },
   { key: "arrest", label: "Arrest (Yes/No)", type: "text", width: "130px" },
   { key: "description_of_property", label: "Description of Property", type: "text", width: "220px" },
-  { key: "value_immovable", label: "Value – Immovable Property (Cr.)", type: "number", width: "200px" },
-  { key: "value_movable", label: "Value – Movable Property (Cr.)", type: "number", width: "190px" },
-  { key: "value_shares", label: "Value – Share/Insurance/FD (Cr.)", type: "number", width: "200px" },
-  { key: "value_bank", label: "Value – Bank A/c (Cr.)", type: "number", width: "160px" },
-  { key: "value_third_party", label: "Value – Third Party (Cr.)", type: "number", width: "170px" },
-  { key: "value_others", label: "Value – Others (Cr.)", type: "number", width: "150px" },
-  { key: "value_total", label: "Value – Total (Cr.)", type: "number", width: "150px" },
+  { key: "value_immovable", label: "Value – Immovable Property", type: "number", width: "200px" },
+  { key: "value_movable", label: "Value – Movable Property", type: "number", width: "190px" },
+  { key: "value_shares", label: "Value – Share/Insurance/FD", type: "number", width: "200px" },
+  { key: "value_bank", label: "Value – Bank A/c", type: "number", width: "160px" },
+  { key: "value_third_party", label: "Value – Third Party", type: "number", width: "170px" },
+  { key: "value_others", label: "Value – Others", type: "number", width: "150px" },
+  { key: "value_total", label: "Value – Total", type: "number", width: "150px" },
   { key: "investigation_completed", label: "Investigation Completed?", type: "text", width: "180px" },
   { key: "scn_issued", label: "SCN Issued?", type: "text", width: "120px" },
   { key: "date_of_scn_issuance", label: "Date of SCN Issuance", type: "datepicker", width: "180px" },
@@ -481,13 +481,13 @@ function AddAttachmentDialog({
         setBatch((prev) => ({
           ...prev,
           linked_case_id: val,
+          person_name: rec.taxpayer_name || prev.person_name,
+          gstin_pan: rec.gstins || prev.gstin_pan,
           entity_gstin: rec.gstins || prev.entity_gstin,
           issue_involved: rec.issue_involved || prev.issue_involved,
           sio: rec.handling_io_sio || prev.sio,
           group: rec.group || prev.group,
-          expected_liability: rec.detection_amount
-            ? String(parseFloat(rec.detection_amount) / 10_000_000 || "")
-            : prev.expected_liability,
+          expected_liability: rec.detection_amount || prev.expected_liability,
         }));
         return;
       }
