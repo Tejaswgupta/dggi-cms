@@ -14,7 +14,7 @@ import {
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { ChevronDown, ChevronUp, Download, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
@@ -109,8 +109,7 @@ const ProsecutionRegisterComponent = () => {
   const [arrestRecords, setArrestRecords] = useState<ArrestCaseRecord[]>([]);
   const [arrestSearch, setArrestSearch] = useState("");
   const [arrestSaving, setArrestSaving] = useState(false);
-  const [arrestSortCol, setArrestSortCol] = useState<string | null>(null);
-  const [arrestSortDir, setArrestSortDir] = useState<"asc" | "desc">("asc");
+  const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
   const [bailSubTab, setBailSubTab] = useState<"Bail Given" | "Bail Not Given">("Bail Given");
 
   const [arrestDialogOpen, setArrestDialogOpen] = useState(false);
@@ -121,8 +120,7 @@ const ProsecutionRegisterComponent = () => {
   const [nonArrestRecords, setNonArrestRecords] = useState<NonArrestRecord[]>([]);
   const [nonArrestSearch, setNonArrestSearch] = useState("");
   const [nonArrestSaving, setNonArrestSaving] = useState(false);
-  const [nonArrestSortCol, setNonArrestSortCol] = useState<string | null>(null);
-  const [nonArrestSortDir, setNonArrestSortDir] = useState<"asc" | "desc">("asc");
+  const [nonArrestSort, setNonArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
 
   const [nonArrestDialogOpen, setNonArrestDialogOpen] = useState(false);
   const [nonArrestDialogMode, setNonArrestDialogMode] = useState<"add" | "edit">("add");
@@ -179,9 +177,9 @@ const ProsecutionRegisterComponent = () => {
     const q = arrestSearch.toLowerCase();
     return [r.arrested_person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
-    if (!arrestSortCol) return 0;
-    const cmp = String((a as any)[arrestSortCol] ?? "").localeCompare(String((b as any)[arrestSortCol] ?? ""));
-    return arrestSortDir === "asc" ? cmp : -cmp;
+    if (!arrestSort.col) return 0;
+    const cmp = String((a as any)[arrestSort.col] ?? "").localeCompare(String((b as any)[arrestSort.col] ?? ""));
+    return arrestSort.dir === "asc" ? cmp : -cmp;
   });
 
   const saveArrestEdit = async () => {
@@ -193,23 +191,29 @@ const ProsecutionRegisterComponent = () => {
     setArrestSaving(false);
   };
 
-  const deleteArrest = (id: string) => {
-    const record = arrestRecords.find((r) => r.id === id);
+  const makeDelete = <T extends { id: string; record_id: string }>(
+    table: string,
+    records: T[],
+    setRecords: React.Dispatch<React.SetStateAction<T[]>>,
+  ) => (id: string) => {
+    const record = records.find((r) => r.id === id);
     if (!record) return;
-    setArrestRecords((prev) => prev.filter((r) => r.id !== id));
+    setRecords((prev) => prev.filter((r) => r.id !== id));
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_prosecution_arrest_records").delete().eq("id", id);
-      if (error) { setArrestRecords((prev) => [...prev, record]); toast.error("Delete failed: " + error.message); }
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) { setRecords((prev) => [...prev, record]); toast.error("Delete failed: " + error.message); }
     }, 5000);
     toastId = toast.info(
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id} deleted</span>
-        <button onClick={() => { clearTimeout(timerId); setArrestRecords((prev) => [...prev, record]); toast.dismiss(toastId); }} className="font-medium underline underline-offset-2 shrink-0">Undo</button>
+        <button onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }} className="font-medium underline underline-offset-2 shrink-0">Undo</button>
       </div>,
       { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
     );
   };
+
+  const deleteArrest = makeDelete("dggi_prosecution_arrest_records", arrestRecords, setArrestRecords);
 
   const saveArrestNew = async () => {
     if (!workspaceId) return;
@@ -232,9 +236,9 @@ const ProsecutionRegisterComponent = () => {
     const q = nonArrestSearch.toLowerCase();
     return [r.remarks].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
-    if (!nonArrestSortCol) return 0;
-    const cmp = String((a as any)[nonArrestSortCol] ?? "").localeCompare(String((b as any)[nonArrestSortCol] ?? ""));
-    return nonArrestSortDir === "asc" ? cmp : -cmp;
+    if (!nonArrestSort.col) return 0;
+    const cmp = String((a as any)[nonArrestSort.col] ?? "").localeCompare(String((b as any)[nonArrestSort.col] ?? ""));
+    return nonArrestSort.dir === "asc" ? cmp : -cmp;
   });
 
   const saveNonArrestEdit = async () => {
@@ -246,23 +250,7 @@ const ProsecutionRegisterComponent = () => {
     setNonArrestSaving(false);
   };
 
-  const deleteNonArrest = (id: string) => {
-    const record = nonArrestRecords.find((r) => r.id === id);
-    if (!record) return;
-    setNonArrestRecords((prev) => prev.filter((r) => r.id !== id));
-    let toastId: ReturnType<typeof toast.info>;
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_prosecution_non_arrest_records").delete().eq("id", id);
-      if (error) { setNonArrestRecords((prev) => [...prev, record]); toast.error("Delete failed: " + error.message); }
-    }, 5000);
-    toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id} deleted</span>
-        <button onClick={() => { clearTimeout(timerId); setNonArrestRecords((prev) => [...prev, record]); toast.dismiss(toastId); }} className="font-medium underline underline-offset-2 shrink-0">Undo</button>
-      </div>,
-      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
-    );
-  };
+  const deleteNonArrest = makeDelete("dggi_prosecution_non_arrest_records", nonArrestRecords, setNonArrestRecords);
 
   const saveNonArrestNew = async () => {
     if (!workspaceId) return;
@@ -286,15 +274,13 @@ const ProsecutionRegisterComponent = () => {
     exportRegisterToExcel(filteredNonArrest, NON_ARREST_COLS, "Prosecution_Non_Arrest", (msg) => toast.success(msg));
   };
 
-  const toggleArrestSort = (col: string) => {
-    if (arrestSortCol === col) setArrestSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setArrestSortCol(col); setArrestSortDir("asc"); }
-  };
+  const makeToggleSort = (
+    setSort: React.Dispatch<React.SetStateAction<{ col: string | null; dir: "asc" | "desc" }>>,
+  ) => (col: string) =>
+    setSort((s) => s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" });
 
-  const toggleNonArrestSort = (col: string) => {
-    if (nonArrestSortCol === col) setNonArrestSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setNonArrestSortCol(col); setNonArrestSortDir("asc"); }
-  };
+  const toggleArrestSort = makeToggleSort(setArrestSort);
+  const toggleNonArrestSort = makeToggleSort(setNonArrestSort);
 
   const renderCell = (value: string, type: RegisterColumn["type"]) => {
     if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
@@ -374,7 +360,7 @@ const ProsecutionRegisterComponent = () => {
                       {ARREST_COLS.map((col) => (
                         <TableHead key={col.key} style={{ minWidth: col.width }} className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
                           onClick={() => toggleArrestSort(col.key)}>
-                          <span className="flex items-center gap-1">{col.label}{arrestSortCol === col.key && (arrestSortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}</span>
+                          <span className="flex items-center gap-1">{col.label}{arrestSort.col === col.key && (arrestSort.dir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}</span>
                         </TableHead>
                       ))}
                       <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">Actions</TableHead>
@@ -437,7 +423,7 @@ const ProsecutionRegisterComponent = () => {
                       {NON_ARREST_COLS.map((col) => (
                         <TableHead key={col.key} style={{ minWidth: col.width }} className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
                           onClick={() => toggleNonArrestSort(col.key)}>
-                          <span className="flex items-center gap-1">{col.label}{nonArrestSortCol === col.key && (nonArrestSortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}</span>
+                          <span className="flex items-center gap-1">{col.label}{nonArrestSort.col === col.key && (nonArrestSort.dir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}</span>
                         </TableHead>
                       ))}
                       <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">Actions</TableHead>
@@ -479,13 +465,29 @@ const ProsecutionRegisterComponent = () => {
         onDraftChange={(k, v) => {
           setArrestDialogDraft((prev) => {
             const next = { ...prev, [k]: v };
-            if (k === "linked_case_id" && arrestDialogMode === "add") {
-              const caseRow = caseOptions.find((c) => c.record_id === v);
-              if (caseRow) {
-                if (!prev.entity_name) next.entity_name = caseRow.taxpayer_name ?? "";
-                if (!prev.gstin) next.gstin = caseRow.gstins ?? "";
-                if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
-                if (!prev.group) next.group = caseRow.group ?? "";
+            if (arrestDialogMode === "add") {
+              if (k === "linked_arrest_id") {
+                const arrest = arrestOptions.find((a) => a.id === v);
+                if (arrest) {
+                  next.arrested_person_name = arrest.arrested_name || prev.arrested_person_name || "";
+                  next.age = arrest.arrested_age || prev.age || "";
+                  next.date_of_arrest = arrest.date_of_arrest || prev.date_of_arrest || "";
+                  next.entity_name = arrest.party_name || prev.entity_name || "";
+                  next.gstin = arrest.unit_gstin || prev.gstin || "";
+                  next.amount_evaded_crore = arrest.amount_crore || prev.amount_evaded_crore || "";
+                  next.brief_modus_operandi = arrest.role_evidence || prev.brief_modus_operandi || "";
+                  next.sio = arrest.sio || prev.sio || "";
+                  next.group = arrest.group || prev.group || "";
+                }
+              }
+              if (k === "linked_case_id") {
+                const caseRow = caseOptions.find((c) => c.record_id === v);
+                if (caseRow) {
+                  if (!prev.entity_name) next.entity_name = caseRow.taxpayer_name ?? "";
+                  if (!prev.gstin) next.gstin = caseRow.gstins ?? "";
+                  if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
+                  if (!prev.group) next.group = caseRow.group ?? "";
+                }
               }
             }
             return next;
