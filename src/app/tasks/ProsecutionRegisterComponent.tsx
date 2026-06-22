@@ -16,7 +16,7 @@ import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { ChevronDown, ChevronUp, Download, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ArrestOption } from "./RegisterRecordDialog";
@@ -170,13 +170,6 @@ const ProsecutionRegisterComponent = () => {
     init();
   }, []);
 
-  const sanitizeDates = (cols: RegisterColumn[], draft: Record<string, any>) => {
-    const result = { ...draft };
-    cols.forEach((col) => {
-      if (col.type === "datepicker" && result[col.key] === "") result[col.key] = null;
-    });
-    return result;
-  };
 
   // ── Arrest CRUD ──
   const filteredArrest = arrestRecords.filter((r) => {
@@ -193,7 +186,7 @@ const ProsecutionRegisterComponent = () => {
   const saveArrestEdit = async () => {
     if (!arrestDialogDraft.id) return;
     setArrestSaving(true);
-    const { error } = await supabase.from("dggi_prosecution_arrest_records").update(sanitizeDates(ARREST_COLS, arrestDialogDraft as Record<string, any>)).eq("id", arrestDialogDraft.id);
+    const { error } = await supabase.from("dggi_prosecution_arrest_records").update(nullifyEmpty({ ...arrestDialogDraft }, ARREST_COLS)).eq("id", arrestDialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setArrestRecords((prev) => prev.map((r) => r.id === arrestDialogDraft.id ? { ...r, ...arrestDialogDraft } : r)); toast.success("Record saved"); setArrestDialogOpen(false); }
     setArrestSaving(false);
@@ -226,12 +219,12 @@ const ProsecutionRegisterComponent = () => {
   const saveArrestNew = async () => {
     if (!workspaceId) return;
     setArrestSaving(true);
-    const payload = sanitizeDates(ARREST_COLS, {
+    const payload = nullifyEmpty({
       ...arrestDialogDraft,
       bail_status: (arrestDialogDraft as any).bail_status || bailSubTab,
       record_id: await generateWorkspaceRecordId(supabase, "dggi_prosecution_arrest_records", "PRA", workspaceId),
       workspace_id: workspaceId,
-    });
+    }, ARREST_COLS);
     const { data, error } = await supabase.from("dggi_prosecution_arrest_records").insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setArrestRecords((prev) => [...prev, data]); setArrestDialogOpen(false); toast.success("Record added"); }
@@ -252,7 +245,7 @@ const ProsecutionRegisterComponent = () => {
   const saveNonArrestEdit = async () => {
     if (!nonArrestDialogDraft.id) return;
     setNonArrestSaving(true);
-    const { error } = await supabase.from("dggi_prosecution_non_arrest_records").update(sanitizeDates(NON_ARREST_COLS, nonArrestDialogDraft as Record<string, any>)).eq("id", nonArrestDialogDraft.id);
+    const { error } = await supabase.from("dggi_prosecution_non_arrest_records").update(nullifyEmpty({ ...nonArrestDialogDraft }, NON_ARREST_COLS)).eq("id", nonArrestDialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setNonArrestRecords((prev) => prev.map((r) => r.id === nonArrestDialogDraft.id ? { ...r, ...nonArrestDialogDraft } : r)); toast.success("Record saved"); setNonArrestDialogOpen(false); }
     setNonArrestSaving(false);
@@ -263,11 +256,11 @@ const ProsecutionRegisterComponent = () => {
   const saveNonArrestNew = async () => {
     if (!workspaceId) return;
     setNonArrestSaving(true);
-    const payload = sanitizeDates(NON_ARREST_COLS, {
+    const payload = nullifyEmpty({
       ...nonArrestDialogDraft,
       record_id: await generateWorkspaceRecordId(supabase, "dggi_prosecution_non_arrest_records", "PRN", workspaceId),
       workspace_id: workspaceId,
-    });
+    }, NON_ARREST_COLS);
     const { data, error } = await supabase.from("dggi_prosecution_non_arrest_records").insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setNonArrestRecords((prev) => [...prev, data]); setNonArrestDialogOpen(false); toast.success("Record added"); }

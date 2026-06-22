@@ -48,7 +48,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import {
   RegisterRecordDialog,
   type RegisterColumn,
@@ -585,23 +585,12 @@ const SCNRegisterComponent = () => {
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
-  const sanitizeDates = (draft: Partial<SCNRecord>) => {
-    const dateCols = COLUMNS.filter((c) => c.type === "datepicker").map(
-      (c) => c.key,
-    );
-    const out: Record<string, unknown> = { ...draft };
-    for (const col of dateCols) {
-      if (out[col] === "") out[col] = null;
-    }
-    return out;
-  };
-
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
     const { error } = await supabase
       .from("dggi_scn_records")
-      .update(sanitizeDates(dialogDraft))
+      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -653,11 +642,11 @@ const SCNRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = {
-      ...sanitizeDates(dialogDraft),
+    const payload = nullifyEmpty({
+      ...dialogDraft,
       record_id: await generateSCNRecordId(dialogDraft),
       workspace_id: workspaceId,
-    };
+    }, COLUMNS);
     const { data, error } = await supabase
       .from("dggi_scn_records")
       .insert(payload)

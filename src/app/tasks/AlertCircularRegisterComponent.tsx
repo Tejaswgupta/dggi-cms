@@ -43,6 +43,7 @@ import {
   exportRegisterToExcel,
   fetchCaseOptions,
   generateWorkspaceRecordId,
+  nullifyEmpty,
 } from "./register-utils";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import {
@@ -275,7 +276,7 @@ const AlertCircularRegisterComponent = () => {
     setSavingRow(true);
     const { error } = await supabase
       .from(TABLE_NAME)
-      .update({ ...dialogDraft })
+      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -320,7 +321,7 @@ const AlertCircularRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = {
+    const payload = nullifyEmpty({
       ...dialogDraft,
       record_id: await generateWorkspaceRecordId(
         supabase,
@@ -329,7 +330,7 @@ const AlertCircularRegisterComponent = () => {
         workspaceId,
       ),
       workspace_id: workspaceId,
-    };
+    }, COLUMNS);
     const { data, error } = await supabase
       .from(TABLE_NAME)
       .insert(payload)

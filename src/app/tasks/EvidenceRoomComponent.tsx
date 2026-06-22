@@ -9,7 +9,7 @@ import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { ChevronDown, ChevronUp, Download, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
@@ -75,7 +75,7 @@ const EvidenceRoomComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const { error } = await supabase.from(TABLE_NAME).update({ ...dialogDraft }).eq("id", dialogDraft.id);
+    const { error } = await supabase.from(TABLE_NAME).update(nullifyEmpty({ ...dialogDraft }, COLUMNS)).eq("id", dialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setRecords((prev) => prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)); toast.success("Record saved"); setDialogOpen(false); }
     setSavingRow(false);
@@ -86,7 +86,7 @@ const EvidenceRoomComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId };
+    const payload = nullifyEmpty({ ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId }, COLUMNS);
     const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }

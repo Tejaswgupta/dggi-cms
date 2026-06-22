@@ -59,7 +59,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ColumnGroup } from "./RegisterRecordDialog";
@@ -682,7 +682,7 @@ const ArrestRegisterComponent = () => {
     setSavingRow(true);
     const { error } = await supabase
       .from("dggi_arrest_records")
-      .update({ ...dialogDraft })
+      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS) as typeof dialogDraft)
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -728,13 +728,15 @@ const ArrestRegisterComponent = () => {
     if (!workspaceId) return;
     setSavingRow(true);
     const arrest_batch_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARR", workspaceId, { separator: "/" });
-    const payloads = persons.map((person, idx) => ({
-      ...batch,
-      ...person,
-      arrest_batch_id,
-      record_id: `${arrest_batch_id}-${idx + 1}`,
-      workspace_id: workspaceId,
-    }));
+    const payloads = persons.map((person, idx) =>
+      nullifyEmpty({
+        ...batch,
+        ...person,
+        arrest_batch_id,
+        record_id: `${arrest_batch_id}-${idx + 1}`,
+        workspace_id: workspaceId,
+      }, COLUMNS),
+    );
     const { data, error } = await supabase.from("dggi_arrest_records").insert(payloads).select();
     if (error) {
       toast.error("Failed to add record: " + error.message);
@@ -752,11 +754,11 @@ const ArrestRegisterComponent = () => {
     setSavingRow(true);
     const batchPersons = records.filter((r) => r.arrest_batch_id === dialogDraft.arrest_batch_id);
     const record_id = `${dialogDraft.arrest_batch_id}-${batchPersons.length + 1}`;
-    const payload = {
+    const payload = nullifyEmpty({
       ...dialogDraft,
       record_id,
       workspace_id: workspaceId,
-    };
+    }, COLUMNS);
     const { data, error } = await supabase
       .from("dggi_arrest_records")
       .insert(payload)

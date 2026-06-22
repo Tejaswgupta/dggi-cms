@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
@@ -252,7 +252,7 @@ const NonIRCaseRegisterComponent = () => {
     setSavingRow(true);
     const { error } = await supabase
       .from("dggi_non_ir_case_records")
-      .update({ ...dialogDraft })
+      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -284,7 +284,7 @@ const NonIRCaseRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, "dggi_non_ir_case_records", RECORD_PREFIX, workspaceId), workspace_id: workspaceId };
+    const payload = nullifyEmpty({ ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, "dggi_non_ir_case_records", RECORD_PREFIX, workspaceId), workspace_id: workspaceId }, COLUMNS);
     const { data, error } = await supabase
       .from("dggi_non_ir_case_records")
       .insert(payload)

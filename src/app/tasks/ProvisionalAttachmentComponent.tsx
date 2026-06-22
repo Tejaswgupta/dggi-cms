@@ -84,6 +84,7 @@ import {
   exportRegisterToExcel,
   fetchCaseOptions,
   generateWorkspaceRecordId,
+  nullifyEmpty,
 } from "./register-utils";
 import {
   RegisterRecordDialog,
@@ -98,37 +99,6 @@ import {
 const SCN_DUE_DAYS = 273; // 9 months ≈ 273 days
 const EXPIRY_DAYS = 365; // 1 year
 
-const DATE_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
-  "date_of_attachment",
-  "date_of_scn_issuance",
-  "date_of_release",
-];
-
-const NUMERIC_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
-  "expected_liability",
-  "value_immovable",
-  "value_movable",
-  "value_shares",
-  "value_bank",
-  "value_third_party",
-  "value_others",
-  "value_total",
-];
-
-const UUID_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
-  "linked_case_id",
-  "sio",
-];
-
-function sanitizeForDb(
-  draft: Partial<ProvisionalAttachmentRecord>,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...draft };
-  for (const f of DATE_FIELDS) if (out[f] === "") out[f] = null;
-  for (const f of NUMERIC_FIELDS) if (out[f] === "") out[f] = null;
-  for (const f of UUID_FIELDS) if (out[f] === "") out[f] = null;
-  return out;
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -859,7 +829,7 @@ const ProvisionalAttachmentComponent = () => {
     setSavingRow(true);
     const { error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .update(sanitizeForDb(dialogDraft))
+      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -911,13 +881,13 @@ const ProvisionalAttachmentComponent = () => {
       { separator: "/" },
     );
     const payloads = properties.map((prop, idx) =>
-      sanitizeForDb({
+      nullifyEmpty({
         ...batch,
         ...prop,
         attachment_batch_id,
         record_id: `${attachment_batch_id}-${idx + 1}`,
         workspace_id: workspaceId,
-      } as any),
+      }, COLUMNS),
     );
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
@@ -941,7 +911,7 @@ const ProvisionalAttachmentComponent = () => {
     const record_id = `${dialogDraft.attachment_batch_id}-${batchProps.length + 1}`;
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .insert(sanitizeForDb({ ...dialogDraft, record_id, workspace_id: workspaceId } as any))
+      .insert(nullifyEmpty({ ...dialogDraft, record_id, workspace_id: workspaceId }, COLUMNS))
       .select()
       .single();
     if (error) {
