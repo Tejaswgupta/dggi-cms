@@ -26,6 +26,31 @@ export const REGISTER_PREFIXES = {
   SEIZURE: "SZR",
 } as const;
 
+// Columns whose empty-string values must become null before hitting Postgres.
+// - caselink / usercombobox / arrestlink → UUID FK columns
+// - datepicker → DATE/TIMESTAMPTZ columns
+// - number → NUMERIC columns
+const NULL_ON_EMPTY_TYPES = new Set([
+  "caselink",
+  "usercombobox",
+  "arrestlink",
+  "datepicker",
+  "number",
+]);
+
+export const nullifyEmpty = (
+  payload: Record<string, unknown>,
+  columns: { key: string; type: string }[],
+): Record<string, unknown> => {
+  const out = { ...payload };
+  for (const col of columns) {
+    if (NULL_ON_EMPTY_TYPES.has(col.type) && out[col.key] === "") {
+      out[col.key] = null;
+    }
+  }
+  return out;
+};
+
 export const currentFY = (): string => {
   const now = new Date();
   const yr = now.getFullYear();

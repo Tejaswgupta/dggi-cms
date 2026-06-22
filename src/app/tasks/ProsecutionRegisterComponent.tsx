@@ -170,6 +170,14 @@ const ProsecutionRegisterComponent = () => {
     init();
   }, []);
 
+  const sanitizeDates = (cols: RegisterColumn[], draft: Record<string, any>) => {
+    const result = { ...draft };
+    cols.forEach((col) => {
+      if (col.type === "datepicker" && result[col.key] === "") result[col.key] = null;
+    });
+    return result;
+  };
+
   // ── Arrest CRUD ──
   const filteredArrest = arrestRecords.filter((r) => {
     if (r.bail_status && r.bail_status !== bailSubTab) return false;
@@ -185,7 +193,7 @@ const ProsecutionRegisterComponent = () => {
   const saveArrestEdit = async () => {
     if (!arrestDialogDraft.id) return;
     setArrestSaving(true);
-    const { error } = await supabase.from("dggi_prosecution_arrest_records").update({ ...arrestDialogDraft }).eq("id", arrestDialogDraft.id);
+    const { error } = await supabase.from("dggi_prosecution_arrest_records").update(sanitizeDates(ARREST_COLS, arrestDialogDraft as Record<string, any>)).eq("id", arrestDialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setArrestRecords((prev) => prev.map((r) => r.id === arrestDialogDraft.id ? { ...r, ...arrestDialogDraft } : r)); toast.success("Record saved"); setArrestDialogOpen(false); }
     setArrestSaving(false);
@@ -218,12 +226,12 @@ const ProsecutionRegisterComponent = () => {
   const saveArrestNew = async () => {
     if (!workspaceId) return;
     setArrestSaving(true);
-    const payload = {
+    const payload = sanitizeDates(ARREST_COLS, {
       ...arrestDialogDraft,
       bail_status: (arrestDialogDraft as any).bail_status || bailSubTab,
       record_id: await generateWorkspaceRecordId(supabase, "dggi_prosecution_arrest_records", "PRA", workspaceId),
       workspace_id: workspaceId,
-    };
+    });
     const { data, error } = await supabase.from("dggi_prosecution_arrest_records").insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setArrestRecords((prev) => [...prev, data]); setArrestDialogOpen(false); toast.success("Record added"); }
@@ -244,7 +252,7 @@ const ProsecutionRegisterComponent = () => {
   const saveNonArrestEdit = async () => {
     if (!nonArrestDialogDraft.id) return;
     setNonArrestSaving(true);
-    const { error } = await supabase.from("dggi_prosecution_non_arrest_records").update({ ...nonArrestDialogDraft }).eq("id", nonArrestDialogDraft.id);
+    const { error } = await supabase.from("dggi_prosecution_non_arrest_records").update(sanitizeDates(NON_ARREST_COLS, nonArrestDialogDraft as Record<string, any>)).eq("id", nonArrestDialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setNonArrestRecords((prev) => prev.map((r) => r.id === nonArrestDialogDraft.id ? { ...r, ...nonArrestDialogDraft } : r)); toast.success("Record saved"); setNonArrestDialogOpen(false); }
     setNonArrestSaving(false);
@@ -255,11 +263,11 @@ const ProsecutionRegisterComponent = () => {
   const saveNonArrestNew = async () => {
     if (!workspaceId) return;
     setNonArrestSaving(true);
-    const payload = {
+    const payload = sanitizeDates(NON_ARREST_COLS, {
       ...nonArrestDialogDraft,
       record_id: await generateWorkspaceRecordId(supabase, "dggi_prosecution_non_arrest_records", "PRN", workspaceId),
       workspace_id: workspaceId,
-    };
+    });
     const { data, error } = await supabase.from("dggi_prosecution_non_arrest_records").insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setNonArrestRecords((prev) => [...prev, data]); setNonArrestDialogOpen(false); toast.success("Record added"); }
