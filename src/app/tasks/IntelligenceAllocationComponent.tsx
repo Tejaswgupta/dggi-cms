@@ -97,12 +97,6 @@ const RAPID_COLS: RegisterColumn[] = [
     width: "140px",
     readOnly: true,
   },
-  {
-    key: "linked_case_id",
-    label: "Linked Case",
-    type: "caselink",
-    width: "180px",
-  },
   { key: "rapid_id", label: "Rapid ID", type: "text", width: "140px" },
   {
     key: "file_no_ref_id",
