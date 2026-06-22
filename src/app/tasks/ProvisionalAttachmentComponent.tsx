@@ -21,6 +21,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -58,6 +66,7 @@ import {
   CalendarIcon,
   ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
   Clock,
   Download,
   Link2,
@@ -266,10 +275,10 @@ const COLUMNS: RegisterColumn[] = [
   { key: "value_others", label: "Value – Others", type: "number", width: "150px" },
   { key: "value_total", label: "Value – Total", type: "number", width: "150px" },
   { key: "investigation_completed", label: "Investigation Completed?", type: "text", width: "180px" },
-  { key: "scn_issued", label: "SCN Issued?", type: "text", width: "120px" },
+  { key: "scn_issued", label: "SCN Issued?", type: "select", options: ["Yes", "No"], width: "120px" },
   { key: "date_of_scn_issuance", label: "Date of SCN Issuance", type: "datepicker", width: "180px" },
-  { key: "letter_issued", label: "Letter to Commissionerate?", type: "text", width: "200px" },
-  { key: "oio_issued", label: "OIO Issued?", type: "text", width: "120px" },
+  { key: "letter_issued", label: "Letter to Commissionerate?", type: "select", options: ["Yes", "No"], width: "200px" },
+  { key: "oio_issued", label: "OIO Issued?", type: "select", options: ["Yes", "No"], width: "120px" },
   { key: "date_of_release", label: "Date of Release of Attachment", type: "datepicker", width: "210px" },
   { key: "date_of_attachment", label: "Date of Attachment", type: "datepicker", width: "160px" },
   { key: "linked_scn_no", label: "Linked SCN No.", type: "scncombobox", width: "180px" },
@@ -403,6 +412,71 @@ function FilterDatePicker({
   );
 }
 
+// ─── User Search Combobox ─────────────────────────────────────────────────────
+
+function UserSearchCombobox({
+  value,
+  onChange,
+  users,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  users: WorkspaceUser[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const filtered = users.filter(
+    (u) =>
+      u.name?.toLowerCase().includes(query.toLowerCase()) ||
+      u.email?.toLowerCase().includes(query.toLowerCase()),
+  );
+  return (
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
+      <PopoverTrigger asChild>
+        <button className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate">
+          <span className="truncate">
+            {users.find((u) => u.id === value)?.name || (
+              <span className="text-[#9a9a96]">Select user…</span>
+            )}
+          </span>
+          <ChevronsUpDown size={12} className="text-[#9a9a96] shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Search user…"
+            value={query}
+            onValueChange={setQuery}
+            className="text-base"
+          />
+          <CommandList className="max-h-[200px] overflow-y-auto">
+            <CommandEmpty className="py-3 text-center text-base text-[#9a9a96]">
+              No users found.
+            </CommandEmpty>
+            <CommandGroup>
+              {filtered.map((u) => (
+                <CommandItem
+                  key={u.id}
+                  value={u.name}
+                  onSelect={() => {
+                    onChange(u.id);
+                    setQuery("");
+                    setOpen(false);
+                  }}
+                  className="text-base cursor-pointer"
+                >
+                  {u.name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Add Attachment Dialog ────────────────────────────────────────────────────
 
 const EMPTY_PROPERTY = (): Record<string, string> => ({
@@ -511,14 +585,12 @@ function AddAttachmentDialog({
     if (col.type === "datepicker")
       return <DateInput value={value} onChange={(v) => setBatchField(col.key, v)} />;
     if (col.type === "usercombobox") {
-      const selected = users.find((u) => u.id === value);
       return (
-        <Select value={value} onValueChange={(v) => setBatchField(col.key, v)}>
-          <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
-            <SelectValue placeholder="Select user…">{selected?.name ?? ""}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>{users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-        </Select>
+        <UserSearchCombobox
+          value={value}
+          onChange={(v) => setBatchField(col.key, v)}
+          users={users}
+        />
       );
     }
     if (col.type === "select") {
