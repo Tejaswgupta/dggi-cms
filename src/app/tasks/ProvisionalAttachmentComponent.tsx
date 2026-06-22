@@ -106,12 +106,18 @@ const NUMERIC_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
   "value_total",
 ];
 
+const UUID_FIELDS: (keyof ProvisionalAttachmentRecord)[] = [
+  "linked_case_id",
+  "sio",
+];
+
 function sanitizeForDb(
   draft: Partial<ProvisionalAttachmentRecord>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = { ...draft };
   for (const f of DATE_FIELDS) if (out[f] === "") out[f] = null;
   for (const f of NUMERIC_FIELDS) if (out[f] === "") out[f] = null;
+  for (const f of UUID_FIELDS) if (out[f] === "") out[f] = null;
   return out;
 }
 
