@@ -68,31 +68,37 @@ const EMPTY_ARREST: Omit<ArrestCaseRecord, "id"> = {
 // ── Annexure II: Non-Arrest Cases ─────────────────────────────────────────────
 
 interface NonArrestRecord {
-  id: string; record_id: string; linked_case_id: string; date_of_order: string;
-  opening_balance: string; cases_examined: string; prosecution_sanctioned_filed: string; no_of_persons: string;
-  new_adjudication_orders: string; closing_balance: string; remarks: string;
-  sio: string; sio_name: string; group: string;
+  id: string; record_id: string; linked_case_id: string;
+  arrested_person_name: string; age: string; date_of_arrest: string; status_of_person: string;
+  amount_evaded_crore: string; entity_name: string; gstin: string; brief_modus_operandi: string;
+  prosecution_complaint_status: string; date_of_filing: string; reasons_not_filed: string;
+  bail_status: string; sio: string; sio_name: string; group: string;
 }
 
 const NON_ARREST_COLS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "date_of_order", label: "Date of Order", type: "datepicker", width: "150px" },
-  { key: "opening_balance", label: "Opening Balance (Adj. Orders)", type: "text", width: "220px" },
-  { key: "cases_examined", label: "Examined for Prosecution", type: "text", width: "200px" },
-  { key: "prosecution_sanctioned_filed", label: "Prosecution Sanctioned & Filed", type: "text", width: "220px" },
-  { key: "no_of_persons", label: "No. of Persons", type: "text", width: "130px" },
-  { key: "new_adjudication_orders", label: "New Adj. Orders Received", type: "text", width: "200px" },
-  { key: "closing_balance", label: "Closing Balance", type: "text", width: "150px" },
+  { key: "arrested_person_name", label: "Arrested Person", type: "text", width: "170px" },
+  { key: "age", label: "Age", type: "text", width: "80px" },
+  { key: "date_of_arrest", label: "Date of Arrest", type: "datepicker", width: "150px" },
+  { key: "bail_status", label: "Bail Status", type: "select", options: ["Bail Given", "Bail Not Given"], width: "140px" },
+  { key: "status_of_person", label: "Status", type: "select", options: ["On Bail", "In Custody", "Absconding", "Deceased"], width: "130px" },
+  { key: "amount_evaded_crore", label: "Amount Evaded (Cr.)", type: "text", width: "160px" },
+  { key: "entity_name", label: "Entity Name", type: "text", width: "170px" },
+  { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
+  { key: "brief_modus_operandi", label: "Modus Operandi", type: "text", width: "240px" },
+  { key: "prosecution_complaint_status", label: "Prosecution Status", type: "select", options: ["Filed", "Not Filed", "Pending Sanction"], width: "160px" },
+  { key: "date_of_filing", label: "Date of Filing", type: "datepicker", width: "150px" },
+  { key: "reasons_not_filed", label: "Reasons if Not Filed", type: "text", width: "220px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
-  { key: "remarks", label: "Remarks", type: "text", width: "240px" },
 ];
 
 const EMPTY_NON_ARREST: Omit<NonArrestRecord, "id"> = {
-  record_id: "", linked_case_id: "", date_of_order: "", opening_balance: "", cases_examined: "",
-  prosecution_sanctioned_filed: "", no_of_persons: "", new_adjudication_orders: "",
-  closing_balance: "", remarks: "", sio: "", sio_name: "", group: "",
+  record_id: "", linked_case_id: "", arrested_person_name: "", age: "",
+  date_of_arrest: "", bail_status: "", status_of_person: "", amount_evaded_crore: "", entity_name: "",
+  gstin: "", brief_modus_operandi: "", prosecution_complaint_status: "", date_of_filing: "",
+  reasons_not_filed: "", sio: "", sio_name: "", group: "",
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -110,7 +116,6 @@ const ProsecutionRegisterComponent = () => {
   const [arrestSearch, setArrestSearch] = useState("");
   const [arrestSaving, setArrestSaving] = useState(false);
   const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
-  const [bailSubTab, setBailSubTab] = useState<"Bail Given" | "Bail Not Given">("Bail Given");
 
   const [arrestDialogOpen, setArrestDialogOpen] = useState(false);
   const [arrestDialogMode, setArrestDialogMode] = useState<"add" | "edit">("add");
@@ -173,7 +178,6 @@ const ProsecutionRegisterComponent = () => {
 
   // ── Arrest CRUD ──
   const filteredArrest = arrestRecords.filter((r) => {
-    if (r.bail_status && r.bail_status !== bailSubTab) return false;
     if (!arrestSearch) return true;
     const q = arrestSearch.toLowerCase();
     return [r.arrested_person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
@@ -223,7 +227,6 @@ const ProsecutionRegisterComponent = () => {
     setArrestSaving(true);
     const payload = nullifyEmpty({
       ...arrestDialogDraft,
-      bail_status: (arrestDialogDraft as any).bail_status || bailSubTab,
       record_id: await generateWorkspaceRecordId(supabase, "dggi_prosecution_arrest_records", "PRA", workspaceId),
       workspace_id: workspaceId,
     }, ARREST_COLS);
@@ -238,7 +241,7 @@ const ProsecutionRegisterComponent = () => {
   const filteredNonArrest = nonArrestRecords.filter((r) => {
     if (!nonArrestSearch) return true;
     const q = nonArrestSearch.toLowerCase();
-    return [r.remarks].some((v) => v?.toLowerCase().includes(q));
+    return [r.arrested_person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
     if (!nonArrestSort.col) return 0;
     const cmp = String((a as any)[nonArrestSort.col] ?? "").localeCompare(String((b as any)[nonArrestSort.col] ?? ""));
@@ -318,29 +321,6 @@ const ProsecutionRegisterComponent = () => {
 
           {/* ── Arrest Cases ── */}
           <TabsContent value="arrest" className="space-y-4">
-            {/* Bail subtabs */}
-            <div className="flex gap-0 border-b border-[#EDEDEA] bg-white rounded-t-2xl px-4 pt-3">
-              {(["Bail Given", "Bail Not Given"] as const).map((tab) => {
-                const tabCount = arrestRecords.filter((r) => !r.bail_status || r.bail_status === tab).length;
-                const isActive = bailSubTab === tab;
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => setBailSubTab(tab)}
-                    className={`relative flex items-center gap-2 pb-2.5 px-1 mr-5 text-[12.5px] font-semibold transition-colors ${isActive ? "text-[#1a1a1a]" : "text-[#9a9a96] hover:text-[#6b6b6b]"}`}
-                  >
-                    {tab}
-                    <span className={`inline-flex items-center justify-center min-w-[18px] h-4 rounded-full px-1.5 text-[10px] font-bold ${isActive ? (tab === "Bail Not Given" ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700") : "bg-[#EDEDEA] text-[#6b6b6b]"}`}>
-                      {tabCount}
-                    </span>
-                    {isActive && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#4A5FD4] rounded-full" />}
-                  </button>
-                );
-              })}
-              <div className="ml-auto pb-2.5 text-[11px] text-[#9a9a96] self-center">
-                {bailSubTab === "Bail Not Given" ? "Complaint deadline: 60 days from arrest" : "Complaint deadline: 6 months from arrest"}
-              </div>
-            </div>
             <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -400,17 +380,13 @@ const ProsecutionRegisterComponent = () => {
 
           {/* ── Non-Arrest Cases ── */}
           <TabsContent value="non-arrest" className="space-y-4">
-            {/* Summary note — Non-Arrest data is aggregated, not case-wise */}
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-800">
-              <span className="font-semibold">Summary of Non-Arrest Cases:</span> This register tracks aggregated data (opening balance, examined, sanctioned) for non-arrest adjudication orders. Individual case-level deadline tracking is not available for this category.
-            </div>
             <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5 text-base text-[#6b6b6b]"><SlidersHorizontal size={14} /><span className="font-medium">Search</span></div>
                   <div className="relative flex items-center">
                     <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
-                    <Input value={nonArrestSearch} onChange={(e) => setNonArrestSearch(e.target.value)} placeholder="Search zonal unit…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
+                    <Input value={nonArrestSearch} onChange={(e) => setNonArrestSearch(e.target.value)} placeholder="Search person, entity…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
                   </div>
                   {nonArrestSearch && <button onClick={() => setNonArrestSearch("")} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
                 </div>
@@ -522,6 +498,8 @@ const ProsecutionRegisterComponent = () => {
             if (k === "linked_case_id" && nonArrestDialogMode === "add") {
               const caseRow = caseOptions.find((c) => c.record_id === v);
               if (caseRow) {
+                if (!prev.entity_name) next.entity_name = caseRow.taxpayer_name ?? "";
+                if (!prev.gstin) next.gstin = caseRow.gstins ?? "";
                 if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
                 if (!prev.group) next.group = caseRow.group ?? "";
               }
