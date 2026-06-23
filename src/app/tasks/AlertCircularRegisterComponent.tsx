@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import {
@@ -209,7 +209,7 @@ const AlertCircularRegisterComponent = () => {
     {},
   );
 
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
 
   useEffect(() => {
@@ -244,13 +244,11 @@ const AlertCircularRegisterComponent = () => {
           query = query.eq("group", "__none__");
         }
       }
-      const [{ data, error }, usersRes, cases] = await Promise.all([
+      const [{ data, error }, cases] = await Promise.all([
         query,
-        getAllUsers(),
         fetchCaseOptions(supabase, wid),
       ]);
       if (!error) setRecords(data ?? []);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setCaseOptions(cases);
       setLoading(false);
     };
@@ -431,7 +429,7 @@ const AlertCircularRegisterComponent = () => {
     </TableRow>
   );
 
-  if (loading)
+  if (loading || usersLoading)
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />
@@ -564,7 +562,7 @@ const AlertCircularRegisterComponent = () => {
         }
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
     </div>

@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
@@ -169,19 +169,17 @@ const STRRegisterComponent = () => {
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<STRRecord>>({});
 
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   useEffect(() => {
     const init = async () => {
       const wid = await getWorkspaceId();
       setWorkspaceId(wid);
-      const [{ data }, usersRes, cases] = await Promise.all([
+      const [{ data }, cases] = await Promise.all([
         supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid),
-        getAllUsers(),
         fetchCaseOptions(supabase, wid),
       ]);
       setRecords(data ?? []);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setCaseOptions(cases);
       setLoading(false);
     };
@@ -300,7 +298,7 @@ const STRRegisterComponent = () => {
     return <span>{value || "—"}</span>;
   };
 
-  if (loading)
+  if (loading || usersLoading)
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />
@@ -471,7 +469,7 @@ const STRRegisterComponent = () => {
         }
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
     </div>

@@ -27,7 +27,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
@@ -84,7 +84,7 @@ const ModusOperandiRegisterComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
@@ -113,14 +113,12 @@ const ModusOperandiRegisterComponent = () => {
           query = query.eq("group", "__none__");
         }
       }
-      const [{ data, error }, cases, usersRes] = await Promise.all([
+      const [{ data, error }, cases] = await Promise.all([
         query,
         fetchCaseOptions(supabase, wid),
-        getAllUsers(),
       ]);
       if (!error) setRecords(data ?? []);
       setCaseOptions(cases);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setLoading(false);
     };
     init();
@@ -194,7 +192,7 @@ const ModusOperandiRegisterComponent = () => {
     </TableRow>
   );
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
+  if (loading || usersLoading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
 
   return (
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
@@ -257,7 +255,7 @@ const ModusOperandiRegisterComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
-        users={workspaceUsers}
+        users={sioUsers}
       />
     </div>
   );

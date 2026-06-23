@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
@@ -185,7 +185,7 @@ const NonIRCaseRegisterComponent = () => {
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<NonIRRecord>>({});
 
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
@@ -194,8 +194,7 @@ const NonIRCaseRegisterComponent = () => {
     const init = async () => {
       const wid = await getWorkspaceId();
       setWorkspaceId(wid);
-      const [, usersRes, cases] = await Promise.all([fetchRecords(wid), getAllUsers(), fetchCaseOptions(supabase, wid)]);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
+      const [, cases] = await Promise.all([fetchRecords(wid), fetchCaseOptions(supabase, wid)]);
       setCaseOptions(cases);
       setLoading(false);
     };
@@ -332,7 +331,7 @@ const NonIRCaseRegisterComponent = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (loading || usersLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />
@@ -544,7 +543,7 @@ const NonIRCaseRegisterComponent = () => {
         onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
     </div>

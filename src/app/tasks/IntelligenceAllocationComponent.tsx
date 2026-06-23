@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
@@ -888,7 +888,7 @@ const IntelligenceAllocationComponent = () => {
   const [strDialogDraft, setStrDialogDraft] = useState<Partial<STRRecord>>({});
 
   const [hideClosed, setHideClosed] = useState(true);
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -961,18 +961,16 @@ const IntelligenceAllocationComponent = () => {
         }
       }
 
-      const [{ data: rd }, { data: od }, { data: sd }, usersRes, cases] =
+      const [{ data: rd }, { data: od }, { data: sd }, cases] =
         await Promise.all([
           rapidQuery,
           otherQuery,
           strQuery,
-          getAllUsers(),
           fetchCaseOptions(supabase, wid),
         ]);
       setRapidRecords(rd ?? []);
       setOtherRecords(od ?? []);
       setStrRecords(sd ?? []);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setCaseOptions(cases);
       setLoading(false);
     };
@@ -1303,7 +1301,7 @@ const IntelligenceAllocationComponent = () => {
     ? STR_COLS
     : STR_COLS.filter((c) => c.key !== "assigned_group");
 
-  if (loading)
+  if (loading || usersLoading)
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />
@@ -1595,7 +1593,7 @@ const IntelligenceAllocationComponent = () => {
           rapidDialogMode === "add" ? rapidCrud.onSaveNew : rapidCrud.onSave
         }
         saving={rapidSaving}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
 
@@ -1622,7 +1620,7 @@ const IntelligenceAllocationComponent = () => {
           otherDialogMode === "add" ? otherCrud.onSaveNew : otherCrud.onSave
         }
         saving={otherSaving}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
 
@@ -1647,7 +1645,7 @@ const IntelligenceAllocationComponent = () => {
         }}
         onSave={strDialogMode === "add" ? strCrud.onSaveNew : strCrud.onSave}
         saving={strSaving}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
 

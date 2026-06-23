@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
@@ -131,7 +131,7 @@ const IncidentReportComponent = () => {
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
 
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
   const totalCols = visibleColumns.length;
@@ -168,11 +168,7 @@ const IncidentReportComponent = () => {
       setUserRole(role);
       setUserGroups(groups);
 
-      const [, usersRes] = await Promise.all([
-        fetchRecords(wid, role, groups, uid),
-        getAllUsers(),
-      ]);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
+      await fetchRecords(wid, role, groups, uid);
       setLoading(false);
     };
     init();
@@ -299,7 +295,7 @@ const IncidentReportComponent = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (loading || usersLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />

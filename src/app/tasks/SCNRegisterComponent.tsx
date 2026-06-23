@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
@@ -466,7 +466,7 @@ const SCNRegisterComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   const [activeTab, setActiveTab] = useState<string>("SIO Competency");
 
@@ -499,13 +499,11 @@ const SCNRegisterComponent = () => {
         (g: { group_name: string }) => g.group_name,
       );
 
-      const [cases, , usersRes] = await Promise.all([
+      const [cases] = await Promise.all([
         fetchCaseOptions(supabase, wid),
         fetchRecords(wid, role, groups, uid!),
-        getAllUsers(),
       ]);
       setCaseOptions(cases);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setLoading(false);
     };
     init();
@@ -759,7 +757,7 @@ const SCNRegisterComponent = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (loading || usersLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />
@@ -1078,7 +1076,7 @@ const SCNRegisterComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
-        users={workspaceUsers}
+        users={sioUsers}
       />
     </div>
   );

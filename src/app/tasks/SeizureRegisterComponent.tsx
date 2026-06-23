@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { differenceInCalendarDays, parseISO, isValid } from "date-fns";
@@ -194,7 +194,7 @@ const SeizureRegisterComponent = () => {
   const [savingRow, setSavingRow] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -210,14 +210,12 @@ const SeizureRegisterComponent = () => {
           return;
         }
         setWorkspaceId(wid);
-        const [{ data, error }, usersRes, cases] = await Promise.all([
+        const [{ data, error }, cases] = await Promise.all([
           supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid),
-          getAllUsers(),
           fetchCaseOptions(supabase, wid),
         ]);
         if (error) toast.error("Failed to load records: " + error.message);
         setRecords(data ?? []);
-        if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
         setCaseOptions(cases);
       } catch (err) {
         toast.error("Failed to initialize: " + String(err));
@@ -289,7 +287,7 @@ const SeizureRegisterComponent = () => {
     return <span>{value || "—"}</span>;
   };
 
-  if (loading) return (
+  if (loading || usersLoading) return (
     <div className="flex h-64 items-center justify-center">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />
     </div>
@@ -427,7 +425,7 @@ const SeizureRegisterComponent = () => {
         onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
     </div>

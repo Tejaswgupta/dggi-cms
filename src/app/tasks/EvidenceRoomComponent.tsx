@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { ChevronDown, ChevronUp, Download, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
@@ -65,10 +65,10 @@ const EvidenceRoomComponent = () => {
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<EvidenceRoomRecord>>({});
 
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
 
-  useEffect(() => { const init = async () => { const wid = await getWorkspaceId(); setWorkspaceId(wid); const [{ data }, usersRes, cases] = await Promise.all([supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid), getAllUsers(), fetchCaseOptions(supabase, wid)]); setRecords(data ?? []); if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []); setCaseOptions(cases); setLoading(false); }; init(); }, []);
+  useEffect(() => { const init = async () => { const wid = await getWorkspaceId(); setWorkspaceId(wid); const [{ data }, cases] = await Promise.all([supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid), fetchCaseOptions(supabase, wid)]); setRecords(data ?? []); setCaseOptions(cases); setLoading(false); }; init(); }, []);
 
   const tableRecords = records.filter((r) => { if (!search) return true; const q = search.toLowerCase(); return [r.case_file_no, r.entity_name, r.evidence_description, r.seized_by, r.storage_location].some((v) => v?.toLowerCase().includes(q)); }).sort((a, b) => { if (!sortCol) return 0; const cmp = String((a as any)[sortCol] ?? "").localeCompare(String((b as any)[sortCol] ?? "")); return sortDir === "asc" ? cmp : -cmp; });
 
@@ -109,7 +109,7 @@ const EvidenceRoomComponent = () => {
     return <span>{value || "—"}</span>;
   };
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
+  if (loading || usersLoading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
 
   return (
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
@@ -165,7 +165,7 @@ const EvidenceRoomComponent = () => {
         onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
-        users={workspaceUsers}
+        users={sioUsers}
         caseOptions={caseOptions}
       />
     </div>

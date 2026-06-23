@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
@@ -59,13 +59,13 @@ const InformerRewardComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<InformerRewardRecord>>({});
 
-  useEffect(() => { const init = async () => { const wid = await getWorkspaceId(); setWorkspaceId(wid); const [{ data }, cases, usersRes] = await Promise.all([supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid), fetchCaseOptions(supabase, wid), getAllUsers()]); setRecords(data ?? []); setCaseOptions(cases); if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []); setLoading(false); }; init(); }, []);
+  useEffect(() => { const init = async () => { const wid = await getWorkspaceId(); setWorkspaceId(wid); const [{ data }, cases] = await Promise.all([supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid), fetchCaseOptions(supabase, wid)]); setRecords(data ?? []); setCaseOptions(cases); setLoading(false); }; init(); }, []);
 
   const tableRecords = records.filter((r) => { if (!search) return true; const q = search.toLowerCase(); return [r.informer_code, r.file_no, r.entity_name].some((v) => v?.toLowerCase().includes(q)); }).sort((a, b) => { if (!sortCol) return 0; const cmp = String((a as any)[sortCol] ?? "").localeCompare(String((b as any)[sortCol] ?? "")); return sortDir === "asc" ? cmp : -cmp; });
 
@@ -106,7 +106,7 @@ const InformerRewardComponent = () => {
     return <span>{value || "—"}</span>;
   };
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
+  if (loading || usersLoading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
 
   return (
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
@@ -163,7 +163,7 @@ const InformerRewardComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
-        users={workspaceUsers}
+        users={sioUsers}
       />
     </div>
   );

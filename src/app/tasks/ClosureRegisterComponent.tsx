@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
@@ -246,7 +246,7 @@ const ClosureRegisterComponent = () => {
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   useEffect(() => {
     const init = async () => {
@@ -279,12 +279,10 @@ const ClosureRegisterComponent = () => {
           query = query.eq("group", "__none__");
         }
       }
-      const [{ data, error }, usersRes] = await Promise.all([
+      const [{ data, error }] = await Promise.all([
         query,
-        getAllUsers(),
       ]);
       if (!error) setRecords(data ?? []);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setLoading(false);
     };
     init();
@@ -360,7 +358,7 @@ const ClosureRegisterComponent = () => {
     return <span>{value || "—"}</span>;
   };
 
-  if (loading)
+  if (loading || usersLoading)
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />

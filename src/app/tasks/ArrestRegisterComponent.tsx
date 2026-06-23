@@ -61,7 +61,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ColumnGroup } from "./RegisterRecordDialog";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
@@ -597,7 +597,7 @@ const ArrestRegisterComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -614,9 +614,8 @@ const ArrestRegisterComponent = () => {
       const role = userRow?.dggi_role ?? "";
       const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
 
-      const [, cases, usersRes] = await Promise.all([fetchRecords(wid, role, groups, uid!), fetchCaseOptions(supabase, wid), getAllUsers()]);
+      const [, cases] = await Promise.all([fetchRecords(wid, role, groups, uid!), fetchCaseOptions(supabase, wid)]);
       setCaseOptions(cases);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setLoading(false);
     };
     init();
@@ -974,7 +973,7 @@ const ArrestRegisterComponent = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (loading || usersLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" />
@@ -1173,7 +1172,7 @@ const ArrestRegisterComponent = () => {
         onSave={dialogMode === "add-person" ? saveNewPerson : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
-        users={workspaceUsers}
+        users={sioUsers}
       />
     </div>
   );
