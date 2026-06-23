@@ -18,8 +18,8 @@ import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ArrestOption } from "./RegisterRecordDialog";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
 const fmt = (iso: string) => {
@@ -69,20 +69,18 @@ const EMPTY_ARREST: Omit<ArrestCaseRecord, "id"> = {
 
 interface NonArrestRecord {
   id: string; record_id: string; linked_case_id: string;
-  arrested_person_name: string; age: string; date_of_arrest: string; status_of_person: string;
+  arrested_person_name: string; age: string; date_of_arrest: string;
   amount_evaded_crore: string; entity_name: string; gstin: string; brief_modus_operandi: string;
   prosecution_complaint_status: string; date_of_filing: string; reasons_not_filed: string;
-  bail_status: string; sio: string; sio_name: string; group: string;
+  sio: string; sio_name: string; group: string;
 }
 
 const NON_ARREST_COLS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "arrested_person_name", label: "Arrested Person", type: "text", width: "170px" },
+  { key: "arrested_person_name", label: "Accused Person", type: "text", width: "170px" },
   { key: "age", label: "Age", type: "text", width: "80px" },
-  { key: "date_of_arrest", label: "Date of Arrest", type: "datepicker", width: "150px" },
-  { key: "bail_status", label: "Bail Status", type: "select", options: ["Bail Given", "Bail Not Given"], width: "140px" },
-  { key: "status_of_person", label: "Status", type: "select", options: ["On Bail", "In Custody", "Absconding", "Deceased"], width: "130px" },
+  { key: "date_of_arrest", label: "Date of Detection", type: "datepicker", width: "150px" },
   { key: "amount_evaded_crore", label: "Amount Evaded (Cr.)", type: "text", width: "160px" },
   { key: "entity_name", label: "Entity Name", type: "text", width: "170px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
@@ -96,7 +94,7 @@ const NON_ARREST_COLS: RegisterColumn[] = [
 
 const EMPTY_NON_ARREST: Omit<NonArrestRecord, "id"> = {
   record_id: "", linked_case_id: "", arrested_person_name: "", age: "",
-  date_of_arrest: "", bail_status: "", status_of_person: "", amount_evaded_crore: "", entity_name: "",
+  date_of_arrest: "", amount_evaded_crore: "", entity_name: "",
   gstin: "", brief_modus_operandi: "", prosecution_complaint_status: "", date_of_filing: "",
   reasons_not_filed: "", sio: "", sio_name: "", group: "",
 };
@@ -108,8 +106,8 @@ const ProsecutionRegisterComponent = () => {
   const [workspaceId, setWorkspaceId] = useState("");
   const [loading, setLoading] = useState(true);
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
   const [arrestOptions, setArrestOptions] = useState<ArrestOption[]>([]);
+  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   // Annexure I state
   const [arrestRecords, setArrestRecords] = useState<ArrestCaseRecord[]>([]);
@@ -158,17 +156,15 @@ const ProsecutionRegisterComponent = () => {
           nonArrestQuery = nonArrestQuery.eq("group", "__none__");
         }
       }
-      const [{ data: ad }, { data: nd }, cases, usersRes, { data: arrestRows }] = await Promise.all([
+      const [{ data: ad }, { data: nd }, cases, { data: arrestRows }] = await Promise.all([
         arrestQuery,
         nonArrestQuery,
         fetchCaseOptions(supabase, wid),
-        getAllUsers(),
         supabase.from("dggi_arrest_records").select("id,record_id,arrested_name,arrested_age,date_of_arrest,party_name,unit_gstin,amount_crore,role_evidence,sio,group").eq("workspace_id", wid),
       ]);
       setArrestRecords(ad ?? []);
       setNonArrestRecords(nd ?? []);
       setCaseOptions(cases);
-      if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
       setArrestOptions(arrestRows ?? []);
       setLoading(false);
     };
@@ -303,7 +299,7 @@ const ProsecutionRegisterComponent = () => {
     return <span>{value || "—"}</span>;
   };
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
+  if (loading || usersLoading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
 
   return (
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
@@ -483,7 +479,7 @@ const ProsecutionRegisterComponent = () => {
         saving={arrestSaving}
         caseOptions={caseOptions}
         arrestOptions={arrestOptions}
-        users={workspaceUsers}
+        users={sioUsers}
       />
 
       <RegisterRecordDialog
@@ -510,7 +506,7 @@ const ProsecutionRegisterComponent = () => {
         onSave={nonArrestDialogMode === "add" ? saveNonArrestNew : saveNonArrestEdit}
         saving={nonArrestSaving}
         caseOptions={caseOptions}
-        users={workspaceUsers}
+        users={sioUsers}
       />
     </div>
   );
