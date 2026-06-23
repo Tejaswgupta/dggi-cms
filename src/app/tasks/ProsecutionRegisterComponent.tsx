@@ -69,7 +69,7 @@ const EMPTY_ARREST: Omit<ArrestCaseRecord, "id"> = {
 
 interface NonArrestRecord {
   id: string; record_id: string; linked_case_id: string;
-  arrested_person_name: string; age: string; date_of_arrest: string;
+  person_name: string; age: string; date_of_arrest: string;
   amount_evaded_crore: string; entity_name: string; gstin: string; brief_modus_operandi: string;
   prosecution_complaint_status: string; date_of_filing: string; reasons_not_filed: string;
   sio: string; sio_name: string; group: string;
@@ -78,7 +78,7 @@ interface NonArrestRecord {
 const NON_ARREST_COLS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "arrested_person_name", label: "Accused Person", type: "text", width: "170px" },
+  { key: "person_name", label: "Accused Person", type: "text", width: "170px" },
   { key: "age", label: "Age", type: "text", width: "80px" },
   { key: "date_of_arrest", label: "Date of Detection", type: "datepicker", width: "150px" },
   { key: "amount_evaded_crore", label: "Amount Evaded (Cr.)", type: "text", width: "160px" },
@@ -93,7 +93,7 @@ const NON_ARREST_COLS: RegisterColumn[] = [
 ];
 
 const EMPTY_NON_ARREST: Omit<NonArrestRecord, "id"> = {
-  record_id: "", linked_case_id: "", arrested_person_name: "", age: "",
+  record_id: "", linked_case_id: "", person_name: "", age: "",
   date_of_arrest: "", amount_evaded_crore: "", entity_name: "",
   gstin: "", brief_modus_operandi: "", prosecution_complaint_status: "", date_of_filing: "",
   reasons_not_filed: "", sio: "", sio_name: "", group: "",
@@ -237,7 +237,7 @@ const ProsecutionRegisterComponent = () => {
   const filteredNonArrest = nonArrestRecords.filter((r) => {
     if (!nonArrestSearch) return true;
     const q = nonArrestSearch.toLowerCase();
-    return [r.arrested_person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
+    return [r.person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
     if (!nonArrestSort.col) return 0;
     const cmp = String((a as any)[nonArrestSort.col] ?? "").localeCompare(String((b as any)[nonArrestSort.col] ?? ""));

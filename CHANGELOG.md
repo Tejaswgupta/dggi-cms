@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### 2026-06-23
+
+#### SIO Selector — Group Filtering (all registers)
+- SIO dropdown in add/edit dialogs now only shows users from the active user's DGGI group
+- ADG and DD_INT roles continue to see all workspace users
+- Extracted reusable hook `useGroupFilteredSioUsers` (`src/hooks/useGroupFilteredSioUsers.ts`) — returns `{ allUsers, sioUsers, loading }`; `allUsers` used for name resolution in table display, `sioUsers` passed to dialogs
+- Migrated all 16 register components off the inline `getAllUsers` + group-mate pattern to the hook
+- Spec: no separate doc (self-contained hook)
+
+#### IR Case — Linked Register Tracker (planned)
+- Slide-over drawer on each IR case row showing all register records linked to that case, grouped by register type with per-record status badges
+- When the case is closed (`closure_by` is set), drawer shows a "Case Closed" banner and dims all linked register entries with a Closed chip
+- Covers: Arrest, Provisional Attachment, SCN, Prosecution (arrest + non-arrest), Evidence Room, DFL, Alert/Circular, CPGRAM, Informer Reward
+- Read-only; no DB changes required
+- Full spec: `docs/ir-case-register-tracker.md`
+
 ### 2026-06-15
 
 #### Arrest Register (batch grouping)
