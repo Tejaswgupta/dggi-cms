@@ -88,6 +88,7 @@ interface ArrestRecord {
   relative_tel: string;
   prosecution_filed: string;
   sio: string;
+  sio_name: string;
   group: string;
 }
 
@@ -139,6 +140,7 @@ const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   relative_tel: "",
   prosecution_filed: "",
   sio: "",
+  sio_name: "",
   group: "",
 };
 
@@ -294,6 +296,7 @@ function EditableCell({
   readOnly,
   cases,
   users,
+  storedName,
 }: {
   value: string;
   type: "text" | "number" | "datepicker" | "caselink" | "usercombobox" | "select";
@@ -302,8 +305,9 @@ function EditableCell({
   readOnly?: boolean;
   cases?: DGGICaseOption[];
   users?: WorkspaceUser[];
+  storedName?: string;
 }) {
-  if (type === "usercombobox") return <span>{users?.find((u) => u.id === value)?.name || value || "—"}</span>;
+  if (type === "usercombobox") return <span>{users?.find((u) => u.id === value)?.name || storedName || "—"}</span>;
   if (type === "caselink") return <CaseIdCombobox value={value} onChange={onChange} cases={cases ?? []} editing={editing} />;
   if (!editing || readOnly) {
     if (type === "datepicker")
@@ -680,9 +684,11 @@ const ArrestRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
+    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS) as typeof dialogDraft;
+    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { error } = await supabase
       .from("dggi_arrest_records")
-      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS) as typeof dialogDraft)
+      .update(updatePayload)
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -728,15 +734,18 @@ const ArrestRegisterComponent = () => {
     if (!workspaceId) return;
     setSavingRow(true);
     const arrest_batch_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARR", workspaceId, { separator: "/" });
-    const payloads = persons.map((person, idx) =>
-      nullifyEmpty({
+    const sio_name = workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
+    const payloads = persons.map((person, idx) => {
+      const p = nullifyEmpty({
         ...batch,
         ...person,
         arrest_batch_id,
         record_id: `${arrest_batch_id}-${idx + 1}`,
         workspace_id: workspaceId,
-      }, COLUMNS),
-    );
+      }, COLUMNS);
+      (p as any).sio_name = sio_name;
+      return p;
+    });
     const { data, error } = await supabase.from("dggi_arrest_records").insert(payloads).select();
     if (error) {
       toast.error("Failed to add record: " + error.message);
@@ -759,6 +768,7 @@ const ArrestRegisterComponent = () => {
       record_id,
       workspace_id: workspaceId,
     }, COLUMNS);
+    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase
       .from("dggi_arrest_records")
       .insert(payload)
@@ -844,6 +854,7 @@ const ArrestRegisterComponent = () => {
             onChange={() => {}}
             cases={caseOptions}
             users={workspaceUsers}
+            storedName={col.key === "sio" ? (record as any).sio_name : undefined}
           />
         </TableCell>
       ))}
@@ -938,6 +949,7 @@ const ArrestRegisterComponent = () => {
                   onChange={() => {}}
                   cases={caseOptions}
                   users={workspaceUsers}
+                  storedName={col.key === "sio" ? (representative as any).sio_name : undefined}
                 />
               )}
             </TableCell>

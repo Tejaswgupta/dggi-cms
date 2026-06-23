@@ -47,6 +47,7 @@ interface ModusOperandiRecord {
   court_advance_rulings: string;
   other_info: string;
   sio: string;
+  sio_name: string;
   group: string;
 }
 
@@ -70,7 +71,7 @@ const TOTAL_COLS = COLUMNS.length + 1;
 const EMPTY_RECORD: Omit<ModusOperandiRecord, "id"> = {
   record_id: "", linked_case_id: "", brief_facts: "", methodology: "", gst_law_provision: "",
   cases_booked_amounts: "", widespread_evasion: "", board_clarification: "",
-  court_advance_rulings: "", other_info: "", sio: "", group: "",
+  court_advance_rulings: "", other_info: "", sio: "", sio_name: "", group: "",
 };
 
 const ModusOperandiRegisterComponent = () => {
@@ -140,7 +141,8 @@ const ModusOperandiRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const { error } = await supabase.from(TABLE_NAME).update({ ...dialogDraft }).eq("id", dialogDraft.id);
+    const updatePayload = { ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
+    const { error } = await supabase.from(TABLE_NAME).update(updatePayload).eq("id", dialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setRecords((prev) => prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)); toast.success("Record saved"); setDialogOpen(false); }
     setSavingRow(false);
@@ -155,7 +157,7 @@ const ModusOperandiRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId };
+    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
     const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }
@@ -178,7 +180,7 @@ const ModusOperandiRegisterComponent = () => {
           {col.type === "caselink"
             ? <CaseIdCombobox value={(record as any)[col.key] ?? ""} onChange={() => {}} cases={caseOptions} editing={false} />
             : col.type === "usercombobox"
-            ? <span>{workspaceUsers.find((u) => u.id === ((record as any)[col.key] ?? ""))?.name || (record as any)[col.key] || "—"}</span>
+            ? <span>{workspaceUsers.find((u) => u.id === ((record as any)[col.key] ?? ""))?.name || (col.key === "sio" ? (record as any).sio_name : (record as any)[col.key]) || "—"}</span>
             : <span className="whitespace-pre-wrap">{(record as any)[col.key] || "—"}</span>
           }
         </TableCell>

@@ -23,7 +23,7 @@ interface EvidenceRoomRecord {
   evidence_type: string; quantity: string; storage_location: string;
   condition: string; date_released: string; released_to: string;
   court_order_ref: string; remarks: string;
-  sio: string; group: string;
+  sio: string; sio_name: string; group: string;
 }
 
 const COLUMNS: { key: keyof Omit<EvidenceRoomRecord, "id">; label: string; type: "text" | "datepicker" | "select" | "usercombobox" | "caselink"; options?: string[]; width?: string; readOnly?: boolean }[] = [
@@ -47,7 +47,7 @@ const COLUMNS: { key: keyof Omit<EvidenceRoomRecord, "id">; label: string; type:
 ];
 
 const TOTAL_COLS = COLUMNS.length + 1;
-const EMPTY_RECORD: Omit<EvidenceRoomRecord, "id"> = { record_id: "", linked_case_id: "", case_file_no: "", entity_name: "", evidence_description: "", date_of_seizure: "", seized_by: "", evidence_type: "", quantity: "", storage_location: "", condition: "", date_released: "", released_to: "", court_order_ref: "", remarks: "", sio: "", group: "" };
+const EMPTY_RECORD: Omit<EvidenceRoomRecord, "id"> = { record_id: "", linked_case_id: "", case_file_no: "", entity_name: "", evidence_description: "", date_of_seizure: "", seized_by: "", evidence_type: "", quantity: "", storage_location: "", condition: "", date_released: "", released_to: "", court_order_ref: "", remarks: "", sio: "", sio_name: "", group: "" };
 
 const fmt = (iso: string) => { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); };
 
@@ -75,7 +75,9 @@ const EvidenceRoomComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const { error } = await supabase.from(TABLE_NAME).update(nullifyEmpty({ ...dialogDraft }, COLUMNS)).eq("id", dialogDraft.id);
+    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS);
+    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
+    const { error } = await supabase.from(TABLE_NAME).update(updatePayload).eq("id", dialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setRecords((prev) => prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)); toast.success("Record saved"); setDialogOpen(false); }
     setSavingRow(false);
@@ -87,6 +89,7 @@ const EvidenceRoomComponent = () => {
     if (!workspaceId) return;
     setSavingRow(true);
     const payload = nullifyEmpty({ ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId }, COLUMNS);
+    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }
@@ -99,10 +102,10 @@ const EvidenceRoomComponent = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Evidence_Room", (msg) => toast.success(msg));
   };
 
-  const renderCell = (value: string, type: "text" | "datepicker" | "select" | "usercombobox" | "caselink") => {
+  const renderCell = (value: string, type: "text" | "datepicker" | "select" | "usercombobox" | "caselink", storedName?: string) => {
     if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}</span>;
     return <span>{value || "—"}</span>;
   };
 
@@ -137,7 +140,7 @@ const EvidenceRoomComponent = () => {
               <TableBody>
                 {tableRecords.map((record) => (
                   <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
-                    {COLUMNS.map((col) => <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">{renderCell((record as any)[col.key] ?? "", col.type)}</TableCell>)}
+                    {COLUMNS.map((col) => <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">{renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}</TableCell>)}
                     <TableCell className="px-3 py-2">
                       <div className="flex items-center gap-1">
                         <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}><Pencil size={13} /></Button>

@@ -133,6 +133,7 @@ interface ProvisionalAttachmentRecord {
   date_of_attachment: string;
   linked_scn_no: string;
   sio: string;
+  sio_name: string;
   group: string;
 }
 
@@ -182,6 +183,7 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
   date_of_attachment: today(),
   linked_scn_no: "",
   sio: "",
+  sio_name: "",
   group: "",
 };
 
@@ -827,9 +829,11 @@ const ProvisionalAttachmentComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
+    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS);
+    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
+      .update(updatePayload)
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -880,15 +884,18 @@ const ProvisionalAttachmentComponent = () => {
       workspaceId,
       { separator: "/" },
     );
-    const payloads = properties.map((prop, idx) =>
-      nullifyEmpty({
+    const sio_name = workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
+    const payloads = properties.map((prop, idx) => {
+      const p = nullifyEmpty({
         ...batch,
         ...prop,
         attachment_batch_id,
         record_id: `${attachment_batch_id}-${idx + 1}`,
         workspace_id: workspaceId,
-      }, COLUMNS),
-    );
+      }, COLUMNS);
+      (p as any).sio_name = sio_name;
+      return p;
+    });
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
       .insert(payloads)
@@ -909,9 +916,11 @@ const ProvisionalAttachmentComponent = () => {
     setSavingRow(true);
     const batchProps = records.filter((r) => r.attachment_batch_id === dialogDraft.attachment_batch_id);
     const record_id = `${dialogDraft.attachment_batch_id}-${batchProps.length + 1}`;
+    const newPropPayload = nullifyEmpty({ ...dialogDraft, record_id, workspace_id: workspaceId }, COLUMNS);
+    (newPropPayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
-      .insert(nullifyEmpty({ ...dialogDraft, record_id, workspace_id: workspaceId }, COLUMNS))
+      .insert(newPropPayload)
       .select()
       .single();
     if (error) {
@@ -1001,7 +1010,7 @@ const ProvisionalAttachmentComponent = () => {
       );
     }
     if (type === "usercombobox")
-      return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+      return <span>{workspaceUsers.find((u) => u.id === value)?.name || (colKey === "sio" ? record.sio_name : value) || "—"}</span>;
     if (type === "caselink")
       return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;

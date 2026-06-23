@@ -71,6 +71,7 @@ interface AlertCircularRecord {
   scn_ruds_shared: string;
   remarks: string;
   sio: string;
+  sio_name: string;
   group: string;
 }
 
@@ -157,6 +158,7 @@ const EMPTY_RECORD: Omit<AlertCircularRecord, "id"> = {
   scn_ruds_shared: "",
   remarks: "",
   sio: "",
+  sio_name: "",
   group: "",
 };
 
@@ -166,12 +168,14 @@ function EditableCell({
   options,
   users,
   caseOptions,
+  storedName,
 }: {
   value: string;
   type: "text" | "select" | "usercombobox" | "caselink";
   options?: string[];
   users?: WorkspaceUser[];
   caseOptions?: DGGICaseOption[];
+  storedName?: string;
 }) {
   if (type === "caselink")
     return (
@@ -184,7 +188,7 @@ function EditableCell({
     );
   if (type === "usercombobox")
     return (
-      <span>{users?.find((u) => u.id === value)?.name || value || "—"}</span>
+      <span>{users?.find((u) => u.id === value)?.name || storedName || "—"}</span>
     );
   return <span>{value || "—"}</span>;
 }
@@ -274,9 +278,11 @@ const AlertCircularRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
+    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS);
+    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { error } = await supabase
       .from(TABLE_NAME)
-      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
+      .update(updatePayload)
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -331,6 +337,7 @@ const AlertCircularRegisterComponent = () => {
       ),
       workspace_id: workspaceId,
     }, COLUMNS);
+    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase
       .from(TABLE_NAME)
       .insert(payload)
@@ -373,6 +380,7 @@ const AlertCircularRegisterComponent = () => {
             options={col.options}
             users={workspaceUsers}
             caseOptions={caseOptions}
+            storedName={col.key === "sio" ? (record as any).sio_name : undefined}
           />
         </TableCell>
       ))}

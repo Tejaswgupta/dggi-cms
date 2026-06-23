@@ -59,6 +59,7 @@ interface STRRecord {
   remarks: string;
   sio_group: string;
   sio: string;
+  sio_name: string;
   group: string;
 }
 
@@ -137,6 +138,7 @@ const EMPTY_RECORD: Omit<STRRecord, "id"> = {
   remarks: "",
   sio_group: "",
   sio: "",
+  sio_name: "",
   group: "",
 };
 
@@ -205,9 +207,10 @@ const STRRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
+    const updatePayload = { ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
     const { error } = await supabase
       .from(TABLE_NAME)
-      .update({ ...dialogDraft })
+      .update(updatePayload)
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -245,6 +248,7 @@ const STRRegisterComponent = () => {
         workspaceId,
       ),
       workspace_id: workspaceId,
+      sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null,
     };
     const { data, error } = await supabase
       .from(TABLE_NAME)
@@ -275,7 +279,7 @@ const STRRegisterComponent = () => {
     );
   };
 
-  const renderCell = (value: string, type: RegisterColumn["type"]) => {
+  const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
     if (type === "caselink")
       return (
         <CaseIdCombobox
@@ -290,7 +294,7 @@ const STRRegisterComponent = () => {
     if (type === "usercombobox")
       return (
         <span>
-          {workspaceUsers.find((u) => u.id === value)?.name || value || "—"}
+          {workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}
         </span>
       );
     return <span>{value || "—"}</span>;
@@ -411,7 +415,7 @@ const STRRegisterComponent = () => {
                         key={col.key}
                         className="px-3 py-2 text-[#1a1a1a]"
                       >
-                        {renderCell((record as any)[col.key] ?? "", col.type)}
+                        {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                       </TableCell>
                     ))}
                     <TableCell className="px-3 py-2">

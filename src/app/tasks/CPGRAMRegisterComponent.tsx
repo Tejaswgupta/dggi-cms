@@ -21,7 +21,7 @@ interface CPGRAMRecord {
   id: string; record_id: string; linked_case_id: string; cpgram_registration_no: string; date_of_receipt: string;
   complainant_name: string; complaint_subject: string; department_referred: string;
   date_sent_to_department: string; reply_status: string; date_of_reply: string;
-  remarks: string; handling_officer: string; disposed: string; sio: string; group: string;
+  remarks: string; handling_officer: string; disposed: string; sio: string; sio_name: string; group: string;
 }
 
 const COLUMNS: { key: keyof Omit<CPGRAMRecord, "id">; label: string; type: "text" | "datepicker" | "usercombobox" | "caselink" | "select"; width?: string; options?: string[]; readOnly?: boolean }[] = [
@@ -43,7 +43,7 @@ const COLUMNS: { key: keyof Omit<CPGRAMRecord, "id">; label: string; type: "text
 ];
 
 const TOTAL_COLS = COLUMNS.length + 1;
-const EMPTY_RECORD: Omit<CPGRAMRecord, "id"> = { record_id: "", linked_case_id: "", cpgram_registration_no: "", date_of_receipt: "", complainant_name: "", complaint_subject: "", department_referred: "", date_sent_to_department: "", reply_status: "", date_of_reply: "", remarks: "", handling_officer: "", disposed: "", sio: "", group: "" };
+const EMPTY_RECORD: Omit<CPGRAMRecord, "id"> = { record_id: "", linked_case_id: "", cpgram_registration_no: "", date_of_receipt: "", complainant_name: "", complaint_subject: "", department_referred: "", date_sent_to_department: "", reply_status: "", date_of_reply: "", remarks: "", handling_officer: "", disposed: "", sio: "", sio_name: "", group: "" };
 
 const fmt = (iso: string) => { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); };
 
@@ -72,7 +72,8 @@ const CPGRAMRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const { error } = await supabase.from(TABLE_NAME).update({ ...dialogDraft }).eq("id", dialogDraft.id);
+    const updatePayload = { ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
+    const { error } = await supabase.from(TABLE_NAME).update(updatePayload).eq("id", dialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setRecords((prev) => prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)); toast.success("Record saved"); setDialogOpen(false); }
     setSavingRow(false);
@@ -83,7 +84,7 @@ const CPGRAMRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId };
+    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
     const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }
@@ -96,10 +97,10 @@ const CPGRAMRegisterComponent = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "CPGRAM", (msg) => toast.success(msg));
   };
 
-  const renderCell = (value: string, type: "text" | "datepicker" | "usercombobox" | "caselink" | "select") => {
+  const renderCell = (value: string, type: "text" | "datepicker" | "usercombobox" | "caselink" | "select", storedName?: string) => {
     if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}</span>;
     return <span>{value || "—"}</span>;
   };
 
@@ -134,7 +135,7 @@ const CPGRAMRegisterComponent = () => {
               <TableBody>
                 {tableRecords.map((record) => (
                   <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
-                    {COLUMNS.map((col) => <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">{renderCell((record as any)[col.key] ?? "", col.type)}</TableCell>)}
+                    {COLUMNS.map((col) => <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">{renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}</TableCell>)}
                     <TableCell className="px-3 py-2">
                       <div className="flex items-center gap-1">
                         <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}><Pencil size={13} /></Button>

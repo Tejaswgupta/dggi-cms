@@ -76,6 +76,7 @@ interface SCNRecord {
   adjudication_status: string;
   remarks: string;
   sio: string;
+  sio_name: string;
   group: string;
   competency: string;
 }
@@ -118,6 +119,7 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   adjudication_status: "",
   remarks: "",
   sio: "",
+  sio_name: "",
   group: "",
   competency: "",
 };
@@ -588,9 +590,11 @@ const SCNRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
+    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS);
+    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { error } = await supabase
       .from("dggi_scn_records")
-      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
+      .update(updatePayload)
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -647,6 +651,7 @@ const SCNRegisterComponent = () => {
       record_id: await generateSCNRecordId(dialogDraft),
       workspace_id: workspaceId,
     }, COLUMNS);
+    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase
       .from("dggi_scn_records")
       .insert(payload)
@@ -731,11 +736,11 @@ const SCNRegisterComponent = () => {
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
-  const renderCell = (value: string, type: RegisterColumn["type"]) => {
+  const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
     if (type === "usercombobox")
       return (
         <span>
-          {workspaceUsers.find((u) => u.id === value)?.name || value || "—"}
+          {workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}
         </span>
       );
     if (type === "caselink")
@@ -980,6 +985,7 @@ const SCNRegisterComponent = () => {
                               {renderCell(
                                 (record as any)[col.key] ?? "",
                                 col.type,
+                                col.key === "sio" ? (record as any).sio_name : undefined,
                               )}
                             </TableCell>
                           ))}

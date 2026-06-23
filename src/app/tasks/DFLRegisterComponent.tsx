@@ -23,7 +23,7 @@ interface DFLRecord {
   case_file_no: string; entity_name: string; nature_of_request: string; devices_submitted: string;
   lab_received_date: string; report_received_date: string; findings_summary: string;
   action_taken: string; remarks: string;
-  sio: string; group: string;
+  sio: string; sio_name: string; group: string;
 }
 
 const COLUMNS: { key: keyof Omit<DFLRecord, "id">; label: string; type: "text" | "datepicker" | "caselink" | "usercombobox" | "select"; width?: string; options?: string[]; readOnly?: boolean }[] = [
@@ -45,7 +45,7 @@ const COLUMNS: { key: keyof Omit<DFLRecord, "id">; label: string; type: "text" |
 ];
 
 const TOTAL_COLS = COLUMNS.length + 1;
-const EMPTY_RECORD: Omit<DFLRecord, "id"> = { record_id: "", linked_case_id: "", dfl_request_no: "", date_of_request: "", case_file_no: "", entity_name: "", nature_of_request: "", devices_submitted: "", lab_received_date: "", report_received_date: "", findings_summary: "", action_taken: "", sio: "", group: "", remarks: "" };
+const EMPTY_RECORD: Omit<DFLRecord, "id"> = { record_id: "", linked_case_id: "", dfl_request_no: "", date_of_request: "", case_file_no: "", entity_name: "", nature_of_request: "", devices_submitted: "", lab_received_date: "", report_received_date: "", findings_summary: "", action_taken: "", sio: "", sio_name: "", group: "", remarks: "" };
 
 const fmt = (iso: string) => { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); };
 
@@ -112,7 +112,8 @@ const DFLRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const { error } = await supabase.from(TABLE_NAME).update({ ...dialogDraft }).eq("id", dialogDraft.id);
+    const updatePayload = { ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
+    const { error } = await supabase.from(TABLE_NAME).update(updatePayload).eq("id", dialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setRecords((prev) => prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)); toast.success("Record saved"); setDialogOpen(false); }
     setSavingRow(false);
@@ -123,7 +124,7 @@ const DFLRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId };
+    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
     const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }
@@ -136,8 +137,8 @@ const DFLRegisterComponent = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "DFL", (msg) => toast.success(msg));
   };
 
-  const renderCell = (value: string, type: "text" | "datepicker" | "caselink" | "usercombobox" | "select") => {
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+  const renderCell = (value: string, type: "text" | "datepicker" | "caselink" | "usercombobox" | "select", storedName?: string) => {
+    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}</span>;
     if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
     return <span>{value || "—"}</span>;
@@ -181,7 +182,7 @@ const DFLRegisterComponent = () => {
                             <span className="whitespace-nowrap">{fmt(record.date_of_request)}</span>
                             {(() => { const { level, daysLeft } = dflAlarm(record.date_of_request, record.report_received_date); return <DFLAlarmBadge level={level} daysLeft={daysLeft} />; })()}
                           </div>
-                        ) : renderCell((record as any)[col.key] ?? "", col.type)}
+                        ) : renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                       </TableCell>
                     ))}
                     <TableCell className="px-3 py-2">

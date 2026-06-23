@@ -54,6 +54,7 @@ interface NonIRRecord {
   group_name: string;
   remarks: string;
   sio: string;
+  sio_name: string;
   group: string;
 }
 
@@ -81,6 +82,7 @@ const EMPTY_RECORD: Omit<NonIRRecord, "id"> = {
   group_name: "",
   remarks: "",
   sio: "",
+  sio_name: "",
   group: "",
 };
 
@@ -250,9 +252,11 @@ const NonIRCaseRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
+    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS);
+    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { error } = await supabase
       .from("dggi_non_ir_case_records")
-      .update(nullifyEmpty({ ...dialogDraft }, COLUMNS))
+      .update(updatePayload)
       .eq("id", dialogDraft.id);
     if (error) {
       toast.error("Failed to save: " + error.message);
@@ -285,6 +289,7 @@ const NonIRCaseRegisterComponent = () => {
     if (!workspaceId) return;
     setSavingRow(true);
     const payload = nullifyEmpty({ ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, "dggi_non_ir_case_records", RECORD_PREFIX, workspaceId), workspace_id: workspaceId }, COLUMNS);
+    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase
       .from("dggi_non_ir_case_records")
       .insert(payload)
@@ -318,10 +323,10 @@ const NonIRCaseRegisterComponent = () => {
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
-  const renderCell = (value: string, type: "text" | "datepicker" | "usercombobox" | "caselink" | "select") => {
+  const renderCell = (value: string, type: "text" | "datepicker" | "usercombobox" | "caselink" | "select", storedName?: string) => {
     if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}</span>;
     return <span>{value || "—"}</span>;
   };
 
@@ -480,7 +485,7 @@ const NonIRCaseRegisterComponent = () => {
                   >
                     {COLUMNS.map((col) => (
                       <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                        {renderCell((record as any)[col.key] ?? "", col.type)}
+                        {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                       </TableCell>
                     ))}
                     <TableCell className="px-3 py-2">

@@ -21,7 +21,7 @@ interface ReportComplianceRecord {
   id: string; record_id: string; linked_case_id: string; report_type: string; report_period: string;
   due_date: string; submission_date: string; submitted_by: string;
   submitted_to: string; status: string; remarks: string;
-  sio: string; group: string;
+  sio: string; sio_name: string; group: string;
 }
 
 const COLUMNS: RegisterColumn[] = [
@@ -42,7 +42,7 @@ const COLUMNS: RegisterColumn[] = [
 const TOTAL_COLS = COLUMNS.length + 1;
 const EMPTY_RECORD: Omit<ReportComplianceRecord, "id"> = {
   record_id: "", linked_case_id: "", report_type: "", report_period: "", due_date: "",
-  submission_date: "", submitted_by: "", submitted_to: "", status: "", remarks: "", sio: "", group: "",
+  submission_date: "", submitted_by: "", submitted_to: "", status: "", remarks: "", sio: "", sio_name: "", group: "",
 };
 
 const fmt = (iso: string) => {
@@ -100,7 +100,8 @@ const ReportComplianceComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const { error } = await supabase.from(TABLE_NAME).update({ ...dialogDraft }).eq("id", dialogDraft.id);
+    const updatePayload = { ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
+    const { error } = await supabase.from(TABLE_NAME).update(updatePayload).eq("id", dialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setRecords((prev) => prev.map((r) => r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)); toast.success("Record saved"); setDialogOpen(false); }
     setSavingRow(false);
@@ -115,7 +116,7 @@ const ReportComplianceComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId };
+    const payload = { ...dialogDraft, record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId), workspace_id: workspaceId, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
     const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }
@@ -131,10 +132,10 @@ const ReportComplianceComponent = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Report_Compliance", (msg) => toast.success(msg));
   };
 
-  const renderCell = (value: string, type: RegisterColumn["type"], options?: string[]) => {
+  const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
     if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}</span>;
     return <span>{value || "—"}</span>;
   };
 
@@ -185,7 +186,7 @@ const ReportComplianceComponent = () => {
                   <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                     {COLUMNS.map((col) => (
                       <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                        {renderCell((record as any)[col.key] ?? "", col.type, col.options)}
+                        {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                       </TableCell>
                     ))}
                     <TableCell className="px-3 py-2">

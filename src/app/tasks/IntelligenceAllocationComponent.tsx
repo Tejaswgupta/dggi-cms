@@ -87,6 +87,7 @@ interface RapidRecord {
   non_ir_no: string;
   non_ir_date: string;
   sio: string;
+  sio_name: string;
 }
 
 const RAPID_COLS: RegisterColumn[] = [
@@ -201,6 +202,7 @@ const EMPTY_RAPID: Omit<RapidRecord, "id"> = {
   non_ir_no: "",
   non_ir_date: "",
   sio: "",
+  sio_name: "",
 };
 
 // ── Other Sources sub-register ────────────────────────────────────────────────
@@ -225,6 +227,7 @@ interface OtherSourceRecord {
   non_ir_no: string;
   non_ir_date: string;
   sio: string;
+  sio_name: string;
 }
 
 const OTHER_COLS: RegisterColumn[] = [
@@ -349,6 +352,7 @@ const EMPTY_OTHER: Omit<OtherSourceRecord, "id"> = {
   non_ir_no: "",
   non_ir_date: "",
   sio: "",
+  sio_name: "",
 };
 
 // ── STR sub-register ──────────────────────────────────────────────────────────
@@ -377,6 +381,7 @@ interface STRRecord {
   remarks: string;
   sio_group: string;
   sio: string;
+  sio_name: string;
   group: string;
   non_ir_no: string;
   non_ir_date: string;
@@ -488,7 +493,6 @@ const STR_COLS: RegisterColumn[] = [
     width: "160px",
     readOnly: true,
   },
-  { key: "sio_group", label: "SIO/Group", type: "text", width: "140px" },
   {
     key: "sio",
     label: "Delegated to IO/SIO",
@@ -544,6 +548,7 @@ const EMPTY_STR: Omit<STRRecord, "id"> = {
   remarks: "",
   sio_group: "",
   sio: "",
+  sio_name: "",
   group: "",
   non_ir_no: "",
   non_ir_date: "",
@@ -664,7 +669,11 @@ function SubTable<T extends { id: string; record_id: string }>({
   alarmCells?: Record<string, AlarmCellRenderer>;
   customCells?: Record<string, CustomCellRenderer<T>>;
 }) {
-  const renderCell = (value: string, type: RegisterColumn["type"]) => {
+  const renderCell = (
+    value: string,
+    type: RegisterColumn["type"],
+    storedName?: string,
+  ) => {
     if (type === "caselink")
       return (
         <CaseIdCombobox
@@ -678,7 +687,9 @@ function SubTable<T extends { id: string; record_id: string }>({
       return <span className="whitespace-nowrap">{fmt(value)}</span>;
     if (type === "usercombobox")
       return (
-        <span>{users.find((u) => u.id === value)?.name || value || "—"}</span>
+        <span>
+          {users.find((u) => u.id === value)?.name || storedName || "—"}
+        </span>
       );
     return <span>{value || "—"}</span>;
   };
@@ -788,7 +799,13 @@ function SubTable<T extends { id: string; record_id: string }>({
                           )}
                         </div>
                       ) : (
-                        renderCell((record as any)[col.key] ?? "", col.type)
+                        renderCell(
+                          (record as any)[col.key] ?? "",
+                          col.type,
+                          col.key === "sio"
+                            ? (record as any).sio_name
+                            : undefined,
+                        )
                       )}
                     </TableCell>
                   ))}
@@ -971,7 +988,13 @@ const IntelligenceAllocationComponent = () => {
   ) =>
     records
       .filter((r) => {
-        if (hideClosed && ["closed", "transferred"].includes(String(r.action_taken ?? "").toLowerCase())) return false;
+        if (
+          hideClosed &&
+          ["closed", "transferred"].includes(
+            String(r.action_taken ?? "").toLowerCase(),
+          )
+        )
+          return false;
         if (!search) return true;
         const q = search.toLowerCase();
         return fields.some((f) =>
@@ -1026,6 +1049,9 @@ const IntelligenceAllocationComponent = () => {
       const rawDraft = Object.fromEntries(
         Object.entries(dialogDraft).map(([k, v]) => [k, v === "" ? null : v]),
       );
+      rawDraft.sio_name =
+        workspaceUsers.find((u) => u.id === ((dialogDraft as any).sio ?? ""))
+          ?.name || null;
       const { error } = await supabase
         .from(table)
         .update(rawDraft as any)
@@ -1049,6 +1075,9 @@ const IntelligenceAllocationComponent = () => {
       const rawDraft = Object.fromEntries(
         Object.entries(dialogDraft).map(([k, v]) => [k, v === "" ? null : v]),
       );
+      rawDraft.sio_name =
+        workspaceUsers.find((u) => u.id === ((dialogDraft as any).sio ?? ""))
+          ?.name || null;
       const payload = {
         ...rawDraft,
         record_id: await generateWorkspaceRecordId(
@@ -1219,8 +1248,11 @@ const IntelligenceAllocationComponent = () => {
       rapidSortCol,
       rapidSortDir,
     );
-    exportRegisterToExcel(filtered, visibleRapidCols, "Intelligence_Rapid", (msg) =>
-      toast.success(msg),
+    exportRegisterToExcel(
+      filtered,
+      visibleRapidCols,
+      "Intelligence_Rapid",
+      (msg) => toast.success(msg),
     );
   };
 
@@ -1238,8 +1270,11 @@ const IntelligenceAllocationComponent = () => {
       otherSortCol,
       otherSortDir,
     );
-    exportRegisterToExcel(filtered, visibleOtherCols, "Intelligence_Other", (msg) =>
-      toast.success(msg),
+    exportRegisterToExcel(
+      filtered,
+      visibleOtherCols,
+      "Intelligence_Other",
+      (msg) => toast.success(msg),
     );
   };
 
@@ -1320,7 +1355,9 @@ const IntelligenceAllocationComponent = () => {
               ) : (
                 <Eye size={14} className="mr-1.5" />
               )}
-              {hideClosed ? "Show Closed/Transferred" : "Hide Closed/Transferred"}
+              {hideClosed
+                ? "Show Closed/Transferred"
+                : "Hide Closed/Transferred"}
             </Button>
           </div>
 

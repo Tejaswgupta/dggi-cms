@@ -36,7 +36,7 @@ interface ArrestCaseRecord {
   arrested_person_name: string; age: string; date_of_arrest: string; status_of_person: string;
   amount_evaded_crore: string; entity_name: string; gstin: string; brief_modus_operandi: string;
   prosecution_complaint_status: string; date_of_filing: string; reasons_not_filed: string;
-  bail_status: string; sio: string; group: string;
+  bail_status: string; sio: string; sio_name: string; group: string;
 }
 
 const ARREST_COLS: RegisterColumn[] = [
@@ -62,7 +62,7 @@ const ARREST_COLS: RegisterColumn[] = [
 const EMPTY_ARREST: Omit<ArrestCaseRecord, "id"> = {
   record_id: "", linked_case_id: "", linked_arrest_id: "", arrested_person_name: "", age: "",
   date_of_arrest: "", bail_status: "", status_of_person: "", amount_evaded_crore: "", entity_name: "",
-  gstin: "", brief_modus_operandi: "", prosecution_complaint_status: "", date_of_filing: "", reasons_not_filed: "", sio: "", group: "",
+  gstin: "", brief_modus_operandi: "", prosecution_complaint_status: "", date_of_filing: "", reasons_not_filed: "", sio: "", sio_name: "", group: "",
 };
 
 // ── Annexure II: Non-Arrest Cases ─────────────────────────────────────────────
@@ -71,7 +71,7 @@ interface NonArrestRecord {
   id: string; record_id: string; linked_case_id: string; date_of_order: string;
   opening_balance: string; cases_examined: string; prosecution_sanctioned_filed: string; no_of_persons: string;
   new_adjudication_orders: string; closing_balance: string; remarks: string;
-  sio: string; group: string;
+  sio: string; sio_name: string; group: string;
 }
 
 const NON_ARREST_COLS: RegisterColumn[] = [
@@ -92,7 +92,7 @@ const NON_ARREST_COLS: RegisterColumn[] = [
 const EMPTY_NON_ARREST: Omit<NonArrestRecord, "id"> = {
   record_id: "", linked_case_id: "", date_of_order: "", opening_balance: "", cases_examined: "",
   prosecution_sanctioned_filed: "", no_of_persons: "", new_adjudication_orders: "",
-  closing_balance: "", remarks: "", sio: "", group: "",
+  closing_balance: "", remarks: "", sio: "", sio_name: "", group: "",
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -186,7 +186,9 @@ const ProsecutionRegisterComponent = () => {
   const saveArrestEdit = async () => {
     if (!arrestDialogDraft.id) return;
     setArrestSaving(true);
-    const { error } = await supabase.from("dggi_prosecution_arrest_records").update(nullifyEmpty({ ...arrestDialogDraft }, ARREST_COLS)).eq("id", arrestDialogDraft.id);
+    const arrestUpdatePayload = nullifyEmpty({ ...arrestDialogDraft }, ARREST_COLS);
+    (arrestUpdatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (arrestDialogDraft.sio ?? ""))?.name || null;
+    const { error } = await supabase.from("dggi_prosecution_arrest_records").update(arrestUpdatePayload).eq("id", arrestDialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setArrestRecords((prev) => prev.map((r) => r.id === arrestDialogDraft.id ? { ...r, ...arrestDialogDraft } : r)); toast.success("Record saved"); setArrestDialogOpen(false); }
     setArrestSaving(false);
@@ -225,6 +227,7 @@ const ProsecutionRegisterComponent = () => {
       record_id: await generateWorkspaceRecordId(supabase, "dggi_prosecution_arrest_records", "PRA", workspaceId),
       workspace_id: workspaceId,
     }, ARREST_COLS);
+    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (arrestDialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase.from("dggi_prosecution_arrest_records").insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setArrestRecords((prev) => [...prev, data]); setArrestDialogOpen(false); toast.success("Record added"); }
@@ -245,7 +248,9 @@ const ProsecutionRegisterComponent = () => {
   const saveNonArrestEdit = async () => {
     if (!nonArrestDialogDraft.id) return;
     setNonArrestSaving(true);
-    const { error } = await supabase.from("dggi_prosecution_non_arrest_records").update(nullifyEmpty({ ...nonArrestDialogDraft }, NON_ARREST_COLS)).eq("id", nonArrestDialogDraft.id);
+    const nonArrestUpdatePayload = nullifyEmpty({ ...nonArrestDialogDraft }, NON_ARREST_COLS);
+    (nonArrestUpdatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (nonArrestDialogDraft.sio ?? ""))?.name || null;
+    const { error } = await supabase.from("dggi_prosecution_non_arrest_records").update(nonArrestUpdatePayload).eq("id", nonArrestDialogDraft.id);
     if (error) { toast.error("Failed to save: " + error.message); }
     else { setNonArrestRecords((prev) => prev.map((r) => r.id === nonArrestDialogDraft.id ? { ...r, ...nonArrestDialogDraft } : r)); toast.success("Record saved"); setNonArrestDialogOpen(false); }
     setNonArrestSaving(false);
@@ -261,6 +266,7 @@ const ProsecutionRegisterComponent = () => {
       record_id: await generateWorkspaceRecordId(supabase, "dggi_prosecution_non_arrest_records", "PRN", workspaceId),
       workspace_id: workspaceId,
     }, NON_ARREST_COLS);
+    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (nonArrestDialogDraft.sio ?? ""))?.name || null;
     const { data, error } = await supabase.from("dggi_prosecution_non_arrest_records").insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
     else { setNonArrestRecords((prev) => [...prev, data]); setNonArrestDialogOpen(false); toast.success("Record added"); }
@@ -283,8 +289,8 @@ const ProsecutionRegisterComponent = () => {
   const toggleArrestSort = makeToggleSort(setArrestSort);
   const toggleNonArrestSort = makeToggleSort(setNonArrestSort);
 
-  const renderCell = (value: string, type: RegisterColumn["type"]) => {
-    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+  const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
+    if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}</span>;
     if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "arrestlink") {
       const arrest = arrestOptions.find((a) => a.id === value);
@@ -372,7 +378,7 @@ const ProsecutionRegisterComponent = () => {
                       <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                         {ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                            {renderCell((record as any)[col.key] ?? "", col.type)}
+                            {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                           </TableCell>
                         ))}
                         <TableCell className="px-3 py-2">
@@ -435,7 +441,7 @@ const ProsecutionRegisterComponent = () => {
                       <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                         {NON_ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                            {renderCell((record as any)[col.key] ?? "", col.type)}
+                            {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                           </TableCell>
                         ))}
                         <TableCell className="px-3 py-2">
