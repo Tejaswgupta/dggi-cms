@@ -221,7 +221,6 @@ interface OtherSourceRecord {
   action_taken: string;
   assigned_group: string;
   transferred_to: string;
-  group_allocation_date: string;
   date_of_action_taken: string;
   remarks: string;
   non_ir_no: string;
@@ -296,13 +295,6 @@ const OTHER_COLS: RegisterColumn[] = [
     showWhen: { field: "action_taken", values: ["Transferred"] },
   },
   {
-    key: "group_allocation_date",
-    label: "Group Allocation Date",
-    type: "datepicker",
-    width: "180px",
-    readOnly: true,
-  },
-  {
     key: "date_of_action_taken",
     label: "Date of Allocation",
     type: "datepicker",
@@ -346,7 +338,6 @@ const EMPTY_OTHER: Omit<OtherSourceRecord, "id"> = {
   action_taken: "",
   assigned_group: "",
   transferred_to: "",
-  group_allocation_date: "",
   date_of_action_taken: "",
   remarks: "",
   non_ir_no: "",
@@ -1610,8 +1601,6 @@ const IntelligenceAllocationComponent = () => {
             if (k === "action_taken" && v) {
               const today = new Date().toISOString().split("T")[0];
               next.date_of_action_taken = today;
-              if (v === "Allocated") next.group_allocation_date = today;
-              else next.group_allocation_date = "";
             }
             return next;
           });
