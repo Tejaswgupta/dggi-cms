@@ -7,7 +7,7 @@
     "dggi_seizure_records": "id,record_id,workspace_id,date_of_seizure,entity_name,seized_by:votum_users(name),scn_issued,scn_issue_date,extended_by_commissioner,group,sio",
     "dggi_intel_rapid_records": "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
     "dggi_str_records": "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
-    "dggi_records": "id,record_id,workspace_id,created_at,intelligence_action_date,intel_approved_date,taxpayer_name,handling_io_sio:votum_users(name),is_ir,date_of_ir,date_of_non_ir,group",
+    "dggi_records": "id,record_id,workspace_id,created_at,intelligence_action_date,intel_approved_date,taxpayer_name,handling_io_sio:votum_users(name),is_ir,date_of_ir,date_of_non_ir,group,closure_by",
     "dggi_dfl_records": "id,record_id,workspace_id,date_of_request,report_received_date,entity_name,dfl_request_no,group,sio"
   },
   "deadlineRules": [
@@ -205,7 +205,8 @@
           "reminder_days_before": [60, 30, 14, 7],
           "critical_days": 14,
           "warning_days": 30,
-          "apply_only_if": { "field": "is_ir", "value": "true" }
+          "apply_only_if": { "field": "is_ir", "value": "true" },
+          "skip_if_not_null": ["closure_by"]
         }
       ]
     },
