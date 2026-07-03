@@ -563,7 +563,8 @@ const NON_IR_CLOSURE_FORM_COLS: ColDef[] = [
 ];
 
 const LS_HIDDEN_COLS_KEY = "dggi_hidden_columns";
-const LS_ADG_COMMENT_SEEN_KEY = "dggi_adg_comment_seen";
+const adgCommentSeenKey = (userId: string, workspaceId: string) =>
+  `dggi_adg_comment_seen_${workspaceId}_${userId}`;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -3010,10 +3011,10 @@ const DGGIComponent = () => {
   // After records load, mark any record whose pr_adg_comments_updated_at is
   // newer than the timestamp we last stored in localStorage for that record id.
   useEffect(() => {
-    if (userRole === "ADG" || !records.length) return;
+    if (userRole === "ADG" || !records.length || !currentUserId || !workspaceId) return;
     let seen: Record<string, string> = {};
     try {
-      seen = JSON.parse(localStorage.getItem(LS_ADG_COMMENT_SEEN_KEY) ?? "{}");
+      seen = JSON.parse(localStorage.getItem(adgCommentSeenKey(currentUserId, workspaceId)) ?? "{}");
     } catch {}
     const unseen = new Set<string>();
     for (const r of records) {
@@ -3024,7 +3025,7 @@ const DGGIComponent = () => {
       }
     }
     setUnseenAdgComments(unseen);
-  }, [records, userRole]);
+  }, [records, userRole, currentUserId, workspaceId]);
 
   // ── Derived counts ─────────────────────────────────────────────────────────
 
@@ -3549,9 +3550,10 @@ const DGGIComponent = () => {
         return next;
       });
       try {
-        const seen = JSON.parse(localStorage.getItem(LS_ADG_COMMENT_SEEN_KEY) ?? "{}");
+        const lsKey = adgCommentSeenKey(currentUserId, workspaceId);
+        const seen = JSON.parse(localStorage.getItem(lsKey) ?? "{}");
         seen[record.id] = new Date().toISOString();
-        localStorage.setItem(LS_ADG_COMMENT_SEEN_KEY, JSON.stringify(seen));
+        localStorage.setItem(lsKey, JSON.stringify(seen));
       } catch {}
     }
   };
