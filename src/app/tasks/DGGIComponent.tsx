@@ -563,7 +563,7 @@ const NON_IR_CLOSURE_FORM_COLS: ColDef[] = [
   },
 ];
 
-const LS_HIDDEN_COLS_KEY = "dggi_hidden_columns";
+const LS_HIDDEN_COLS_KEY = "dggi_hidden_columns_v2";
 const adgCommentSeenKey = (userId: string, workspaceId: string) =>
   `dggi_adg_comment_seen_${workspaceId}_${userId}`;
 
