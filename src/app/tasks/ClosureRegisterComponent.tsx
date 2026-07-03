@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { exportRegisterToExcel } from "./register-utils";
 import { type WorkspaceUser } from "./RegisterRecordDialog";
@@ -240,10 +241,14 @@ function FilterDatePicker({
 
 const ClosureRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
+  const searchParams = useSearchParams();
   const [records, setRecords] = useState<ClosureRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ActiveTab>("non-ir");
-  const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
+  const [filters, setFilters] = useState<Filters>({
+    ...EMPTY_FILTERS,
+    search: searchParams?.get("caseId") ?? "",
+  });
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();

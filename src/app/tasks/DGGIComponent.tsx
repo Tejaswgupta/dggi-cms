@@ -2696,7 +2696,13 @@ export function DGGIRecordDialog({
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                    {stageCols.map((col) => (
+                    {stageCols
+                      .filter(
+                        (col) =>
+                          col.key !== "date_of_receipt" ||
+                          (draft as any).intel_source === "Int",
+                      )
+                      .map((col) => (
                       <div key={col.key} className="flex flex-col gap-1.5">
                         <label
                           className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
@@ -4075,6 +4081,24 @@ const DGGIComponent = () => {
               >
                 {record.record_id || "—"}
               </button>
+            ) : col.key === "converted_from_non_ir" &&
+              record.converted_from_non_ir ? (
+              (() => {
+                const nirRecord = records.find(
+                  (r) => r.record_id === record.converted_from_non_ir,
+                );
+                const href = nirRecord?.closure_by
+                  ? `/tasks/closure-register?caseId=${encodeURIComponent(record.converted_from_non_ir)}`
+                  : `/tasks/investigation-cases?caseId=${encodeURIComponent(record.converted_from_non_ir)}`;
+                return (
+                  <a
+                    href={href}
+                    className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5]"
+                  >
+                    {record.converted_from_non_ir}
+                  </a>
+                );
+              })()
             ) : (
               <EditableCell
                 value={(record as any)[col.key] ?? ""}
