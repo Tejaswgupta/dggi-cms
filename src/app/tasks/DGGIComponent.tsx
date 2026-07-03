@@ -159,6 +159,7 @@ export interface DGGIRecord {
   bo_id: string;
   hsn_code: string;
   converted_from_non_ir: string;
+  pr_adg_comments_updated_at: string | null;
 }
 
 interface WorkspaceUser {
@@ -242,6 +243,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   bo_id: "",
   hsn_code: "",
   converted_from_non_ir: "",
+  pr_adg_comments_updated_at: null,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -284,6 +286,12 @@ const COLUMNS: {
     type: "text",
     width: "140px",
     readOnly: true,
+  },
+  {
+    key: "pr_adg_comments",
+    label: "Pr.ADG Comments",
+    type: "text",
+    width: "200px",
   },
   {
     key: "date_of_ir",
@@ -382,12 +390,6 @@ const COLUMNS: {
     label: "Latest Status",
     type: "text",
     width: "180px",
-  },
-  {
-    key: "pr_adg_comments",
-    label: "Pr.ADG Comments",
-    type: "text",
-    width: "200px",
   },
 ];
 
@@ -561,6 +563,7 @@ const NON_IR_CLOSURE_FORM_COLS: ColDef[] = [
 ];
 
 const LS_HIDDEN_COLS_KEY = "dggi_hidden_columns";
+const LS_ADG_COMMENT_SEEN_KEY = "dggi_adg_comment_seen";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -2875,6 +2878,7 @@ const DGGIComponent = () => {
     }
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
+  const [unseenAdgComments, setUnseenAdgComments] = useState<Set<string>>(new Set());
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -3001,6 +3005,26 @@ const DGGIComponent = () => {
     }
     setRecords(data ?? []);
   };
+
+  // ── Unseen ADG comments (for IO/SIO only) ────────────────────────────────
+  // After records load, mark any record whose pr_adg_comments_updated_at is
+  // newer than the timestamp we last stored in localStorage for that record id.
+  useEffect(() => {
+    if (userRole === "ADG" || !records.length) return;
+    let seen: Record<string, string> = {};
+    try {
+      seen = JSON.parse(localStorage.getItem(LS_ADG_COMMENT_SEEN_KEY) ?? "{}");
+    } catch {}
+    const unseen = new Set<string>();
+    for (const r of records) {
+      if (!r.pr_adg_comments || !r.pr_adg_comments_updated_at) continue;
+      const seenAt = seen[r.id];
+      if (!seenAt || seenAt < r.pr_adg_comments_updated_at) {
+        unseen.add(r.id);
+      }
+    }
+    setUnseenAdgComments(unseen);
+  }, [records, userRole]);
 
   // ── Derived counts ─────────────────────────────────────────────────────────
 
@@ -3166,11 +3190,15 @@ const DGGIComponent = () => {
     const hadClosureBefore = !!existingRecord?.closure_by;
     const isNowClosed = !!dialogDraft.closure_by;
     const shouldWriteClosureEntry = !hadClosureBefore && isNowClosed;
+    const commentChanged =
+      userRole === "ADG" &&
+      (dialogDraft.pr_adg_comments ?? "") !== (existingRecord?.pr_adg_comments ?? "");
 
     const { error } = await supabase
       .from("dggi_records")
       .update({
         ...dialogDraft,
+        ...(commentChanged ? { pr_adg_comments_updated_at: new Date().toISOString() } : {}),
         handling_io_sio: dialogDraft.handling_io_sio || null,
         handling_io_sio_name:
           workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
@@ -3190,6 +3218,7 @@ const DGGIComponent = () => {
       return;
     }
 
+    const commentUpdatedAt = commentChanged ? new Date().toISOString() : undefined;
     setRecords((prev) =>
       prev.map((r) =>
         r.id === dialogEditingId
@@ -3199,6 +3228,7 @@ const DGGIComponent = () => {
               handling_io_sio_name:
                 workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
                   ?.name || r.handling_io_sio_name,
+              ...(commentUpdatedAt ? { pr_adg_comments_updated_at: commentUpdatedAt } : {}),
             }
           : r,
       ),
@@ -3511,6 +3541,19 @@ const DGGIComponent = () => {
     setDialogMode("edit");
     setDialogOpen(true);
     await fetchRelatedRegisters(record.record_id);
+    // Mark ADG comment seen for this record
+    if (unseenAdgComments.has(record.id)) {
+      setUnseenAdgComments((prev) => {
+        const next = new Set(prev);
+        next.delete(record.id);
+        return next;
+      });
+      try {
+        const seen = JSON.parse(localStorage.getItem(LS_ADG_COMMENT_SEEN_KEY) ?? "{}");
+        seen[record.id] = new Date().toISOString();
+        localStorage.setItem(LS_ADG_COMMENT_SEEN_KEY, JSON.stringify(seen));
+      } catch {}
+    }
   };
 
   // ── Related register saves ─────────────────────────────────────────────────
@@ -4099,6 +4142,20 @@ const DGGIComponent = () => {
                   </a>
                 );
               })()
+            ) : col.key === "pr_adg_comments" &&
+              unseenAdgComments.has(record.id) ? (
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-[#4A5FD4]" />
+                <EditableCell
+                  value={(record as any)[col.key] ?? ""}
+                  type={col.type}
+                  options={col.options}
+                  editing={false}
+                  users={workspaceUsers}
+                  readOnly={col.readOnly}
+                  onChange={() => {}}
+                />
+              </div>
             ) : (
               <EditableCell
                 value={(record as any)[col.key] ?? ""}
