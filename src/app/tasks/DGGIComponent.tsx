@@ -301,6 +301,13 @@ const COLUMNS: {
     readOnly: true,
   },
   {
+    key: "due_date",
+    label: "IR Closure Deadline",
+    type: "datepicker",
+    width: "160px",
+    readOnly: true,
+  },
+  {
     key: "converted_from_non_ir",
     label: "Non-IR Ref No.",
     type: "text",
@@ -395,12 +402,6 @@ const COLUMNS: {
 
 // Fields shown only in the IR form closure section, not as table columns
 const IR_CLOSURE_FORM_COLS: (typeof COLUMNS)[number][] = [
-  {
-    key: "due_date",
-    label: "Due Date / Closure Date",
-    type: "datepicker",
-    width: "160px",
-  },
   {
     key: "closure_by",
     label: "Closure Reason",
@@ -4101,8 +4102,39 @@ const DGGIComponent = () => {
   // ── Row renderer (shared between flat and grouped views) ───────────────────
 
   const renderRow = (record: DGGIRecord) => {
-    const todayStr = format(new Date(), "yyyy-MM-dd");
-    const isOverdue = record.due_date && record.due_date < todayStr;
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+
+    // Compute IR closure deadline: date_of_ir + 273 days (ir_closure_deadline rule)
+    const irDeadline = (() => {
+      if (record.is_ir && record.date_of_ir) {
+        const base = new Date(record.date_of_ir);
+        if (!isNaN(base.getTime())) {
+          base.setDate(base.getDate() + 273);
+          return format(base, "yyyy-MM-dd");
+        }
+      }
+      return "";
+    })();
+
+    const irDeadlineUrgency = (() => {
+      if (!irDeadline || !record.is_ir) return "none";
+      const diff = Math.ceil(
+        (new Date(irDeadline).getTime() - todayDate.getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
+      if (diff < 0) return "expired";
+      if (diff <= 14) return "critical";
+      if (diff <= 30) return "warning";
+      return "safe";
+    })();
+
+    const dueDateCellClass =
+      irDeadlineUrgency === "expired" || irDeadlineUrgency === "critical"
+        ? "text-[#C0432A] font-medium"
+        : irDeadlineUrgency === "warning"
+          ? "text-[#D97706] font-medium"
+          : "text-[#1a1a1a]";
 
     return (
       <TableRow
@@ -4113,11 +4145,7 @@ const DGGIComponent = () => {
         {visibleColumns.map((col) => (
           <TableCell
             key={col.key}
-            className={`px-3 py-2 ${
-              col.key === "due_date" && isOverdue
-                ? "text-[#C0432A] font-medium"
-                : "text-[#1a1a1a]"
-            }`}
+            className={`px-3 py-2 ${col.key === "due_date" ? dueDateCellClass : "text-[#1a1a1a]"}`}
           >
             {col.key === "record_id" ? (
               <button
@@ -4144,6 +4172,8 @@ const DGGIComponent = () => {
                   </a>
                 );
               })()
+            ) : col.key === "due_date" && record.is_ir ? (
+              <span className="whitespace-nowrap">{fmt(irDeadline)}</span>
             ) : col.key === "pr_adg_comments" &&
               unseenAdgComments.has(record.id) ? (
               <div className="flex items-center gap-1.5">
