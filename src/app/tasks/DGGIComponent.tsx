@@ -2190,7 +2190,7 @@ const NON_IR_STAGES: {
       "date_of_initiation",
       "issue_involved",
     ],
-    requiredFields: ["group", "taxpayer_name", "file_no", "handling_io_sio"],
+    requiredFields: ["group", "intel_source", "taxpayer_name", "file_no", "handling_io_sio"],
   },
   {
     label: "Intelligence Action",
@@ -3132,7 +3132,10 @@ const DGGIComponent = () => {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   const startEdit = (record: DGGIRecord) => {
-    setDialogDraft({ ...record });
+    setDialogDraft({
+      ...record,
+      due_date: record.due_date || (!record.is_ir ? today() : ""),
+    });
     setDialogEditingId(record.id);
     setDialogMode("edit");
     setDialogOpen(true);
@@ -3330,8 +3333,12 @@ const DGGIComponent = () => {
 
   const saveNew = async () => {
     if (!workspaceId) return;
-    setSavingRow(true);
     const draft = dialogDraft as Omit<DGGIRecord, "id">;
+    if (!draft.is_ir && !draft.intel_source) {
+      toast.error("Source is required for NON-IR records.");
+      return;
+    }
+    setSavingRow(true);
     const payload = {
       ...draft,
       record_id: await generateWorkspaceRecordId(

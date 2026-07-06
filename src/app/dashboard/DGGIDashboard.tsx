@@ -86,6 +86,19 @@ const TABLE_OFFICER_FIELDS: Record<string, string> = {
   dggi_dfl_records: "",
 };
 
+// Field used to populate the group filter dropdown (separate from the officer display field)
+const TABLE_GROUP_FIELDS: Record<string, string> = {
+  dggi_scn_records: "group",
+  dggi_provisional_attachment_records: "group",
+  dggi_seizure_records: "group",
+  dggi_intel_rapid_records: "assigned_group",
+  dggi_str_records: "assigned_group",
+  dggi_records: "group",
+  dggi_dfl_records: "group",
+  dggi_prosecution_arrest_records: "group",
+  dggi_prosecution_non_arrest_records: "group",
+};
+
 // RBAC: group field and SIO/IO field per table, matching existing register components
 const TABLE_RBAC_FIELDS: Record<
   string,
@@ -592,6 +605,7 @@ interface DeadlineItem {
   rowId: string;
   entityName: string;
   officer: string;
+  group: string;
   deadlineDate: Date;
   daysUntil: number;
   urgency: Urgency;
@@ -682,6 +696,7 @@ function computeDeadlinesForTable(
   today.setHours(0, 0, 0, 0);
   const items: DeadlineItem[] = [];
   const officerField = TABLE_OFFICER_FIELDS[config.source_table];
+  const groupField = TABLE_GROUP_FIELDS[config.source_table];
 
   for (const rule of config.deadlines) {
     const maxReminder = Math.max(...rule.reminder_days_before, 0);
@@ -726,6 +741,12 @@ function computeDeadlinesForTable(
           ? ((officerRaw as { name?: string }).name ?? "")
           : String(officerRaw)
         : "";
+      const groupRaw = groupField ? record[groupField] : undefined;
+      const group = groupRaw
+        ? typeof groupRaw === "object" && groupRaw !== null
+          ? ((groupRaw as { name?: string }).name ?? "")
+          : String(groupRaw)
+        : "";
       items.push({
         ruleId: rule.rule_id,
         ruleLabel: rule.label,
@@ -737,6 +758,7 @@ function computeDeadlinesForTable(
         rowId: record.id || "",
         entityName: getEntityName(record),
         officer,
+        group,
         deadlineDate: deadline,
         daysUntil,
         urgency,
@@ -1811,7 +1833,7 @@ export default function DGGIDashboard() {
   const availableGroups = useMemo(
     () =>
       [
-        ...new Set(allDeadlineItemsRaw.map((i) => i.officer).filter(Boolean)),
+        ...new Set(allDeadlineItemsRaw.map((i) => i.group).filter(Boolean)),
       ].sort(),
     [allDeadlineItemsRaw],
   );
@@ -1827,7 +1849,7 @@ export default function DGGIDashboard() {
     const filtered =
       groupFilter === "all"
         ? allDeadlineItemsRaw
-        : allDeadlineItemsRaw.filter((i) => i.officer === groupFilter);
+        : allDeadlineItemsRaw.filter((i) => i.group === groupFilter);
 
     const sorted = [...filtered].sort((a, b) => a.daysUntil - b.daysUntil);
 
