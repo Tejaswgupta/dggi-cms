@@ -4,7 +4,7 @@ import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Users, ChevronDown, X, Plus, Search } from "lucide-react";
+import { Users, ChevronDown, X, Plus, Search, Trash2, UserPlus } from "lucide-react";
 
 const DGGI_ROLES = ["ADG", "DD_INT", "DD", "AD", "ADC", "JD", "SIO", "IO"] as const;
 type DggiRole = (typeof DGGI_ROLES)[number];
@@ -30,14 +30,14 @@ interface User {
   created_at: string;
 }
 
-interface GroupAssignment {
-  id: string;
-  user_id: string;
-  group_name: string;
-}
-
 interface UserWithGroups extends User {
   groups: string[];
+}
+
+interface AddUserForm {
+  name: string;
+  email: string;
+  dggi_role: string;
 }
 
 export default function UsersPage() {
@@ -47,6 +47,11 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithGroups | null>(null);
   const [saving, setSaving] = useState(false);
   const [newGroup, setNewGroup] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState<AddUserForm>({ name: "", email: "", dggi_role: "" });
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -107,19 +112,22 @@ export default function UsersPage() {
 
   const saveUser = async () => {
     if (!editingUser) return;
+    const trimmedName = editingUser.name.trim();
+    if (!trimmedName) {
+      toast.error("Name cannot be empty");
+      return;
+    }
     setSaving(true);
     try {
       const supabase = clientConnectionWithSupabase();
 
-      // Update dggi_role on votum_users
-      const { error: roleError } = await supabase
+      const { error: updateError } = await supabase
         .from("votum_users")
-        .update({ dggi_role: editingUser.dggi_role || null })
+        .update({ name: trimmedName, dggi_role: editingUser.dggi_role || null })
         .eq("id", editingUser.id);
 
-      if (roleError) throw roleError;
+      if (updateError) throw updateError;
 
-      // Sync group assignments: only delete removed, only insert added
       const originalGroups = users.find((u) => u.id === editingUser.id)?.groups ?? [];
       const toRemove = originalGroups.filter((g) => !editingUser.groups.includes(g));
       const toAdd = editingUser.groups.filter((g) => !originalGroups.includes(g));
@@ -151,7 +159,7 @@ export default function UsersPage() {
       setUsers((prev) =>
         prev.map((u) =>
           u.id === editingUser.id
-            ? { ...u, dggi_role: editingUser.dggi_role, groups: editingUser.groups }
+            ? { ...u, name: trimmedName, dggi_role: editingUser.dggi_role, groups: editingUser.groups }
             : u
         )
       );
@@ -161,6 +169,73 @@ export default function UsersPage() {
       toast.error(err.message || "Failed to save");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const addUser = async () => {
+    const name = addForm.name.trim();
+    const email = addForm.email.trim().toLowerCase();
+    if (!name || !email) {
+      toast.error("Name and email are required");
+      return;
+    }
+    setAdding(true);
+    try {
+      const supabase = clientConnectionWithSupabase();
+      const workspace_id = await getWorkspaceId();
+      if (!workspace_id) return;
+
+      const { data, error } = await supabase
+        .from("votum_users")
+        .insert({
+          name,
+          email,
+          dggi_role: addForm.dggi_role || null,
+          workspace_id,
+          role: "member",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setUsers((prev) => [...prev, { ...data, groups: [] }].sort((a, b) => a.name.localeCompare(b.name)));
+      setShowAddModal(false);
+      setAddForm({ name: "", email: "", dggi_role: "" });
+      toast.success("User added");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add user");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    setDeletingId(userId);
+    try {
+      const supabase = clientConnectionWithSupabase();
+
+      const { error: groupError } = await supabase
+        .from("dggi_user_group_assignments")
+        .delete()
+        .eq("user_id", userId);
+
+      if (groupError) throw groupError;
+
+      const { error: userError } = await supabase
+        .from("votum_users")
+        .delete()
+        .eq("id", userId);
+
+      if (userError) throw userError;
+
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setConfirmDeleteId(null);
+      toast.success("User removed");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete user");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -181,14 +256,23 @@ export default function UsersPage() {
             {users.length} users
           </span>
         </div>
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a9a96]" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search users..."
-            className="pl-8 pr-3 py-1.5 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] w-56"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a9a96]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search users..."
+              className="pl-8 pr-3 py-1.5 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] w-56"
+            />
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#4A5FD4] text-white rounded-lg hover:bg-[#3a4fc4] transition-colors font-medium"
+          >
+            <UserPlus size={14} />
+            Add User
+          </button>
         </div>
       </div>
 
@@ -257,13 +341,22 @@ export default function UsersPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => openEdit(user)}
-                          className="text-xs text-[#4A5FD4] hover:underline font-medium"
-                        >
-                          Edit
-                        </button>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => openEdit(user)}
+                            className="text-xs text-[#4A5FD4] hover:underline font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(user.id)}
+                            className="text-[#9a9a96] hover:text-red-500 transition-colors"
+                            title="Remove user"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -297,6 +390,19 @@ export default function UsersPage() {
             </div>
 
             <div className="p-5 space-y-5">
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider mb-2">
+                  Name
+                </label>
+                <input
+                  value={editingUser.name}
+                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg outline-none focus:border-[#4A5FD4]"
+                  placeholder="Full name"
+                />
+              </div>
+
               {/* DGGI Role */}
               <div>
                 <label className="block text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider mb-2">
@@ -378,6 +484,130 @@ export default function UsersPage() {
                 className="px-4 py-2 text-sm bg-[#4A5FD4] text-white rounded-lg hover:bg-[#3a4fc4] transition-colors font-medium disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#EDEDEA]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#EEF2FF] text-[#4A5FD4] flex items-center justify-center">
+                  <UserPlus size={16} />
+                </div>
+                <p className="text-sm font-semibold text-[#1a1a1a]">Add New User</p>
+              </div>
+              <button
+                onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", dggi_role: "" }); }}
+                className="text-[#9a9a96] hover:text-[#1a1a1a] transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider mb-2">
+                  Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  value={addForm.name}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg outline-none focus:border-[#4A5FD4]"
+                  placeholder="Full name"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider mb-2">
+                  Email <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={addForm.email}
+                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && addUser()}
+                  className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg outline-none focus:border-[#4A5FD4]"
+                  placeholder="user@example.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#6b6b6b] uppercase tracking-wider mb-2">
+                  DGGI Role
+                </label>
+                <div className="relative">
+                  <select
+                    value={addForm.dggi_role}
+                    onChange={(e) => setAddForm({ ...addForm, dggi_role: e.target.value })}
+                    className="w-full appearance-none px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] pr-8"
+                  >
+                    <option value="">No role assigned</option>
+                    {DGGI_ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r} — {ROLE_LABELS[r]}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-[#EDEDEA] flex justify-end gap-2">
+              <button
+                onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", dggi_role: "" }); }}
+                className="px-4 py-2 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addUser}
+                disabled={adding}
+                className="px-4 py-2 text-sm bg-[#4A5FD4] text-white rounded-lg hover:bg-[#3a4fc4] transition-colors font-medium disabled:opacity-60"
+              >
+                {adding ? "Adding..." : "Add User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="p-6">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-4">
+                <Trash2 size={18} className="text-red-500" />
+              </div>
+              <p className="text-sm font-semibold text-[#1a1a1a] mb-1">Remove user?</p>
+              <p className="text-sm text-[#6b6b6b]">
+                This will remove{" "}
+                <span className="font-medium text-[#1a1a1a]">
+                  {users.find((u) => u.id === confirmDeleteId)?.name}
+                </span>{" "}
+                and all their group assignments. This cannot be undone.
+              </p>
+            </div>
+            <div className="px-6 pb-5 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="px-4 py-2 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteUser(confirmDeleteId)}
+                disabled={deletingId === confirmDeleteId}
+                className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-60"
+              >
+                {deletingId === confirmDeleteId ? "Removing..." : "Remove"}
               </button>
             </div>
           </div>

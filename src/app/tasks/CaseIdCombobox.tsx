@@ -29,6 +29,7 @@ export interface DGGICaseOption {
   date_of_receipt?: string;
   gstins?: string;
   issue_involved?: string;
+  closure_by?: string | null;
 }
 
 export function CaseIdCombobox({
@@ -49,11 +50,15 @@ export function CaseIdCombobox({
 
   if (!editing) {
     if (!value) return <span className="text-[#9a9a96]">—</span>;
+    const isClosed = selected?.closure_by != null && selected.closure_by !== "";
+    const caseHref = isClosed
+      ? `/tasks/closure-register?caseId=${encodeURIComponent(value)}`
+      : `/tasks/investigation-cases?caseId=${encodeURIComponent(value)}`;
     return (
       <div className="flex items-center gap-1">
         <Link2 size={11} className="text-[#4A5FD4] shrink-0" />
         <a
-          href={`/tasks/investigation-cases?caseId=${encodeURIComponent(value)}`}
+          href={caseHref}
           target="_blank"
           rel="noopener noreferrer"
           className="text-base text-[#4A5FD4] font-medium hover:underline hover:text-[#3B4EC5] transition-colors"
