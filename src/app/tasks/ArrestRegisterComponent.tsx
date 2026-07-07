@@ -594,8 +594,8 @@ const ArrestRegisterComponent = () => {
   const [dialogDraft, setDialogDraft] = useState<Partial<ArrestRecord>>({});
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
   const [savingRow, setSavingRow] = useState(false);
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortCol, setSortCol] = useState<string | null>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 

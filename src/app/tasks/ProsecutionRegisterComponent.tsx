@@ -113,7 +113,7 @@ const ProsecutionRegisterComponent = () => {
   const [arrestRecords, setArrestRecords] = useState<ArrestCaseRecord[]>([]);
   const [arrestSearch, setArrestSearch] = useState("");
   const [arrestSaving, setArrestSaving] = useState(false);
-  const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
+  const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: "created_at", dir: "desc" });
 
   const [arrestDialogOpen, setArrestDialogOpen] = useState(false);
   const [arrestDialogMode, setArrestDialogMode] = useState<"add" | "edit">("add");
@@ -123,7 +123,7 @@ const ProsecutionRegisterComponent = () => {
   const [nonArrestRecords, setNonArrestRecords] = useState<NonArrestRecord[]>([]);
   const [nonArrestSearch, setNonArrestSearch] = useState("");
   const [nonArrestSaving, setNonArrestSaving] = useState(false);
-  const [nonArrestSort, setNonArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
+  const [nonArrestSort, setNonArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: "created_at", dir: "desc" });
 
   const [nonArrestDialogOpen, setNonArrestDialogOpen] = useState(false);
   const [nonArrestDialogMode, setNonArrestDialogMode] = useState<"add" | "edit">("add");

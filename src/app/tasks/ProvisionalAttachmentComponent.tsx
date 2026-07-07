@@ -713,8 +713,8 @@ const ProvisionalAttachmentComponent = () => {
 
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
   const [savingRow, setSavingRow] = useState(false);
-  const [sortCol, setSortCol] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortCol, setSortCol] = useState<string | null>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
