@@ -138,6 +138,7 @@ const APPEAL_STAGE_OPTIONS = [
 ];
 
 const ADJUDICATING_AUTHORITY_OPTIONS = [
+  "SIO/Superintendent",
   "DC/AC (Adjudication)",
   "JC/ADC (Adjudication)",
   "Commissioner (Adjudication)",
