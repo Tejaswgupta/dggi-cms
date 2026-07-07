@@ -80,6 +80,7 @@ interface SCNRecord {
   sio_name: string;
   group: string;
   competency: string;
+  common_adjudicating_authority: string;
 }
 
 interface Filters {
@@ -124,6 +125,7 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   sio_name: "",
   group: "",
   competency: "",
+  common_adjudicating_authority: "",
 };
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -358,6 +360,13 @@ const COLUMNS: RegisterColumn[] = [
     type: "select",
     options: ADJUDICATING_AUTHORITY_OPTIONS,
     allowOther: true,
+    width: "200px",
+  },
+  {
+    key: "common_adjudicating_authority",
+    label: "Common Adjudicating Authority",
+    type: "select",
+    options: ["Yes", "No"],
     width: "200px",
   },
   {
