@@ -786,6 +786,7 @@ const ArrestRegisterComponent = () => {
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(
     new Set(),
   );
+  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [savingRow, setSavingRow] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -804,6 +805,7 @@ const ArrestRegisterComponent = () => {
       setWorkspaceId(wid);
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
+      if (uid) setCurrentUserId(uid);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
         supabase
           .from("votum_users")
@@ -970,6 +972,7 @@ const ArrestRegisterComponent = () => {
     );
     const sio_name =
       workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
+    const createdByName = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const payloads = persons.map((person, idx) => {
       const p = nullifyEmpty(
         {
@@ -982,6 +985,8 @@ const ArrestRegisterComponent = () => {
         COLUMNS,
       );
       (p as any).sio_name = sio_name;
+      (p as any).created_by = currentUserId || null;
+      (p as any).created_by_name = createdByName;
       return p;
     });
     const { data, error } = await supabase
@@ -1020,6 +1025,8 @@ const ArrestRegisterComponent = () => {
     (payload as any).sio_name =
       workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
       null;
+    (payload as any).created_by = currentUserId || null;
+    (payload as any).created_by_name = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const { data, error } = await supabase
       .from("dggi_arrest_records")
       .insert(payload)

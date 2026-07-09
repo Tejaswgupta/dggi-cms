@@ -58,6 +58,7 @@ import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
 import {
   AlertCircle,
+  ArrowLeftRight,
   CalendarIcon,
   Check,
   ChevronDown,
@@ -178,6 +179,8 @@ export interface DGGIRecord {
   hsn_code: string;
   converted_from_non_ir: string;
   pr_adg_comments_updated_at: string | null;
+  created_by: string | null;
+  created_by_name: string | null;
 }
 
 interface WorkspaceUser {
@@ -262,6 +265,8 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   hsn_code: "",
   converted_from_non_ir: "",
   pr_adg_comments_updated_at: null,
+  created_by: null,
+  created_by_name: null,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -2989,6 +2994,118 @@ export function DGGIRecordDialog({
   );
 }
 
+// ─── Bulk Transfer Dialog ─────────────────────────────────────────────────────
+
+function BulkTransferDialog({
+  open,
+  onOpenChange,
+  users,
+  records,
+  onTransfer,
+  transferring,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  users: WorkspaceUser[];
+  records: DGGIRecord[];
+  onTransfer: (fromUserId: string, toUserId: string) => void;
+  transferring: boolean;
+}) {
+  const [fromUserId, setFromUserId] = useState("");
+  const [toUserId, setToUserId] = useState("");
+
+  const handleOpenChange = (v: boolean) => {
+    if (!v) {
+      setFromUserId("");
+      setToUserId("");
+    }
+    onOpenChange(v);
+  };
+
+  const affectedCount = fromUserId
+    ? records.filter((r) => r.handling_io_sio === fromUserId && !r.closure_by).length
+    : 0;
+
+  const fromUser = users.find((u) => u.id === fromUserId);
+  const toUser = users.find((u) => u.id === toUserId);
+  const canTransfer = fromUserId && toUserId && fromUserId !== toUserId && affectedCount > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg rounded-2xl border border-[#EDEDEA] shadow-none font-['DM_Sans']">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-medium text-[#1a1a1a] flex items-center gap-2">
+            <ArrowLeftRight size={17} className="text-[#4A5FD4]" />
+            Bulk Transfer Cases
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* From */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#6b6b6b]">Transfer from</label>
+            <UserCombobox
+              value={fromUserId}
+              onChange={setFromUserId}
+              users={users}
+              className="w-full h-9"
+            />
+            {fromUserId && (
+              <p className="text-sm text-[#9a9a96]">
+                {affectedCount === 0
+                  ? "No open cases assigned to this user."
+                  : `${affectedCount} open case${affectedCount !== 1 ? "s" : ""} will be transferred.`}
+              </p>
+            )}
+          </div>
+
+          {/* To */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#6b6b6b]">Transfer to</label>
+            <UserCombobox
+              value={toUserId}
+              onChange={setToUserId}
+              users={users.filter((u) => u.id !== fromUserId)}
+              className="w-full h-9"
+            />
+          </div>
+
+          {/* Confirmation summary */}
+          {canTransfer && (
+            <div className="rounded-xl border border-[#4A5FD4]/20 bg-[#EEF2FF] px-4 py-3 text-sm text-[#4A5FD4]">
+              <span className="font-medium">{affectedCount} case{affectedCount !== 1 ? "s" : ""}</span>
+              {" and their linked SCN, Arrest, and Provisional Attachment records will be reassigned from "}
+              <span className="font-medium">{fromUser?.name}</span>
+              {" to "}
+              <span className="font-medium">{toUser?.name}</span>.
+              {" Only records where "}
+              <span className="font-medium">{fromUser?.name}</span>
+              {" is the current responsible SIO will be updated."}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 pt-2">
+          <Button
+            variant="outline"
+            className="rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"
+            onClick={() => handleOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none"
+            onClick={() => onTransfer(fromUserId, toUserId)}
+            disabled={!canTransfer || transferring}
+          >
+            {transferring ? "Transferring…" : `Transfer ${affectedCount > 0 ? affectedCount : ""} Case${affectedCount !== 1 ? "s" : ""}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const DGGIComponent = () => {
@@ -3046,6 +3163,8 @@ const DGGIComponent = () => {
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
   const [unseenAdgComments, setUnseenAdgComments] = useState<Set<string>>(new Set());
+  const [bulkTransferOpen, setBulkTransferOpen] = useState(false);
+  const [transferring, setTransferring] = useState(false);
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -3535,6 +3654,75 @@ const DGGIComponent = () => {
     );
   };
 
+  const bulkTransfer = async (fromUserId: string, toUserId: string) => {
+    const newUser = workspaceUsers.find((u) => u.id === toUserId);
+    if (!newUser) return;
+    setTransferring(true);
+
+    const affectedCases = records.filter(
+      (r) => r.handling_io_sio === fromUserId && !r.closure_by,
+    );
+    const affectedRecordIds = affectedCases.map((r) => r.record_id);
+
+    const [caseRes, scnRes, arrestRes, provRes] = await Promise.all([
+      supabase
+        .from("dggi_records")
+        .update({ handling_io_sio: toUserId, handling_io_sio_name: newUser.name })
+        .eq("handling_io_sio", fromUserId)
+        .eq("workspace_id", workspaceId)
+        .is("closure_by", null),
+      affectedRecordIds.length > 0
+        ? supabase
+            .from("dggi_scn_records")
+            .update({ sio: toUserId, sio_name: newUser.name })
+            .eq("sio", fromUserId)
+            .in("linked_case_id", affectedRecordIds)
+        : Promise.resolve({ error: null }),
+      affectedRecordIds.length > 0
+        ? supabase
+            .from("dggi_arrest_records")
+            .update({ sio: toUserId, sio_name: newUser.name })
+            .eq("sio", fromUserId)
+            .in("linked_case_id", affectedRecordIds)
+        : Promise.resolve({ error: null }),
+      affectedRecordIds.length > 0
+        ? supabase
+            .from("dggi_provisional_attachment_records")
+            .update({ sio: toUserId })
+            .eq("sio", fromUserId)
+            .in("linked_case_id", affectedRecordIds)
+        : Promise.resolve({ error: null }),
+    ]);
+
+    const errors = [
+      caseRes.error && "cases: " + caseRes.error.message,
+      scnRes.error && "SCN records: " + scnRes.error.message,
+      arrestRes.error && "arrest records: " + arrestRes.error.message,
+      provRes.error && "provisional attachments: " + provRes.error.message,
+    ].filter(Boolean);
+
+    if (errors.length > 0) {
+      toast.error("Transfer partially failed — " + errors.join("; "));
+    }
+
+    if (!caseRes.error) {
+      const fromUser = workspaceUsers.find((u) => u.id === fromUserId);
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.handling_io_sio === fromUserId && !r.closure_by
+            ? { ...r, handling_io_sio: toUserId, handling_io_sio_name: newUser.name }
+            : r,
+        ),
+      );
+      toast.success(
+        `${affectedCases.length} case${affectedCases.length !== 1 ? "s" : ""} transferred from ${fromUser?.name ?? "user"} to ${newUser.name}`,
+      );
+      setBulkTransferOpen(false);
+    }
+
+    setTransferring(false);
+  };
+
   const saveNew = async () => {
     if (!workspaceId) return;
     const draft = dialogDraft as Omit<DGGIRecord, "id">;
@@ -3570,6 +3758,8 @@ const DGGIComponent = () => {
           : draft.date_of_non_ir || null,
       converted_from_non_ir: draft.converted_from_non_ir || null,
       workspace_id: workspaceId,
+      created_by: currentUserId || null,
+      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     const { data, error } = await supabase
       .from("dggi_records")
@@ -3860,6 +4050,8 @@ const DGGIComponent = () => {
         workspaceId,
       ),
       workspace_id: workspaceId,
+      created_by: currentUserId || null,
+      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     const { data, error } = await supabase
       .from("dggi_arrest_records")
@@ -4002,6 +4194,8 @@ const DGGIComponent = () => {
         workspaceId,
       ),
       workspace_id: workspaceId,
+      created_by: currentUserId || null,
+      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
@@ -4111,6 +4305,8 @@ const DGGIComponent = () => {
         workspaceId,
       ),
       workspace_id: workspaceId,
+      created_by: currentUserId || null,
+      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     const { data, error } = await supabase
       .from("dggi_scn_records")
@@ -4474,6 +4670,14 @@ const DGGIComponent = () => {
 
   return (
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
+      <BulkTransferDialog
+        open={bulkTransferOpen}
+        onOpenChange={setBulkTransferOpen}
+        users={workspaceUsers}
+        records={records}
+        onTransfer={bulkTransfer}
+        transferring={transferring}
+      />
       <CreateFromIntelDialog
         open={intelDialogOpen}
         onClose={() => setIntelDialogOpen(false)}
@@ -4662,6 +4866,18 @@ const DGGIComponent = () => {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              {(userRole === "ADG" || userRole === "DD_INT") && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
+                  onClick={() => setBulkTransferOpen(true)}
+                >
+                  <ArrowLeftRight size={15} className="mr-1" />
+                  Transfer Cases
+                </Button>
+              )}
 
               <Button
                 size="sm"
