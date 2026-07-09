@@ -1420,14 +1420,7 @@ export default function DGGIDashboard() {
       setUserRbac(rbac);
 
       // ADG role check — also covers dggi_role field
-      if (
-        dggiRole === "ADG" ||
-        dbUser?.designation?.toLowerCase().includes("adg") ||
-        dbUser?.role?.toLowerCase().includes("adg") ||
-        (session.user.user_metadata as AnyRecord)?.designation
-          ?.toLowerCase()
-          .includes("adg")
-      ) {
+      if (dggiRole === "ADG") {
         setIsAdg(true);
       }
 
