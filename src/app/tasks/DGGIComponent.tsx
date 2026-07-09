@@ -3461,6 +3461,42 @@ const DGGIComponent = () => {
       }
     }
 
+    // Notify SIO + DD(s) of the group when ADG adds/changes a comment
+    if (commentChanged) {
+      const caseGroup = dialogDraft.group ?? "";
+      const sioUserId = dialogDraft.handling_io_sio ?? "";
+
+      // Find DD users assigned to this group
+      const { data: ddAssignments } = await supabase
+        .from("dggi_user_group_assignments")
+        .select("user_id, votum_users!inner(dggi_role)")
+        .eq("group_name", caseGroup)
+        .eq("votum_users.dggi_role", "DD");
+
+      const ddUserIds = (ddAssignments ?? []).map((a) => a.user_id);
+
+      const recipientIds = [
+        ...(sioUserId ? [sioUserId] : []),
+        ...ddUserIds,
+      ].filter((id, i, arr) => arr.indexOf(id) === i); // dedupe
+
+      if (recipientIds.length) {
+        const notifRows = recipientIds.map((uid) => ({
+          workspace_id: workspaceId,
+          user_id: uid,
+          rule_id: "adg_comment",
+          source_table: "dggi_records",
+          record_id: dialogDraft.record_id ?? "",
+          row_id: dialogEditingId,
+          deadline_date: new Date().toISOString().slice(0, 10),
+          days_until: 0,
+          label: `ADG comment on ${dialogDraft.record_id ?? "case"}: ${(() => { const c = parseAdgComments(dialogDraft.pr_adg_comments ?? ""); return c.length ? c[c.length - 1].text.slice(0, 80) : ""; })()}`,
+          legal_reference: null,
+        }));
+        await supabase.from("dggi_notifications").insert(notifRows);
+      }
+    }
+
     cancelDialog();
     toast.success("Record saved");
     setSavingRow(false);
