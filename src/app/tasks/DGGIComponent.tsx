@@ -112,6 +112,24 @@ const MODE_OPTIONS: ModeOfInitiation[] = [
 
 const OTHER_SENTINEL = "__other__";
 
+// ─── ADG Comments ─────────────────────────────────────────────────────────────
+
+type AdgComment = { text: string; timestamp: string };
+
+const parseAdgComments = (raw: string): AdgComment[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+    return [{ text: String(raw), timestamp: "" }];
+  } catch {
+    return [{ text: raw, timestamp: "" }];
+  }
+};
+
+const serializeAdgComments = (comments: AdgComment[]): string =>
+  comments.length ? JSON.stringify(comments) : "";
+
 type GroupByField =
   | "group"
   | "mode_of_initiation"
@@ -275,7 +293,8 @@ const COLUMNS: {
     | "select"
     | "select-with-other"
     | "boolean"
-    | "usercombobox";
+    | "usercombobox"
+    | "adgcomments";
   options?: string[];
   width?: string;
   readOnly?: boolean;
@@ -290,7 +309,7 @@ const COLUMNS: {
   {
     key: "pr_adg_comments",
     label: "Pr.ADG Comments",
-    type: "text",
+    type: "adgcomments",
     width: "200px",
   },
   {
@@ -413,7 +432,24 @@ const IR_CLOSURE_FORM_COLS: (typeof COLUMNS)[number][] = [
 
 // ─── NON-IR table column definitions (yellow + green from non-IR02.xlsx) ─────
 
-type ColDef = (typeof COLUMNS)[number];
+type ColDef = {
+  key: keyof Omit<DGGIRecord, "id">;
+  label: string;
+  type:
+    | "text"
+    | "datepicker"
+    | "select"
+    | "select-with-other"
+    | "boolean"
+    | "usercombobox"
+    | "adgcomments"
+    | "number";
+  options?: string[];
+  width?: string;
+  readOnly?: boolean;
+  dialogLabel?: string;
+  allowOther?: boolean;
+};
 
 // Fields used in the NON-IR form but not shown as table columns
 const NON_IR_FORM_EXTRA: ColDef[] = [
@@ -534,7 +570,7 @@ const NON_IR_COLUMNS: ColDef[] = [
   {
     key: "pr_adg_comments",
     label: "Pr.ADG Comments",
-    type: "text",
+    type: "adgcomments",
     width: "200px",
   },
   // { key: "is_ir", label: "IR", type: "boolean", width: "90px" },
@@ -781,7 +817,9 @@ function EditableCell({
     | "select"
     | "select-with-other"
     | "boolean"
-    | "usercombobox";
+    | "usercombobox"
+    | "adgcomments"
+    | "number";
   options?: string[];
   onChange: (v: string | boolean) => void;
   editing: boolean;
@@ -790,6 +828,19 @@ function EditableCell({
   storedName?: string;
 }) {
   if (!editing || readOnly) {
+    if (type === "adgcomments") {
+      const comments = parseAdgComments(value as string);
+      if (comments.length === 0) return <span className="text-[#9a9a96]">—</span>;
+      const last = comments[comments.length - 1];
+      return (
+        <div className="flex flex-col gap-0.5 max-w-[190px]">
+          <span className="text-base text-[#1a1a1a] truncate" title={last.text}>{last.text}</span>
+          {comments.length > 1 && (
+            <span className="text-xs text-[#9a9a96]">+{comments.length - 1} more</span>
+          )}
+        </div>
+      );
+    }
     if (type === "boolean") {
       return (
         <Badge
@@ -1124,6 +1175,98 @@ function UserFilter({
         </Command>
       </PopoverContent>
     </Popover>
+  );
+}
+
+// ─── ADG Comment Thread ───────────────────────────────────────────────────────
+
+function AdgCommentThread({
+  value,
+  onChange,
+  canEdit,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  canEdit: boolean;
+}) {
+  const comments = parseAdgComments(value);
+  const [newText, setNewText] = useState("");
+
+  const addComment = () => {
+    const trimmed = newText.trim();
+    if (!trimmed) return;
+    const updated = [
+      ...comments,
+      { text: trimmed, timestamp: new Date().toISOString() },
+    ];
+    onChange(serializeAdgComments(updated));
+    setNewText("");
+  };
+
+  const deleteComment = (idx: number) => {
+    const updated = comments.filter((_, i) => i !== idx);
+    onChange(serializeAdgComments(updated));
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {comments.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {comments.map((c, i) => (
+            <div
+              key={i}
+              className="rounded-lg border border-[#EDEDEA] bg-[#FAFAF9] px-3 py-2 flex items-start justify-between gap-2"
+            >
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <span className="text-base text-[#1a1a1a] break-words">{c.text}</span>
+                {c.timestamp && (
+                  <span className="text-xs text-[#9a9a96]">
+                    {new Date(c.timestamp).toLocaleString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+              </div>
+              {canEdit && (
+                <button
+                  onClick={() => deleteComment(i)}
+                  className="shrink-0 text-[#9a9a96] hover:text-[#C0432A] transition-colors mt-0.5"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {canEdit && (
+        <div className="flex gap-2">
+          <Input
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), addComment())}
+            placeholder="Add comment…"
+            className="h-9 flex-1 border-[#EDEDEA] text-base rounded-lg"
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={!newText.trim()}
+            onClick={addComment}
+            className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none px-3"
+          >
+            <Plus size={14} />
+          </Button>
+        </div>
+      )}
+      {!canEdit && comments.length === 0 && (
+        <span className="text-base text-[#9a9a96]">—</span>
+      )}
+    </div>
   );
 }
 
@@ -2274,6 +2417,15 @@ export function DGGIRecordDialog({
     const value = rawValue ?? "";
 
     if (disabled) {
+      if (col.type === "adgcomments") {
+        return (
+          <AdgCommentThread
+            value={value as string}
+            onChange={(v) => onDraftChange(col.key, v)}
+            canEdit={false}
+          />
+        );
+      }
       const displayValue =
         col.type === "usercombobox"
           ? users.find((u) => u.id === (value as string))?.name ||
@@ -2287,6 +2439,16 @@ export function DGGIRecordDialog({
         <div className="h-9 flex items-center px-3 rounded-lg border border-[#EDEDEA] bg-[#F9F9F8] text-base text-[#9a9a96]">
           {displayValue}
         </div>
+      );
+    }
+
+    if (col.type === "adgcomments") {
+      return (
+        <AdgCommentThread
+          value={value as string}
+          onChange={(v) => onDraftChange(col.key, v)}
+          canEdit={userRole === "ADG"}
+        />
       );
     }
 
@@ -2482,15 +2644,17 @@ export function DGGIRecordDialog({
         )}
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           {mainCols.map((col) => (
-            <div key={col.key} className="flex flex-col gap-1.5">
+            <div
+              key={col.key}
+              className={`flex flex-col gap-1.5 ${col.key === "pr_adg_comments" ? "col-span-2" : ""}`}
+            >
               <label className="text-sm font-medium text-[#6b6b6b]">
                 {col.label}
               </label>
               {renderField(
                 col,
-                (mode === "edit" &&
-                  FROZEN_ON_EDIT.has(col.key as keyof DGGIRecord)) ||
-                  (col.key === "pr_adg_comments" && userRole !== "ADG"),
+                mode === "edit" &&
+                  FROZEN_ON_EDIT.has(col.key as keyof DGGIRecord),
               )}
             </div>
           ))}
@@ -2708,7 +2872,10 @@ export function DGGIRecordDialog({
                           (draft as any).intel_source === "Int",
                       )
                       .map((col) => (
-                      <div key={col.key} className="flex flex-col gap-1.5">
+                      <div
+                        key={col.key}
+                        className={`flex flex-col gap-1.5 ${col.key === "pr_adg_comments" ? "col-span-2" : ""}`}
+                      >
                         <label
                           className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
                         >
@@ -2723,9 +2890,7 @@ export function DGGIRecordDialog({
                             (mode === "edit" &&
                               FROZEN_ON_EDIT.has(
                                 col.key as keyof DGGIRecord,
-                              )) ||
-                            (col.key === "pr_adg_comments" &&
-                              userRole !== "ADG"),
+                              )),
                         )}
                       </div>
                     ))}
@@ -3199,10 +3364,13 @@ const DGGIComponent = () => {
       userRole === "ADG" &&
       (dialogDraft.pr_adg_comments ?? "") !== (existingRecord?.pr_adg_comments ?? "");
 
+    const updatePayload: Record<string, any> = { ...dialogDraft };
+    if (userRole !== "ADG") delete updatePayload.pr_adg_comments;
+
     const { error } = await supabase
       .from("dggi_records")
       .update({
-        ...dialogDraft,
+        ...updatePayload,
         ...(commentChanged ? { pr_adg_comments_updated_at: new Date().toISOString() } : {}),
         handling_io_sio: dialogDraft.handling_io_sio || null,
         handling_io_sio_name:
@@ -3879,7 +4047,7 @@ const DGGIComponent = () => {
       group: rec?.group ?? "",
       // Status/comments from case
       adjudication_status: rec?.latest_status ?? "",
-      remarks: rec?.pr_adg_comments ?? "",
+      remarks: "",
       // Blank fields user must fill
       scn_no: "",
       last_date_oio: "",

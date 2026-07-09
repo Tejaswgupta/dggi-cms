@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,6 +11,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -27,13 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DateInput } from "@/components/ui/date-input";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -42,7 +42,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
+import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
 import {
@@ -59,11 +61,18 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
-import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ColumnGroup } from "./RegisterRecordDialog";
-import { DGGI_GROUPS } from "@/lib/dggi-constants";
+import {
+  exportRegisterToExcel,
+  fetchCaseOptions,
+  generateWorkspaceRecordId,
+  nullifyEmpty,
+} from "./register-utils";
+import {
+  RegisterRecordDialog,
+  type ColumnGroup,
+  type WorkspaceUser,
+} from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -174,16 +183,49 @@ const PERSON_FIELDS = new Set<keyof ArrestRecord>([
 const COLUMNS: {
   key: keyof Omit<ArrestRecord, "id">;
   label: string;
-  type: "text" | "number" | "datepicker" | "caselink" | "usercombobox" | "select";
+  type:
+    | "text"
+    | "number"
+    | "datepicker"
+    | "caselink"
+    | "usercombobox"
+    | "select";
   width?: string;
   options?: string[];
   readOnly?: boolean;
 }[] = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
-  { key: "arrest_batch_id", label: "Arrest No.", type: "text", width: "140px", readOnly: true },
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "arrested_name", label: "Name of Arrested Person", type: "text", width: "180px" },
-  { key: "arrested_designation", label: "Designation", type: "text", width: "160px" },
+  {
+    key: "record_id",
+    label: "ID",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
+  {
+    key: "arrest_batch_id",
+    label: "Arrest No.",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
+  {
+    key: "arrested_name",
+    label: "Name of Arrested Person",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "arrested_designation",
+    label: "Designation",
+    type: "text",
+    width: "160px",
+  },
   { key: "arrested_age", label: "Age", type: "text", width: "80px" },
   {
     key: "date_of_arrest",
@@ -221,18 +263,34 @@ const COLUMNS: {
     type: "text",
     width: "240px",
   },
-  { key: "relative_name", label: "Relative Name", type: "text", width: "160px" },
-  { key: "relative_address", label: "Relative Address", type: "text", width: "200px" },
+  {
+    key: "relative_name",
+    label: "Relative Name",
+    type: "text",
+    width: "160px",
+  },
+  {
+    key: "relative_address",
+    label: "Relative Address",
+    type: "text",
+    width: "200px",
+  },
   { key: "relative_tel", label: "Relative Tel.", type: "text", width: "140px" },
   {
     key: "prosecution_filed",
     label: "Whether Prosecution Filed",
     type: "select",
-    options: ["Yes", "No", "Pending"],
+    options: ["Yes", "No"],
     width: "200px",
   },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
+  {
+    key: "group",
+    label: "Group",
+    type: "select",
+    options: DGGI_GROUPS,
+    width: "120px",
+  },
 ];
 
 const TOTAL_COLS = COLUMNS.length + 1; // +1 for Actions
@@ -299,7 +357,13 @@ function EditableCell({
   storedName,
 }: {
   value: string;
-  type: "text" | "number" | "datepicker" | "caselink" | "usercombobox" | "select";
+  type:
+    | "text"
+    | "number"
+    | "datepicker"
+    | "caselink"
+    | "usercombobox"
+    | "select";
   onChange: (v: string) => void;
   editing: boolean;
   readOnly?: boolean;
@@ -307,8 +371,21 @@ function EditableCell({
   users?: WorkspaceUser[];
   storedName?: string;
 }) {
-  if (type === "usercombobox") return <span>{users?.find((u) => u.id === value)?.name || storedName || "—"}</span>;
-  if (type === "caselink") return <CaseIdCombobox value={value} onChange={onChange} cases={cases ?? []} editing={editing} />;
+  if (type === "usercombobox")
+    return (
+      <span>
+        {users?.find((u) => u.id === value)?.name || storedName || "—"}
+      </span>
+    );
+  if (type === "caselink")
+    return (
+      <CaseIdCombobox
+        value={value}
+        onChange={onChange}
+        cases={cases ?? []}
+        editing={editing}
+      />
+    );
   if (!editing || readOnly) {
     if (type === "datepicker")
       return <span className="whitespace-nowrap">{fmt(value)}</span>;
@@ -316,7 +393,9 @@ function EditableCell({
   }
 
   if (type === "datepicker") {
-    return <DateInput value={value} onChange={onChange} className="min-w-[180px]" />;
+    return (
+      <DateInput value={value} onChange={onChange} className="min-w-[180px]" />
+    );
   }
 
   return (
@@ -375,7 +454,19 @@ function FilterDatePicker({
 
 // ─── Add Arrest Dialog ────────────────────────────────────────────────────────
 
-type PersonDraft = Omit<typeof EMPTY_RECORD, "record_id" | "arrest_batch_id" | "linked_case_id" | "date_of_arrest" | "financial_year" | "party_name" | "unit_gstin" | "amount_crore" | "sio" | "group">;
+type PersonDraft = Omit<
+  typeof EMPTY_RECORD,
+  | "record_id"
+  | "arrest_batch_id"
+  | "linked_case_id"
+  | "date_of_arrest"
+  | "financial_year"
+  | "party_name"
+  | "unit_gstin"
+  | "amount_crore"
+  | "sio"
+  | "group"
+>;
 
 const EMPTY_PERSON = (): Record<string, string> => ({
   arrested_name: "",
@@ -388,8 +479,14 @@ const EMPTY_PERSON = (): Record<string, string> => ({
   prosecution_filed: "",
 });
 
-const BATCH_COLUMNS = COLUMNS.filter((c) => BATCH_FIELDS.has(c.key as keyof ArrestRecord) && c.key !== "arrest_batch_id");
-const PERSON_COLUMNS = COLUMNS.filter((c) => PERSON_FIELDS.has(c.key as keyof ArrestRecord));
+const BATCH_COLUMNS = COLUMNS.filter(
+  (c) =>
+    BATCH_FIELDS.has(c.key as keyof ArrestRecord) &&
+    c.key !== "arrest_batch_id",
+);
+const PERSON_COLUMNS = COLUMNS.filter((c) =>
+  PERSON_FIELDS.has(c.key as keyof ArrestRecord),
+);
 
 const EDIT_COLUMN_GROUPS: ColumnGroup[] = [
   { label: "Arrest Details", keys: Array.from(BATCH_FIELDS) as string[] },
@@ -406,7 +503,10 @@ function AddArrestDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSave: (batch: Record<string, string>, persons: Record<string, string>[]) => void;
+  onSave: (
+    batch: Record<string, string>,
+    persons: Record<string, string>[],
+  ) => void;
   saving: boolean;
   caseOptions: DGGICaseOption[];
   users: WorkspaceUser[];
@@ -421,12 +521,23 @@ function AddArrestDialog({
     sio: "",
     group: "",
   });
-  const [persons, setPersons] = useState<Record<string, string>[]>([EMPTY_PERSON()]);
+  const [persons, setPersons] = useState<Record<string, string>[]>([
+    EMPTY_PERSON(),
+  ]);
 
   // Reset when dialog opens
   const handleOpenChange = (v: boolean) => {
     if (v) {
-      setBatch({ linked_case_id: "", date_of_arrest: format(new Date(), "yyyy-MM-dd"), financial_year: "", party_name: "", unit_gstin: "", amount_crore: "", sio: "", group: "" });
+      setBatch({
+        linked_case_id: "",
+        date_of_arrest: format(new Date(), "yyyy-MM-dd"),
+        financial_year: "",
+        party_name: "",
+        unit_gstin: "",
+        amount_crore: "",
+        sio: "",
+        group: "",
+      });
       setPersons([EMPTY_PERSON()]);
     }
     onOpenChange(v);
@@ -439,10 +550,14 @@ function AddArrestDialog({
         setBatch((prev) => ({
           ...prev,
           linked_case_id: val,
-          financial_year: rec.financial_year || fyFromDate(rec.date_of_initiation ?? rec.date_of_receipt ?? ""),
+          financial_year:
+            rec.financial_year ||
+            fyFromDate(rec.date_of_initiation ?? rec.date_of_receipt ?? ""),
           party_name: rec.taxpayer_name || "",
           unit_gstin: rec.gstins || "",
-          amount_crore: rec.detection_amount ? String(parseFloat(rec.detection_amount) / 10_000_000 || "") : prev.amount_crore,
+          amount_crore: rec.detection_amount
+            ? String(parseFloat(rec.detection_amount) / 10_000_000 || "")
+            : prev.amount_crore,
           sio: rec.handling_io_sio || prev.sio,
           group: rec.group || prev.group,
         }));
@@ -453,22 +568,41 @@ function AddArrestDialog({
   };
 
   const setPersonField = (idx: number, key: string, val: string) => {
-    setPersons((prev) => prev.map((p, i) => i === idx ? { ...p, [key]: val } : p));
+    setPersons((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, [key]: val } : p)),
+    );
   };
 
-  const renderBatchField = (col: typeof BATCH_COLUMNS[number]) => {
+  const renderBatchField = (col: (typeof BATCH_COLUMNS)[number]) => {
     const value = batch[col.key] ?? "";
-    if (col.type === "caselink") return <CaseIdCombobox value={value} onChange={(v) => setBatchField(col.key, v)} cases={caseOptions} editing={true} />;
-    if (col.type === "datepicker") return <DateInput value={value} onChange={(v) => setBatchField(col.key, v)} />;
+    if (col.type === "caselink")
+      return (
+        <CaseIdCombobox
+          value={value}
+          onChange={(v) => setBatchField(col.key, v)}
+          cases={caseOptions}
+          editing={true}
+        />
+      );
+    if (col.type === "datepicker")
+      return (
+        <DateInput value={value} onChange={(v) => setBatchField(col.key, v)} />
+      );
     if (col.type === "usercombobox") {
       const selected = users.find((u) => u.id === value);
       return (
         <Select value={value} onValueChange={(v) => setBatchField(col.key, v)}>
           <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
-            <SelectValue placeholder="Select user…">{selected?.name ?? ""}</SelectValue>
+            <SelectValue placeholder="Select user…">
+              {selected?.name ?? ""}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+            {users.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       );
@@ -479,33 +613,61 @@ function AddArrestDialog({
           <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
             <SelectValue placeholder="Select…" />
           </SelectTrigger>
-          <SelectContent>{col.options?.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+          <SelectContent>
+            {col.options?.map((o) => (
+              <SelectItem key={o} value={o}>
+                {o}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       );
     }
     return (
-      <Input value={value} onChange={(e) => {
-        const v = e.target.value;
-        if (col.type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v)) return;
-        setBatchField(col.key, v);
-      }} inputMode={col.type === "number" ? "decimal" : undefined} className="h-9 border-[#EDEDEA] text-base rounded-lg w-full" />
+      <Input
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (col.type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v))
+            return;
+          setBatchField(col.key, v);
+        }}
+        inputMode={col.type === "number" ? "decimal" : undefined}
+        className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+      />
     );
   };
 
-  const renderPersonField = (col: typeof PERSON_COLUMNS[number], idx: number) => {
+  const renderPersonField = (
+    col: (typeof PERSON_COLUMNS)[number],
+    idx: number,
+  ) => {
     const value = persons[idx][col.key] ?? "";
     if (col.type === "select") {
       return (
-        <Select value={value} onValueChange={(v) => setPersonField(idx, col.key, v)}>
+        <Select
+          value={value}
+          onValueChange={(v) => setPersonField(idx, col.key, v)}
+        >
           <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
             <SelectValue placeholder="Select…" />
           </SelectTrigger>
-          <SelectContent>{col.options?.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
+          <SelectContent>
+            {col.options?.map((o) => (
+              <SelectItem key={o} value={o}>
+                {o}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       );
     }
     return (
-      <Input value={value} onChange={(e) => setPersonField(idx, col.key, e.target.value)} className="h-9 border-[#EDEDEA] text-base rounded-lg w-full" />
+      <Input
+        value={value}
+        onChange={(e) => setPersonField(idx, col.key, e.target.value)}
+        className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+      />
     );
   };
 
@@ -513,16 +675,22 @@ function AddArrestDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[#EDEDEA] shadow-none font-['DM_Sans']">
         <DialogHeader>
-          <DialogTitle className="text-lg font-medium text-[#1a1a1a]">Add Arrest Record</DialogTitle>
+          <DialogTitle className="text-lg font-medium text-[#1a1a1a]">
+            Add Arrest Record
+          </DialogTitle>
         </DialogHeader>
 
         {/* Batch fields */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Arrest Details</p>
+          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+            Arrest Details
+          </p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
             {BATCH_COLUMNS.map((col) => (
               <div key={col.key} className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-[#6b6b6b]">{col.label}</label>
+                <label className="text-sm font-medium text-[#6b6b6b]">
+                  {col.label}
+                </label>
                 {renderBatchField(col)}
               </div>
             ))}
@@ -531,14 +699,23 @@ function AddArrestDialog({
 
         {/* Person forms */}
         <div className="space-y-3 mt-2">
-          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Arrested Person{persons.length > 1 ? "s" : ""}</p>
+          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+            Arrested Person{persons.length > 1 ? "s" : ""}
+          </p>
           {persons.map((_, idx) => (
-            <div key={idx} className="rounded-xl border border-[#EDEDEA] px-4 py-3 space-y-3">
+            <div
+              key={idx}
+              className="rounded-xl border border-[#EDEDEA] px-4 py-3 space-y-3"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-[#1a1a1a]">Person {idx + 1}</span>
+                <span className="text-sm font-medium text-[#1a1a1a]">
+                  Person {idx + 1}
+                </span>
                 {persons.length > 1 && (
                   <button
-                    onClick={() => setPersons((prev) => prev.filter((_, i) => i !== idx))}
+                    onClick={() =>
+                      setPersons((prev) => prev.filter((_, i) => i !== idx))
+                    }
                     className="text-[#9a9a96] hover:text-[#C0432A]"
                   >
                     <X size={14} />
@@ -548,7 +725,9 @@ function AddArrestDialog({
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 {PERSON_COLUMNS.map((col) => (
                   <div key={col.key} className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-[#6b6b6b]">{col.label}</label>
+                    <label className="text-sm font-medium text-[#6b6b6b]">
+                      {col.label}
+                    </label>
                     {renderPersonField(col, idx)}
                   </div>
                 ))}
@@ -565,11 +744,23 @@ function AddArrestDialog({
         </div>
 
         <DialogFooter className="gap-2 pt-2">
-          <Button variant="outline" className="rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            className="rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
-          <Button className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none" onClick={() => onSave(batch, persons)} disabled={saving}>
-            {saving ? "Saving…" : persons.length > 1 ? `Add ${persons.length} Persons` : "Add Record"}
+          <Button
+            className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none"
+            onClick={() => onSave(batch, persons)}
+            disabled={saving}
+          >
+            {saving
+              ? "Saving…"
+              : persons.length > 1
+                ? `Add ${persons.length} Persons`
+                : "Add Record"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -592,12 +783,18 @@ const ArrestRegisterComponent = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add-person" | "edit">("edit");
   const [dialogDraft, setDialogDraft] = useState<Partial<ArrestRecord>>({});
-  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(
+    new Set(),
+  );
   const [savingRow, setSavingRow] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
+  const {
+    allUsers: workspaceUsers,
+    sioUsers,
+    loading: usersLoading,
+  } = useGroupFilteredSioUsers();
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
@@ -608,20 +805,37 @@ const ArrestRegisterComponent = () => {
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
-        supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
+        supabase
+          .from("votum_users")
+          .select("dggi_role")
+          .eq("id", uid!)
+          .single(),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
 
-      const [, cases] = await Promise.all([fetchRecords(wid, role, groups, uid!), fetchCaseOptions(supabase, wid)]);
+      const [, cases] = await Promise.all([
+        fetchRecords(wid, role, groups, uid!),
+        fetchCaseOptions(supabase, wid),
+      ]);
       setCaseOptions(cases);
       setLoading(false);
     };
     init();
   }, []);
 
-  const fetchRecords = async (wid: string, role?: string, groups?: string[], uid?: string) => {
+  const fetchRecords = async (
+    wid: string,
+    role?: string,
+    groups?: string[],
+    uid?: string,
+  ) => {
     let query = supabase
       .from("dggi_arrest_records")
       .select("*")
@@ -683,8 +897,13 @@ const ArrestRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS) as typeof dialogDraft;
-    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
+    const updatePayload = nullifyEmpty(
+      { ...dialogDraft },
+      COLUMNS,
+    ) as typeof dialogDraft;
+    (updatePayload as any).sio_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
+      null;
     const { error } = await supabase
       .from("dggi_arrest_records")
       .update(updatePayload)
@@ -709,7 +928,10 @@ const ArrestRegisterComponent = () => {
     setRecords((prev) => prev.filter((r) => r.id !== id));
     let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
-      const { error } = await supabase.from("dggi_arrest_records").delete().eq("id", id);
+      const { error } = await supabase
+        .from("dggi_arrest_records")
+        .delete()
+        .eq("id", id);
       if (error) {
         setRecords((prev) => [...prev, record]);
         toast.error("Delete failed: " + error.message);
@@ -719,7 +941,11 @@ const ArrestRegisterComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setRecords((prev) => [...prev, record]);
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -729,30 +955,49 @@ const ArrestRegisterComponent = () => {
     );
   };
 
-  const saveNewBatch = async (batch: Record<string, string>, persons: Record<string, string>[]) => {
+  const saveNewBatch = async (
+    batch: Record<string, string>,
+    persons: Record<string, string>[],
+  ) => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const arrest_batch_id = await generateWorkspaceRecordId(supabase, "dggi_arrest_records", "ARR", workspaceId, { separator: "/" });
-    const sio_name = workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
+    const arrest_batch_id = await generateWorkspaceRecordId(
+      supabase,
+      "dggi_arrest_records",
+      "ARR",
+      workspaceId,
+      { separator: "/" },
+    );
+    const sio_name =
+      workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
     const payloads = persons.map((person, idx) => {
-      const p = nullifyEmpty({
-        ...batch,
-        ...person,
-        arrest_batch_id,
-        record_id: `${arrest_batch_id}-${idx + 1}`,
-        workspace_id: workspaceId,
-      }, COLUMNS);
+      const p = nullifyEmpty(
+        {
+          ...batch,
+          ...person,
+          arrest_batch_id,
+          record_id: `${arrest_batch_id}-${idx + 1}`,
+          workspace_id: workspaceId,
+        },
+        COLUMNS,
+      );
       (p as any).sio_name = sio_name;
       return p;
     });
-    const { data, error } = await supabase.from("dggi_arrest_records").insert(payloads).select();
+    const { data, error } = await supabase
+      .from("dggi_arrest_records")
+      .insert(payloads)
+      .select();
     if (error) {
       toast.error("Failed to add record: " + error.message);
     } else {
       setRecords((prev) => [...prev, ...(data ?? [])]);
       setAddOpen(false);
-      if (persons.length > 1) setExpandedBatches((prev) => new Set([...prev, arrest_batch_id]));
-      toast.success(persons.length > 1 ? `${persons.length} persons added` : "Record added");
+      if (persons.length > 1)
+        setExpandedBatches((prev) => new Set([...prev, arrest_batch_id]));
+      toast.success(
+        persons.length > 1 ? `${persons.length} persons added` : "Record added",
+      );
     }
     setSavingRow(false);
   };
@@ -760,14 +1005,21 @@ const ArrestRegisterComponent = () => {
   const saveNewPerson = async () => {
     if (!workspaceId || !dialogDraft.arrest_batch_id) return;
     setSavingRow(true);
-    const batchPersons = records.filter((r) => r.arrest_batch_id === dialogDraft.arrest_batch_id);
+    const batchPersons = records.filter(
+      (r) => r.arrest_batch_id === dialogDraft.arrest_batch_id,
+    );
     const record_id = `${dialogDraft.arrest_batch_id}-${batchPersons.length + 1}`;
-    const payload = nullifyEmpty({
-      ...dialogDraft,
-      record_id,
-      workspace_id: workspaceId,
-    }, COLUMNS);
-    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
+    const payload = nullifyEmpty(
+      {
+        ...dialogDraft,
+        record_id,
+        workspace_id: workspaceId,
+      },
+      COLUMNS,
+    );
+    (payload as any).sio_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
+      null;
     const { data, error } = await supabase
       .from("dggi_arrest_records")
       .insert(payload)
@@ -784,7 +1036,11 @@ const ArrestRegisterComponent = () => {
   };
 
   const handleDraftChange = (key: string, val: string) => {
-    if (dialogMode === "add-person" && BATCH_FIELDS.has(key as keyof ArrestRecord)) return;
+    if (
+      dialogMode === "add-person" &&
+      BATCH_FIELDS.has(key as keyof ArrestRecord)
+    )
+      return;
     setDialogDraft((prev) => ({ ...prev, [key]: val }));
   };
 
@@ -801,7 +1057,9 @@ const ArrestRegisterComponent = () => {
     setFilters((prev) => ({ ...prev, [key]: val }));
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "Arrest", (msg) => toast.success(msg));
+    exportRegisterToExcel(tableRecords, COLUMNS, "Arrest", (msg) =>
+      toast.success(msg),
+    );
   };
 
   // ── Batch grouping ─────────────────────────────────────────────────────────
@@ -853,7 +1111,9 @@ const ArrestRegisterComponent = () => {
             onChange={() => {}}
             cases={caseOptions}
             users={workspaceUsers}
-            storedName={col.key === "sio" ? (record as any).sio_name : undefined}
+            storedName={
+              col.key === "sio" ? (record as any).sio_name : undefined
+            }
           />
         </TableCell>
       ))}
@@ -874,7 +1134,11 @@ const ArrestRegisterComponent = () => {
             size="icon"
             variant="ghost"
             className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
-            onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}
+            onClick={() => {
+              setDialogMode("edit");
+              setDialogDraft({ ...record });
+              setDialogOpen(true);
+            }}
           >
             <Pencil size={13} />
           </Button>
@@ -892,7 +1156,8 @@ const ArrestRegisterComponent = () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete arrest record?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete {record.record_id} and cannot be undone.
+                  This will permanently delete {record.record_id} and cannot be
+                  undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -911,7 +1176,13 @@ const ArrestRegisterComponent = () => {
     </TableRow>
   );
 
-  const renderBatchGroup = ({ batchId, persons }: { batchId: string; persons: ArrestRecord[] }) => {
+  const renderBatchGroup = ({
+    batchId,
+    persons,
+  }: {
+    batchId: string;
+    persons: ArrestRecord[];
+  }) => {
     const isMulti = persons.length > 1;
     const isExpanded = expandedBatches.has(batchId);
     const representative = persons[0];
@@ -930,11 +1201,17 @@ const ArrestRegisterComponent = () => {
             <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
               {col.key === "arrest_batch_id" ? (
                 <span className="flex items-center gap-1.5 font-medium">
-                  {isExpanded ? <ChevronUp size={13} className="text-[#6b6b6b]" /> : <ChevronDown size={13} className="text-[#6b6b6b]" />}
+                  {isExpanded ? (
+                    <ChevronUp size={13} className="text-[#6b6b6b]" />
+                  ) : (
+                    <ChevronDown size={13} className="text-[#6b6b6b]" />
+                  )}
                   {batchId}
                 </span>
               ) : col.key === "arrested_name" ? (
-                <span className="text-[#6b6b6b] text-sm">{persons.length} persons</span>
+                <span className="text-[#6b6b6b] text-sm">
+                  {persons.length} persons
+                </span>
               ) : col.key === "record_id" ? (
                 <span className="text-[#9a9a96]">—</span>
               ) : PERSON_FIELDS.has(col.key as keyof ArrestRecord) ? (
@@ -948,7 +1225,11 @@ const ArrestRegisterComponent = () => {
                   onChange={() => {}}
                   cases={caseOptions}
                   users={workspaceUsers}
-                  storedName={col.key === "sio" ? (representative as any).sio_name : undefined}
+                  storedName={
+                    col.key === "sio"
+                      ? (representative as any).sio_name
+                      : undefined
+                  }
                 />
               )}
             </TableCell>
@@ -958,7 +1239,10 @@ const ArrestRegisterComponent = () => {
               size="sm"
               variant="ghost"
               className="h-7 px-2 rounded-lg text-[#4A5FD4] hover:bg-[#EEF0FB] text-xs font-medium"
-              onClick={(e) => { e.stopPropagation(); openAddPerson(representative); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                openAddPerson(representative);
+              }}
             >
               <Plus size={12} className="mr-1" />
               Add Person
@@ -992,13 +1276,21 @@ const ArrestRegisterComponent = () => {
                 Arrest Register
               </h1>
               <p className="text-base text-[#9a9a96]">
-                Arrest Register &middot;{" "}
-                {tableRecords.length} record
+                Arrest Register &middot; {tableRecords.length} record
                 {tableRecords.length !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleExport} disabled={tableRecords.length === 0}><Download size={15} className="mr-1" />Export to Excel</Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
+                onClick={handleExport}
+                disabled={tableRecords.length === 0}
+              >
+                <Download size={15} className="mr-1" />
+                Export to Excel
+              </Button>
               <Button
                 size="sm"
                 className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
@@ -1163,7 +1455,9 @@ const ArrestRegisterComponent = () => {
         }
         columns={
           dialogMode === "add-person"
-            ? COLUMNS.filter((c) => PERSON_FIELDS.has(c.key as keyof ArrestRecord))
+            ? COLUMNS.filter((c) =>
+                PERSON_FIELDS.has(c.key as keyof ArrestRecord),
+              )
             : COLUMNS
         }
         columnGroups={dialogMode === "edit" ? EDIT_COLUMN_GROUPS : undefined}
