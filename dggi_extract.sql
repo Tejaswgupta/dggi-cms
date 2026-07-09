@@ -95,6 +95,20 @@ $$;
 ALTER FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_assigned_user_id" "uuid") OWNER TO "postgres";
 
 
+-- ── Types ───────────────────────────────────────────────────────────────
+
+CREATE TYPE "public"."organization_type" AS ENUM (
+    'government',
+    'law_firm',
+    'corporate_legal',
+    'other',
+    'district',
+    'police'
+);
+
+ALTER TYPE "public"."organization_type" OWNER TO "postgres";
+
+
 -- ── Table definitions ───────────────────────────────────────────────────
 
 
@@ -858,6 +872,22 @@ CREATE TABLE IF NOT EXISTS "public"."votum_workspace" (
 
 -- ── Constraints ─────────────────────────────────────────────────────────
 
+-- votum_workspace and votum_users PKs must precede any FK that references them
+ALTER TABLE ONLY "public"."votum_workspace"
+    ADD CONSTRAINT "votum_workspace_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."votum_workspace"
+    ADD CONSTRAINT "votum_workspace_email_key" UNIQUE ("email");
+
+ALTER TABLE ONLY "public"."votum_users"
+    ADD CONSTRAINT "votum_users_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."votum_users"
+    ADD CONSTRAINT "votum_users_invite_code_key" UNIQUE ("invite_code");
+
+ALTER TABLE ONLY "public"."votum_users"
+    ADD CONSTRAINT "votum_users_whatsapp_phone_key" UNIQUE ("phone");
+
 ALTER TABLE ONLY "public"."designations"
     ADD CONSTRAINT "designations_pkey" PRIMARY KEY ("id");
 
@@ -1027,25 +1057,10 @@ ALTER TABLE ONLY "public"."dggi_user_group_assignments"
     ADD CONSTRAINT "dggi_user_group_assignments_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."votum_users"("id") ON DELETE CASCADE;
 
 ALTER TABLE ONLY "public"."votum_users"
-    ADD CONSTRAINT "votum_users_invite_code_key" UNIQUE ("invite_code");
-
-ALTER TABLE ONLY "public"."votum_users"
-    ADD CONSTRAINT "votum_users_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."votum_users"
-    ADD CONSTRAINT "votum_users_whatsapp_phone_key" UNIQUE ("phone");
-
-ALTER TABLE ONLY "public"."votum_users"
     ADD CONSTRAINT "public_votum_users_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id");
 
 ALTER TABLE ONLY "public"."votum_users"
     ADD CONSTRAINT "votum_users_cc_fkey" FOREIGN KEY ("cc") REFERENCES "public"."votum_users"("id") ON DELETE CASCADE;
-
-ALTER TABLE ONLY "public"."votum_workspace"
-    ADD CONSTRAINT "votum_workspace_email_key" UNIQUE ("email");
-
-ALTER TABLE ONLY "public"."votum_workspace"
-    ADD CONSTRAINT "votum_workspace_pkey" PRIMARY KEY ("id");
 
 
 -- ── Indexes ─────────────────────────────────────────────────────────────
@@ -1126,10 +1141,6 @@ CREATE INDEX "idx_votum_users_whatsapp_verified" ON "public"."votum_users" USING
 
 CREATE UNIQUE INDEX "votum_users_pno_idx" ON "public"."votum_users" USING "btree" ("pno") WHERE ("pno" IS NOT NULL);
 
-
--- ── Triggers ────────────────────────────────────────────────────────────
-
-CREATE OR REPLACE TRIGGER "audit_users_trigger" AFTER INSERT OR DELETE OR UPDATE ON "public"."votum_users" FOR EACH ROW EXECUTE FUNCTION "public"."audit_users_changes"();
 
 
 -- ── Row Level Security ──────────────────────────────────────────────────

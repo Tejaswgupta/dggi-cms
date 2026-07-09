@@ -43,6 +43,7 @@ interface AddUserForm {
 export default function UsersPage() {
   const [users, setUsers] = useState<UserWithGroups[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentDggiRole, setCurrentDggiRole] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [editingUser, setEditingUser] = useState<UserWithGroups | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,9 +54,17 @@ export default function UsersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const loadCurrentUser = async () => {
+    const supabase = clientConnectionWithSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from("votum_users")
+      .select("dggi_role")
+      .eq("id", user.id)
+      .single();
+    setCurrentDggiRole(data?.dggi_role ?? null);
+  };
 
   const loadUsers = async () => {
     setLoading(true);
@@ -88,6 +97,13 @@ export default function UsersPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadUsers();
+    loadCurrentUser();
+  }, []);
+
+  const canManage = ["ADG", "DD_INT"].includes(currentDggiRole ?? "");
 
   const openEdit = (user: UserWithGroups) => {
     setEditingUser({ ...user, groups: [...user.groups] });
@@ -266,13 +282,15 @@ export default function UsersPage() {
               className="pl-8 pr-3 py-1.5 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] w-56"
             />
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#4A5FD4] text-white rounded-lg hover:bg-[#3a4fc4] transition-colors font-medium"
-          >
-            <UserPlus size={14} />
-            Add User
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-[#4A5FD4] text-white rounded-lg hover:bg-[#3a4fc4] transition-colors font-medium"
+            >
+              <UserPlus size={14} />
+              Add User
+            </button>
+          )}
         </div>
       </div>
 
@@ -342,21 +360,23 @@ export default function UsersPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-3">
-                          <button
-                            onClick={() => openEdit(user)}
-                            className="text-xs text-[#4A5FD4] hover:underline font-medium"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(user.id)}
-                            className="text-[#9a9a96] hover:text-red-500 transition-colors"
-                            title="Remove user"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                        {canManage && (
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              onClick={() => openEdit(user)}
+                              className="text-xs text-[#4A5FD4] hover:underline font-medium"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(user.id)}
+                              className="text-[#9a9a96] hover:text-red-500 transition-colors"
+                              title="Remove user"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

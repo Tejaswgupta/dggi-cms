@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut } from "@/auth/client";
+import clientConnectionWithSupabase from "@/lib/supabase/client";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -24,6 +25,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const USERS_MGMT_ROLES = ["ADG", "DD_INT"];
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -99,6 +103,32 @@ const NAV_SECTIONS = [
 export default function GlobalNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const [dggiRole, setDggiRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = clientConnectionWithSupabase();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("votum_users")
+        .select("dggi_role")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => setDggiRole(data?.dggi_role ?? null));
+    });
+  }, []);
+
+  const canManageUsers = USERS_MGMT_ROLES.includes(dggiRole ?? "");
+
+  const visibleDashboardItems = DASHBOARD_ITEMS.filter(
+    (item) => item.href !== "/users" || canManageUsers
+  );
+
+  const visibleNavSections = NAV_SECTIONS.map((section) =>
+    section.label === "Dashboard"
+      ? { ...section, items: visibleDashboardItems }
+      : section
+  );
 
   const handleSignOut = async () => {
     await signOut();
@@ -109,7 +139,7 @@ export default function GlobalNav() {
   return (
     <aside className="hidden md:flex flex-col w-[200px] shrink-0 border-r border-[#EDEDEA] bg-white h-full pt-5 pb-4 px-2 overflow-y-auto">
       <div className="flex-1">
-        {NAV_SECTIONS.map((section) => (
+        {visibleNavSections.map((section) => (
           <div key={section.label} className="mb-4">
             <p className="px-3 pb-2 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
               {section.label}
