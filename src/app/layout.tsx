@@ -10,8 +10,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Votum Tasks",
-  description: "Task management for legal professionals.",
+  title: "AeGis",
+  description: "Alert Enabled GST Investigation Supervision",
 };
 
 export default function RootLayout({
@@ -20,7 +20,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`scroll-smooth ${dmSans.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`scroll-smooth ${dmSans.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         {children}
         <Toaster />

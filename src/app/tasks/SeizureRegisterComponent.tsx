@@ -2,8 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PaginationBar } from "@/components/ui/pagination-bar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useDebounce } from "@/hooks/useDebounce";
 import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
@@ -185,12 +187,19 @@ const fmt = (iso: string) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+const PAGE_SIZE_DEFAULT = 50;
+const SEARCH_COLS = ["case_file_no", "entity_name", "goods_description", "mahazar_no", "scn_no"];
+
 const SeizureRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
   const [workspaceId, setWorkspaceId] = useState("");
   const [records, setRecords] = useState<SeizureRecord[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_DEFAULT);
   const [savingRow, setSavingRow] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -201,43 +210,62 @@ const SeizureRegisterComponent = () => {
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<SeizureRecord>>({});
 
+  const buildQuery = (wid: string) => {
+    let q = supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid);
+    if (debouncedSearch) {
+      q = q.or(SEARCH_COLS.map((c) => `${c}.ilike.%${debouncedSearch}%`).join(","));
+    }
+    return q;
+  };
+
+  const fetchPage = async (wid: string) => {
+    setLoading(true);
+    try {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+      let q = buildQuery(wid);
+      if (sortCol) q = q.order(sortCol, { ascending: sortDir === "asc" });
+      const { data, error, count } = await q.range(from, to);
+      if (error) { toast.error("Failed to load records: " + error.message); return; }
+      setRecords(data ?? []);
+      setTotal(count ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const init = async () => {
       try {
         const wid = await getWorkspaceId();
-        if (!wid) {
-          toast.error("Could not determine workspace. Please refresh.");
-          return;
-        }
+        if (!wid) { toast.error("Could not determine workspace. Please refresh."); return; }
         setWorkspaceId(wid);
-        const [{ data, error }, cases] = await Promise.all([
-          supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid),
+        const [, cases] = await Promise.all([
+          fetchPage(wid),
           fetchCaseOptions(supabase, wid),
         ]);
-        if (error) toast.error("Failed to load records: " + error.message);
-        setRecords(data ?? []);
         setCaseOptions(cases);
       } catch (err) {
         toast.error("Failed to initialize: " + String(err));
-      } finally {
-        setLoading(false);
       }
     };
     init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const tableRecords = records
-    .filter((r) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
-      return [r.case_file_no, r.entity_name, r.goods_description, r.mahazar_no, r.scn_no]
-        .some((v) => v?.toLowerCase().includes(q));
-    })
-    .sort((a, b) => {
-      if (!sortCol) return 0;
-      const cmp = String((a as unknown as Record<string, unknown>)[sortCol] ?? "").localeCompare(String((b as unknown as Record<string, unknown>)[sortCol] ?? ""));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
+  useEffect(() => {
+    if (!workspaceId) return;
+    setPage(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, sortCol, sortDir, pageSize]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    fetchPage(workspaceId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId, page, pageSize, debouncedSearch, sortCol, sortDir]);
+
+  const tableRecords = records;
 
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
@@ -253,7 +281,7 @@ const SeizureRegisterComponent = () => {
   const deleteRecord = async (id: string) => {
     const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
     if (error) { toast.error("Delete failed: " + error.message); }
-    else { setRecords((prev) => prev.filter((r) => r.id !== id)); toast.success("Record deleted"); }
+    else { await fetchPage(workspaceId); toast.success("Record deleted"); }
   };
 
   const saveNew = async () => {
@@ -265,9 +293,9 @@ const SeizureRegisterComponent = () => {
       workspace_id: workspaceId,
     }, COLUMNS);
     (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
-    const { data, error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
+    const { error } = await supabase.from(TABLE_NAME).insert(payload).select().single();
     if (error) { toast.error("Failed to add: " + error.message); }
-    else { setRecords((prev) => [...prev, data]); setDialogOpen(false); toast.success("Record added"); }
+    else { await fetchPage(workspaceId); setDialogOpen(false); toast.success("Record added"); }
     setSavingRow(false);
   };
 
@@ -276,8 +304,13 @@ const SeizureRegisterComponent = () => {
     else { setSortCol(col); setSortDir("asc"); }
   };
 
-  const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "Seizure_Register", (msg) => toast.success(msg));
+  const handleExport = async () => {
+    if (!workspaceId) return;
+    let q = buildQuery(workspaceId);
+    if (sortCol) q = q.order(sortCol, { ascending: sortDir === "asc" });
+    const { data, error } = await q;
+    if (error) { toast.error("Export failed: " + error.message); return; }
+    exportRegisterToExcel(data ?? [], COLUMNS, "Seizure_Register", (msg) => toast.success(msg));
   };
 
   const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
