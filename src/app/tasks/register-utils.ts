@@ -58,6 +58,13 @@ export const currentFY = (): string => {
   return `${String(start).slice(2)}-${String(start + 1).slice(2)}`;
 };
 
+export const currentFYFull = (): string => {
+  const now = new Date();
+  const yr = now.getFullYear();
+  const start = now.getMonth() >= 3 ? yr : yr - 1;
+  return `${start}-${String(start + 1).slice(2)}`;
+};
+
 /**
  * Queries the DB for the current workspace record count and generates a sequential ID.
  * Safe for concurrent inserts across workspace members.
@@ -85,6 +92,27 @@ export const generateWorkspaceRecordId = async (
   const { count, error } = await query;
   if (error) throw new Error(`Failed to fetch record count: ${error.message}`);
   return `${prefix}${sep}${String((count ?? 0) + 1).padStart(3, "0")}${sep}${currentFY()}`;
+};
+
+/**
+ * Generates an IR case record ID matching the DGGI Excel convention:
+ * IR cases  → "{seq}/GST/{YYYY-YY}"   e.g. "001/GST/2026-27"
+ * NON-IR cases → "NIR-{seq}-{YY-YY}"  e.g. "NIR-001-26-27"  (unchanged)
+ */
+export const generateIRCaseRecordId = async (
+  supabase: SupabaseClient,
+  workspaceId: string,
+  isIR: boolean,
+): Promise<string> => {
+  const { count, error } = await supabase
+    .from("dggi_records")
+    .select("*", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .eq("is_ir", isIR);
+  if (error) throw new Error(`Failed to fetch record count: ${error.message}`);
+  const seq = String((count ?? 0) + 1).padStart(3, "0");
+  if (isIR) return `${seq}/GST/${currentFYFull()}`;
+  return `NIR-${seq}-${currentFY()}`;
 };
 
 /**
