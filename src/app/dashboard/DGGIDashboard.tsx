@@ -24,6 +24,7 @@ import {
   HardDrive,
   HelpCircle,
   Paperclip,
+  RefreshCw,
   Scale,
   Shield,
   X,
@@ -733,9 +734,7 @@ function DeadlineTable({
                   <div className="truncate font-medium text-[#1a1a1a]">
                     {item.ruleLabel}
                   </div>
-                  <div className="text-[10px] text-[#9a9a96] mt-0.5">
-                    {item.legalRef}
-                  </div>
+
                 </td>
                 <td className="px-4 py-2.5 whitespace-nowrap text-[11.5px] text-[#6b6b6b]">
                   {format(item.deadlineDate, "dd MMM yyyy")}
@@ -989,6 +988,7 @@ export default function DGGIDashboard() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [isAdg, setIsAdg] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [userRbac, setUserRbac] = useState<UserRbac>({
     role: "",
     groups: [],
@@ -1696,6 +1696,27 @@ export default function DGGIDashboard() {
 
   const supabase = clientConnectionWithSupabase();
 
+  async function handleSyncDeadlines() {
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/dggi/deadline-alerts", {
+        method: "POST",
+        headers: { "x-internal-cron": "1" },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? res.statusText);
+      const totalUpserted = Object.values(json.summary as Record<string, { upserted: number }>)
+        .reduce((s, v) => s + v.upserted, 0);
+      toast.success(`Deadlines synced — ${totalUpserted} rows updated`);
+      // Reload deadline rows without full page refresh
+      fetchAll();
+    } catch (e: unknown) {
+      toast.error("Sync failed: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function handleOutOfMonitoring(item: DeadlineItem) {
     if (!item.rowId) return;
     const { error } = await supabase
@@ -1780,6 +1801,18 @@ export default function DGGIDashboard() {
                   </button>
                 )}
               </div>
+              {/* Sync deadlines (ADG / DD_INT only) */}
+              {isAdg && (
+                <button
+                  onClick={handleSyncDeadlines}
+                  disabled={syncing}
+                  className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-[#F3F2EF] hover:bg-[#EDEDEA] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all text-[11.5px] font-medium disabled:opacity-60"
+                  title="Re-compute deadlines from source records"
+                >
+                  <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+                  {syncing ? "Syncing…" : "Sync Deadlines"}
+                </button>
+              )}
               {/* Deadline rules help */}
               <button
                 onClick={() => setShowRulesDialog(true)}

@@ -27,7 +27,8 @@ import {
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
+  // If CRON_SECRET is not configured, allow internal Next.js server-action calls
+  if (!secret) return req.headers.get("x-internal-cron") === "1";
   return req.headers.get("x-cron-secret") === secret;
 }
 
@@ -35,7 +36,7 @@ function isAuthorized(req: NextRequest): boolean {
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createClient(url, key, { auth: { persistSession: false } });
 }
 

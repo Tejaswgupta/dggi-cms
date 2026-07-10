@@ -704,7 +704,8 @@ const SCNRegisterComponent = () => {
     const seq = String((count ?? 0) + 1).padStart(2, "0");
     const grp = draft.group ?? "";
     const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
-    const designation = sioUser?.dggi_role ?? "";
+    const rawRole = sioUser?.dggi_role ?? "";
+    const designation = rawRole.startsWith("DD") ? "DD" : rawRole;
     const initials = sioUser ? getInitials(sioUser.name) : "";
     return `${seq}/Grp-${grp}/${designation}/${initials}`;
   };

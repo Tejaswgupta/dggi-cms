@@ -142,9 +142,6 @@ function NotificationRow({
           {!isComment && (
             <>
               <DeadlineTag deadline_date={(n as DeadlineNotif).deadline_date} />
-              {n.legal_reference && (
-                <span className="text-xs text-[#9a9a96]">{n.legal_reference}</span>
-              )}
             </>
           )}
           <span
