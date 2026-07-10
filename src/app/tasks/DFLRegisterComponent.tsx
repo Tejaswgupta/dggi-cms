@@ -174,7 +174,7 @@ const DFLRegisterComponent = () => {
               </TableRow></TableHeader>
               <TableBody>
                 {tableRecords.map((record) => (
-                  <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+                  <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                     {COLUMNS.map((col) => (
                       <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
                         {col.key === "date_of_request" ? (

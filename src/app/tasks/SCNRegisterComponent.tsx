@@ -1002,7 +1002,18 @@ const SCNRegisterComponent = () => {
                               key={col.key}
                               className="px-3 py-2 text-[#1a1a1a]"
                             >
-                              {renderCell(
+                              {col.key === "record_id" ? (
+                                <button
+                                  className="text-[#4A5FD4] hover:underline font-medium text-left"
+                                  onClick={() => {
+                                    setDialogMode("edit");
+                                    setDialogDraft({ ...record });
+                                    setDialogOpen(true);
+                                  }}
+                                >
+                                  {record.record_id || "—"}
+                                </button>
+                              ) : renderCell(
                                 (record as any)[col.key] ?? "",
                                 col.type,
                                 col.key === "sio" ? (record as any).sio_name : undefined,

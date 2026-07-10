@@ -51,53 +51,27 @@ import {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
-// ─── Deadline Rules ──────────────────────────────────────────────────────────
+// ─── DB deadline row (from dggi_computed_deadlines) ─────────────────────────
 
-interface DeadlineRule {
+interface ComputedDeadlineRow {
+  id: string;
   rule_id: string;
-  label: string;
-  legal_reference: string;
-  reference_field: string;
-  offset_days: number;
-  reminder_days_before: number[];
-  // Per-rule urgency thresholds — override the global ≤7/≤30 defaults
-  critical_days: number;
-  warning_days: number;
-  skip_if?:
-    | { field: string; value: string }
-    | { field: string; value: string }[];
-  // stop tracking if any of these fields is non-null/non-empty
-  skip_if_not_null?: string[];
-  apply_only_if?: { field: string; value: string };
-}
-
-interface TableDeadlineConfig {
   source_table: string;
-  deadlines: DeadlineRule[];
+  record_id: string;
+  row_id: string;
+  deadline_date: string;
+  label: string;
+  legal_reference: string | null;
+  skipped: boolean;
+  sio_user_id: string | null;
+  group_name: string | null;
+  entity_name: string | null;
+  officer_name: string | null;
+  critical_days: number | null;
+  warning_days: number | null;
+  max_reminder_days: number | null;
 }
 
-const TABLE_OFFICER_FIELDS: Record<string, string> = {
-  dggi_scn_records: "adjudication_formation",
-  dggi_provisional_attachment_records: "group_sio",
-  dggi_seizure_records: "seized_by",
-  dggi_intel_rapid_records: "assigned_group",
-  dggi_str_records: "assigned_group",
-  dggi_records: "handling_io_sio",
-  dggi_dfl_records: "",
-};
-
-// Field used to populate the group filter dropdown (separate from the officer display field)
-const TABLE_GROUP_FIELDS: Record<string, string> = {
-  dggi_scn_records: "group",
-  dggi_provisional_attachment_records: "group",
-  dggi_seizure_records: "group",
-  dggi_intel_rapid_records: "assigned_group",
-  dggi_str_records: "assigned_group",
-  dggi_records: "group",
-  dggi_dfl_records: "group",
-  dggi_prosecution_arrest_records: "group",
-  dggi_prosecution_non_arrest_records: "group",
-};
 
 // RBAC: group field and SIO/IO field per table, matching existing register components
 const TABLE_RBAC_FIELDS: Record<
@@ -159,258 +133,18 @@ function applyRbacFilter(
   return query.eq(fields.groupField, "__none__");
 }
 
-// Shared deadline rules for Intelligence (Rapid & STR)
-const INTEL_DEADLINE_RULES: DeadlineRule[] = [
-  {
-    rule_id: "intel_adg_putup",
-    label: "ADG Put-up deadline (30 days)",
-    legal_reference: "Int. Procedure (30 days)",
-    reference_field: "group_allocation_date",
-    offset_days: 30,
-    reminder_days_before: [30, 14, 7, 3, 1],
-    critical_days: 5,
-    warning_days: 14,
-    skip_if_not_null: ["adg_putup_date"],
-  },
-  {
-    rule_id: "intel_execution_deadline",
-    label: "Intelligence Execution deadline (10 days from group allocation)",
-    legal_reference: "Int. Procedure – Execution",
-    reference_field: "group_allocation_date",
-    offset_days: 10,
-    reminder_days_before: [10, 5, 3, 1],
-    critical_days: 2,
-    warning_days: 5,
-    skip_if_not_null: ["date_of_action_taken"],
-  },
-];
+// ─── Table → register href (for "open case" links) ──────────────────────────
 
-const DEADLINE_RULES: TableDeadlineConfig[] = [
-  {
-    source_table: "dggi_intel_rapid_records",
-    deadlines: INTEL_DEADLINE_RULES,
-  },
-  {
-    source_table: "dggi_str_records",
-    deadlines: INTEL_DEADLINE_RULES,
-  },
-  {
-    source_table: "dggi_provisional_attachment_records",
-    deadlines: [
-      {
-        rule_id: "provisional_attachment_lapse",
-        label: "Attachment order lapses",
-        legal_reference: "Sec 83(2) CGST",
-        reference_field: "date_of_attachment",
-        offset_days: 365,
-        reminder_days_before: [60, 30, 7],
-        critical_days: 30,
-        warning_days: 60,
-        // Stop if released or manually marked out-of-monitoring
-        skip_if_not_null: ["date_of_release"],
-        skip_if: { field: "out_of_monitoring", value: "true" },
-      },
-      {
-        rule_id: "provisional_attachment_scn_due",
-        label: "SCN must be issued (9-month deadline)",
-        legal_reference: "Sec 83(2) CGST",
-        reference_field: "date_of_attachment",
-        offset_days: 273,
-        reminder_days_before: [30, 14, 7],
-        critical_days: 14,
-        warning_days: 30,
-        // Stop once SCN issuance date is entered or SCN is marked issued
-        skip_if_not_null: ["date_of_scn_issuance"],
-        skip_if: { field: "scn_issued", value: "Yes" },
-      },
-    ],
-  },
-  {
-    source_table: "dggi_prosecution_arrest_records",
-    deadlines: [
-      {
-        rule_id: "prosecution_complaint_filing_bail_not_given",
-        label: "Prosecution complaint filing (Bail not given)",
-        legal_reference: "Sec 132(6) CGST – 60-day window",
-        reference_field: "date_of_arrest",
-        offset_days: 60,
-        reminder_days_before: [14, 7, 1],
-        critical_days: 7,
-        warning_days: 14,
-        skip_if: [
-          { field: "prosecution_complaint_status", value: "Filed" },
-          { field: "bail_status", value: "Bail Given" },
-        ],
-        skip_if_not_null: ["date_of_filing"],
-      },
-      {
-        rule_id: "prosecution_complaint_filing_bail_given",
-        label: "Prosecution complaint filing (Bail given)",
-        legal_reference: "Sec 132(6) CGST – 6-month window",
-        reference_field: "date_of_arrest",
-        offset_days: 180,
-        reminder_days_before: [30, 14, 7],
-        critical_days: 14,
-        warning_days: 30,
-        skip_if: { field: "prosecution_complaint_status", value: "Filed" },
-        skip_if_not_null: ["date_of_filing"],
-        apply_only_if: { field: "bail_status", value: "Bail Given" },
-      },
-    ],
-  },
-  {
-    source_table: "dggi_seizure_records",
-    deadlines: [
-      {
-        rule_id: "seizure_scn_primary",
-        label: "Issue SCN or return goods (6-month deadline)",
-        legal_reference: "Sec 67(7) CGST",
-        reference_field: "date_of_seizure",
-        offset_days: 180,
-        reminder_days_before: [30, 14, 7],
-        critical_days: 14,
-        warning_days: 30,
-        // Stop when SCN is issued (either flag or date)
-        skip_if: { field: "scn_issued", value: "Yes" },
-        skip_if_not_null: ["scn_issue_date"],
-        apply_only_if: { field: "extended_by_commissioner", value: "No" },
-      },
-      {
-        rule_id: "seizure_scn_extended",
-        label: "Extended SCN deadline (12 months, Commissioner extension)",
-        legal_reference: "Sec 67(7) CGST",
-        reference_field: "date_of_seizure",
-        offset_days: 365,
-        reminder_days_before: [30, 14, 7],
-        critical_days: 14,
-        warning_days: 30,
-        skip_if: { field: "scn_issued", value: "Yes" },
-        skip_if_not_null: ["scn_issue_date"],
-        apply_only_if: { field: "extended_by_commissioner", value: "Yes" },
-      },
-    ],
-  },
-  {
-    source_table: "dggi_records",
-    deadlines: [
-      {
-        rule_id: "non_ir_initiation_deadline",
-        label:
-          "NON-IR initiation fields must be updated (10 days from creation)",
-        legal_reference: "Int. Procedure – NON-IR Initiation",
-        reference_field: "created_at",
-        offset_days: 10,
-        reminder_days_before: [10, 5, 3, 1],
-        critical_days: 2,
-        warning_days: 5,
-        apply_only_if: { field: "is_ir", value: "false" },
-        // Stop once any of the three initiation fields are filled
-        skip_if_not_null: ["intel_approved_date"],
-      },
-      {
-        rule_id: "intel_approved_to_action_deadline",
-        label: "Intelligence Action must follow Approved Date (10 days)",
-        legal_reference: "Int. Procedure – Intel Approved to Action",
-        reference_field: "intel_approved_date",
-        offset_days: 10,
-        reminder_days_before: [10, 5, 3, 1],
-        critical_days: 2,
-        warning_days: 5,
-        skip_if_not_null: ["intelligence_action_date"],
-      },
-      {
-        rule_id: "non_ir_closure_deadline",
-        label:
-          "NON-IR must be closed / created / transferred (30 days from action)",
-        legal_reference: "Int. Procedure – NON-IR",
-        reference_field: "intelligence_action_date",
-        offset_days: 30,
-        reminder_days_before: [30, 14, 7, 3],
-        critical_days: 5,
-        warning_days: 14,
-        apply_only_if: { field: "is_ir", value: "false" },
-        skip_if_not_null: ["date_of_non_ir"],
-      },
-    ],
-  },
-  {
-    source_table: "dggi_prosecution_non_arrest_records",
-    deadlines: [
-      {
-        rule_id: "prosecution_non_arrest_sanction",
-        label: "Prosecution sanction / filing (6-month deadline)",
-        legal_reference: "Sec 132 CGST",
-        reference_field: "date_of_order",
-        offset_days: 180,
-        reminder_days_before: [30, 14, 7],
-        critical_days: 14,
-        warning_days: 30,
-      },
-    ],
-  },
-  {
-    source_table: "dggi_dfl_records",
-    deadlines: [
-      {
-        rule_id: "dfl_report_deadline",
-        label: "DFL report receipt deadline (60 days)",
-        legal_reference: "Int. Procedure – DFL",
-        reference_field: "date_of_request",
-        offset_days: 60,
-        reminder_days_before: [60, 10, 0],
-        critical_days: 10,
-        warning_days: 20,
-        // Stop once the lab report has been received
-        skip_if_not_null: ["report_received_date"],
-      },
-    ],
-  },
-  {
-    source_table: "dggi_scn_records",
-    deadlines: [
-      {
-        rule_id: "scn_oio_due",
-        label: "Last date to pass OIO",
-        legal_reference: "Sec 73(10) / 74(10) CGST",
-        reference_field: "last_date_oio",
-        offset_days: 0,
-        reminder_days_before: [60, 30, 7, 1],
-        critical_days: 30,
-        warning_days: 60,
-      },
-      {
-        rule_id: "scn_noticee_reply",
-        label: "Noticee reply deadline",
-        legal_reference: "Sec 75(4) CGST",
-        reference_field: "date_of_scn",
-        offset_days: 30,
-        reminder_days_before: [7, 3, 1],
-        critical_days: 3,
-        warning_days: 7,
-      },
-    ],
-  },
-];
-
-const DEADLINE_TABLE_COLUMNS: Record<string, string> = {
-  dggi_scn_records:
-    "id,record_id,workspace_id,last_date_oio,date_of_scn,noticee_name,adjudication_formation:votum_users(name),group,sio",
-  dggi_provisional_attachment_records:
-    "id,record_id,workspace_id,date_of_attachment,person_name,group_sio:votum_users(name),scn_issued,date_of_scn_issuance,date_of_release,out_of_monitoring,group,sio",
-  dggi_prosecution_arrest_records:
-    "id,record_id,workspace_id,date_of_arrest,arrested_person_name,entity_name,prosecution_complaint_status,bail_status,date_of_filing,group,sio",
-  dggi_prosecution_non_arrest_records:
-    "id,record_id,workspace_id,date_of_order,remarks,group,sio",
-  dggi_seizure_records:
-    "id,record_id,workspace_id,date_of_seizure,entity_name,seized_by:votum_users(name),scn_issued,scn_issue_date,extended_by_commissioner,group,sio",
-  dggi_intel_rapid_records:
-    "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
-  dggi_str_records:
-    "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
-  dggi_records:
-    "id,record_id,workspace_id,created_at,intelligence_action_date,intel_approved_date,taxpayer_name,handling_io_sio:votum_users(name),is_ir,date_of_ir,date_of_non_ir,group",
-  dggi_dfl_records:
-    "id,record_id,workspace_id,date_of_request,report_received_date,entity_name,dfl_request_no,group,sio",
+const TABLE_HREF: Record<string, string> = {
+  dggi_records: "/tasks/investigation-cases",
+  dggi_scn_records: "/tasks/scn-register",
+  dggi_provisional_attachment_records: "/tasks/provisional-attachment",
+  dggi_prosecution_arrest_records: "/tasks/prosecution-register",
+  dggi_prosecution_non_arrest_records: "/tasks/prosecution-register",
+  dggi_seizure_records: "/tasks/seizure-register",
+  dggi_intel_rapid_records: "/tasks/intelligence-allocation",
+  dggi_str_records: "/tasks/intelligence-allocation",
+  dggi_dfl_records: "/tasks/dfl-register",
 };
 
 // ─── Register Metadata ───────────────────────────────────────────────────────
@@ -672,103 +406,44 @@ const URGENCY_CFG: Record<
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getEntityName(record: AnyRecord): string {
-  return (
-    record.noticee_name ||
-    record.complainant_name ||
-    record.entity_name ||
-    record.accused_name ||
-    record.person_name ||
-    record.taxpayer_name ||
-    record.informer_code ||
-    record.record_id ||
-    "—"
-  );
-}
-
-function computeDeadlinesForTable(
-  records: AnyRecord[],
-  config: TableDeadlineConfig,
-  registerLabel: string,
-  registerHref: string,
-): DeadlineItem[] {
+// Maps a dggi_computed_deadlines row to the DeadlineItem shape the UI uses.
+// days_until is recomputed live so the display is never stale.
+function dbRowToDeadlineItem(row: ComputedDeadlineRow): DeadlineItem | null {
+  const deadlineDate = parseISO(row.deadline_date);
+  if (!isValid(deadlineDate)) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const items: DeadlineItem[] = [];
-  const officerField = TABLE_OFFICER_FIELDS[config.source_table];
-  const groupField = TABLE_GROUP_FIELDS[config.source_table];
+  const daysUntil = differenceInCalendarDays(deadlineDate, today);
+  const criticalDays = row.critical_days ?? 7;
+  const warningDays = row.warning_days ?? 30;
+  const urgency: Urgency =
+    daysUntil < 0
+      ? "expired"
+      : daysUntil <= criticalDays
+        ? "critical"
+        : daysUntil <= warningDays
+          ? "warning"
+          : "safe";
 
-  for (const rule of config.deadlines) {
-    const maxReminder = Math.max(...rule.reminder_days_before, 0);
-    for (const record of records) {
-      // Universal stop: if explicitly marked out of monitoring, skip all tracking
-      if (
-        record.out_of_monitoring === "true" ||
-        record.out_of_monitoring === true
-      )
-        continue;
-      const refRaw = record[rule.reference_field];
-      if (!refRaw) continue;
-      if (rule.skip_if) {
-        const skips = Array.isArray(rule.skip_if)
-          ? rule.skip_if
-          : [rule.skip_if];
-        if (skips.some((s) => record[s.field] === s.value)) continue;
-      }
-      if (rule.skip_if_not_null?.some((f) => !!record[f])) continue;
-      if (
-        rule.apply_only_if &&
-        String(record[rule.apply_only_if.field]) !== rule.apply_only_if.value
-      )
-        continue;
-      const refDate = parseISO(String(refRaw));
-      if (!isValid(refDate)) continue;
-      const deadline = new Date(refDate);
-      deadline.setDate(deadline.getDate() + rule.offset_days);
-      const daysUntil = differenceInCalendarDays(deadline, today);
-      if (daysUntil > maxReminder) continue;
-      const urgency: Urgency =
-        daysUntil < 0
-          ? "expired"
-          : daysUntil <= rule.critical_days
-            ? "critical"
-            : daysUntil <= rule.warning_days
-              ? "warning"
-              : "safe";
-      const officerRaw = officerField ? record[officerField] : undefined;
-      const officer = officerRaw
-        ? typeof officerRaw === "object" && officerRaw !== null
-          ? ((officerRaw as { name?: string }).name ?? "")
-          : String(officerRaw)
-        : "";
-      const groupRaw = groupField ? record[groupField] : undefined;
-      const group = groupRaw
-        ? typeof groupRaw === "object" && groupRaw !== null
-          ? ((groupRaw as { name?: string }).name ?? "")
-          : String(groupRaw)
-        : "";
-      items.push({
-        ruleId: rule.rule_id,
-        ruleLabel: rule.label,
-        legalRef: rule.legal_reference,
-        registerLabel,
-        registerHref,
-        sourceTable: config.source_table,
-        recordId: record.record_id || record.id || "—",
-        rowId: record.id || "",
-        entityName: getEntityName(record),
-        officer,
-        group,
-        deadlineDate: deadline,
-        daysUntil,
-        urgency,
-        criticalDays: rule.critical_days,
-        warningDays: rule.warning_days,
-      });
-    }
-  }
-
-  return items;
+  const reg = REGISTER_BY_TABLE.get(row.source_table);
+  return {
+    ruleId: row.rule_id,
+    ruleLabel: row.label,
+    legalRef: row.legal_reference ?? "",
+    registerLabel: reg?.label ?? row.source_table,
+    registerHref: TABLE_HREF[row.source_table] ?? "/tasks",
+    sourceTable: row.source_table,
+    recordId: row.record_id || "—",
+    rowId: row.row_id,
+    entityName: row.entity_name ?? "—",
+    officer: row.officer_name ?? "",
+    group: row.group_name ?? "",
+    deadlineDate,
+    daysUntil,
+    urgency,
+    criticalDays,
+    warningDays,
+  };
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -1322,9 +997,7 @@ export default function DGGIDashboard() {
   const [registerCounts, setRegisterCounts] = useState<Record<string, number>>(
     {},
   );
-  const [tableRecords, setTableRecords] = useState<Record<string, AnyRecord[]>>(
-    {},
-  );
+  const [computedDeadlineRows, setComputedDeadlineRows] = useState<ComputedDeadlineRow[]>([]);
   const [investigationCount, setInvestigationCount] = useState(0);
   const [fyProvisionalAttachments, setFyProvisionalAttachments] = useState(0);
   const [fySeizures, setFySeizures] = useState(0);
@@ -1424,18 +1097,14 @@ export default function DGGIDashboard() {
         setIsAdg(true);
       }
 
-      const deadlineTables = DEADLINE_RULES.map((r) => r.source_table);
-      const deadlineTableSet = new Set(deadlineTables);
-      const countOnlyTables = REGISTERS.map((r) => r.table).filter(
-        (t) => !deadlineTableSet.has(t),
-      );
+      const countOnlyTables = REGISTERS.map((r) => r.table);
 
       const fyStart = getCurrentFYStart();
       const currMonth = getMonthRange(0);
       const prevMonth = getMonthRange(-1);
 
       const [
-        deadlineResults,
+        deadlineRes,
         countResults,
         invRes,
         fyProvRes,
@@ -1453,23 +1122,25 @@ export default function DGGIDashboard() {
         pmArrRes,
         pmInvRes,
       ] = await Promise.all([
-        Promise.all(
-          deadlineTables.map((table) =>
-            applyRbacFilter(
-              supabase
-                .from(table)
-                .select(
-                  DEADLINE_TABLE_COLUMNS[table] ?? "id,record_id,workspace_id",
-                )
-                .eq("workspace_id", wid),
-              table,
-              rbac,
-            ).then((r) => ({
-              table,
-              data: (r.data ?? []) as AnyRecord[],
-            })),
-          ),
-        ),
+        // Single query replaces 9 source-table fetches — DB already computed & stored everything
+        (() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let q: any = supabase
+            .from("dggi_computed_deadlines")
+            .select("id,rule_id,source_table,record_id,row_id,deadline_date,label,legal_reference,skipped,sio_user_id,group_name,entity_name,officer_name,critical_days,warning_days,max_reminder_days")
+            .eq("workspace_id", wid)
+            .eq("skipped", false);
+          if (rbac.role !== "ADG" && rbac.role !== "DD_INT") {
+            if (rbac.role === "IO" || rbac.role === "SIO") {
+              q = q.eq("sio_user_id", rbac.uid);
+            } else if (rbac.groups.length > 0) {
+              q = q.in("group_name", rbac.groups);
+            } else {
+              q = q.eq("group_name", "__none__");
+            }
+          }
+          return q as Promise<{ data: ComputedDeadlineRow[] | null }>;
+        })(),
         Promise.all(
           countOnlyTables.map((table) =>
             applyRbacFilter(
@@ -1479,7 +1150,7 @@ export default function DGGIDashboard() {
                 .eq("workspace_id", wid),
               table,
               rbac,
-            ).then((r) => ({ table, count: r.count ?? 0 })),
+            ).then((r: { count: number | null }) => ({ table, count: r.count ?? 0 })),
           ),
         ),
         applyRbacFilter(
@@ -1628,13 +1299,9 @@ export default function DGGIDashboard() {
         ),
       ]);
 
-      const recordsMap: Record<string, AnyRecord[]> = {};
-      for (const { table, data } of deadlineResults) recordsMap[table] = data;
-      setTableRecords(recordsMap);
+      setComputedDeadlineRows((deadlineRes.data ?? []) as ComputedDeadlineRow[]);
 
       const countsMap: Record<string, number> = {};
-      for (const { table, data } of deadlineResults)
-        countsMap[table] = data.length;
       for (const { table, count } of countResults) countsMap[table] = count;
       setRegisterCounts(countsMap);
       setInvestigationCount(invRes.count ?? 0);
@@ -1803,24 +1470,15 @@ export default function DGGIDashboard() {
 
   // ─── Deadline computation ──────────────────────────────────────────────────
 
-  // Step 1: compute ALL items for the zone (unfiltered) — used for group list + zone-wide charts
+  // Map DB rows → DeadlineItem[]. Days are recomputed live so display is never stale.
   const allDeadlineItemsRaw = useMemo(() => {
-    const all: DeadlineItem[] = [];
-    for (const config of DEADLINE_RULES) {
-      const records = tableRecords[config.source_table] ?? [];
-      if (!records.length) continue;
-      const reg = REGISTER_BY_TABLE.get(config.source_table);
-      all.push(
-        ...computeDeadlinesForTable(
-          records,
-          config,
-          reg?.label ?? config.source_table,
-          reg?.href ?? "/tasks",
-        ),
-      );
+    const items: DeadlineItem[] = [];
+    for (const row of computedDeadlineRows) {
+      const item = dbRowToDeadlineItem(row);
+      if (item) items.push(item);
     }
-    return all;
-  }, [tableRecords]);
+    return items;
+  }, [computedDeadlineRows]);
 
   // Step 2: derive available groups from raw items (sorted alphabetically)
   const availableGroups = useMemo(
@@ -1918,9 +1576,9 @@ export default function DGGIDashboard() {
   const totalCritical = actionItems.length;
 
   const pendencyRows = useMemo((): PendencyRow[] => {
-    const deadlineTableSet = new Set(DEADLINE_RULES.map((r) => r.source_table));
+    // All registers in REGISTERS can now show pendency (data comes from dggi_computed_deadlines)
     const merged = new Map<string, PendencyRow>();
-    for (const reg of REGISTERS.filter((r) => deadlineTableSet.has(r.table))) {
+    for (const reg of REGISTERS) {
       const b = pendencyBreakdown[reg.table] ?? {
         expired: 0,
         critical: 0,
@@ -2048,16 +1706,9 @@ export default function DGGIDashboard() {
       toast.error("Failed to move out of monitoring: " + error.message);
       return;
     }
-    // Remove the record from local state so the dashboard reflects immediately
-    setTableRecords((prev) => {
-      const updated = { ...prev };
-      if (updated[item.sourceTable]) {
-        updated[item.sourceTable] = updated[item.sourceTable].map((r) =>
-          r.id === item.rowId ? { ...r, out_of_monitoring: true } : r,
-        );
-      }
-      return updated;
-    });
+    // Remove from local deadline rows immediately so the table updates without refetch.
+    // The cron will also mark the row skipped=true on its next run.
+    setComputedDeadlineRows((prev) => prev.filter((r) => r.row_id !== item.rowId));
     toast.success(`${item.entityName} moved out of monitoring`);
   }
 

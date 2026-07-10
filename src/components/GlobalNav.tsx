@@ -1,6 +1,7 @@
 "use client";
 
 import { signOut } from "@/auth/client";
+import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -8,6 +9,7 @@ import {
   Archive,
   Bell,
   Brain,
+  BarChart3,
   ClipboardCheck,
   ClipboardList,
   FileSearch,
@@ -28,6 +30,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const USERS_MGMT_ROLES = ["ADG", "DD_INT"];
+const NOTIF_ROLES = ["SIO", "DD", "DD_INT", "IO"];
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -83,6 +86,7 @@ const MONITORING_ITEMS: SidebarItem[] = [
     icon: ClipboardCheck,
   },
   { href: "/tasks/evidence-room", label: "Evidence Room", icon: Package },
+  { href: "/tasks/mpr", label: "MPR", icon: BarChart3 },
 ];
 
 const INVESTIGATION_ITEMS: SidebarItem[] = [
@@ -104,31 +108,88 @@ export default function GlobalNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [dggiRole, setDggiRole] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const supabase = clientConnectionWithSupabase();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
-      supabase
+      const { data } = await supabase
         .from("votum_users")
         .select("dggi_role")
         .eq("id", user.id)
-        .single()
-        .then(({ data }) => setDggiRole(data?.dggi_role ?? null));
+        .single();
+      setDggiRole(data?.dggi_role ?? null);
+
+      if (NOTIF_ROLES.includes(data?.dggi_role ?? "")) {
+        const wid = await getWorkspaceId();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const cutoffStr = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10);
+
+        const { data: groupRows } = await supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", user.id);
+        const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+
+        const [{ count: commentCount }, bySio, byGroup] = await Promise.all([
+          supabase
+            .from("dggi_notifications")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("read", false),
+          supabase
+            .from("dggi_computed_deadlines")
+            .select("id")
+            .eq("workspace_id", wid)
+            .eq("sio_user_id", user.id)
+            .eq("skipped", false)
+            .lte("deadline_date", cutoffStr),
+          groups.length
+            ? supabase
+                .from("dggi_computed_deadlines")
+                .select("id")
+                .eq("workspace_id", wid)
+                .eq("skipped", false)
+                .lte("deadline_date", cutoffStr)
+                .in("group_name", groups)
+            : Promise.resolve({ data: [] as { id: string }[] | null }),
+        ]);
+
+        const deadlineIds = new Set<string>([
+          ...((bySio as { data: { id: string }[] | null }).data ?? []).map((r) => r.id),
+          ...((byGroup as { data: { id: string }[] | null }).data ?? []).map((r) => r.id),
+        ]);
+
+        setUnreadCount((commentCount ?? 0) + deadlineIds.size);
+      }
     });
   }, []);
 
   const canManageUsers = USERS_MGMT_ROLES.includes(dggiRole ?? "");
+  const showNotifications = NOTIF_ROLES.includes(dggiRole ?? "");
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter(
     (item) => item.href !== "/users" || canManageUsers
   );
 
-  const visibleNavSections = NAV_SECTIONS.map((section) =>
-    section.label === "Dashboard"
-      ? { ...section, items: visibleDashboardItems }
-      : section
-  );
+  const visibleInvestigationItems = [
+    ...INVESTIGATION_ITEMS,
+    ...(showNotifications
+      ? [{ href: "/tasks/notifications", label: "Notifications", icon: Bell }]
+      : []),
+  ];
+
+  const visibleNavSections = NAV_SECTIONS.map((section) => {
+    if (section.label === "Dashboard")
+      return { ...section, items: visibleDashboardItems };
+    if (section.label === "Investigation")
+      return { ...section, items: visibleInvestigationItems };
+    return section;
+  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -148,6 +209,7 @@ export default function GlobalNav() {
               {section.items.map((item) => {
                 const active = pathname.startsWith(item.href);
                 const Icon = item.icon;
+                const isNotif = item.href === "/tasks/notifications";
                 return (
                   <Link
                     key={item.href}
@@ -158,8 +220,15 @@ export default function GlobalNav() {
                         : "text-[#6b6b6b] hover:bg-[#F3F2EF] hover:text-[#1a1a1a]"
                     }`}
                   >
-                    <Icon size={15} className="shrink-0" />
-                    <span className="truncate">{item.label}</span>
+                    <span className="relative shrink-0">
+                      <Icon size={15} />
+                      {isNotif && unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] text-white font-bold leading-none">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                      )}
+                    </span>
+                    <span className="truncate flex-1">{item.label}</span>
                   </Link>
                 );
               })}

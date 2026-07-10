@@ -7,13 +7,12 @@
  * What it does:
  *  1. Fetches all records from every table referenced in deadline-rules.json
  *  2. Applies the rule engine → ComputedDeadline[]
- *  3. Upserts rows into dggi_computed_deadlines (persists current state)
- *  4. For each non-skipped deadline, checks which reminder_bucket values fire
- *     today and haven't been sent yet (dggi_deadline_alerts_sent dedup)
- *  5. Inserts dggi_notifications rows for in-app delivery
- *  6. Marks buckets as sent in dggi_deadline_alerts_sent
+ *  3. Upserts rows into dggi_computed_deadlines, including sio_user_id and
+ *     group_name so the notifications page can filter without re-joining source
+ *     tables on every user load.
  *
- * Returns a JSON summary of what was processed.
+ * The notifications page queries dggi_computed_deadlines directly — no per-user
+ * copies, no bucket-firing, no dggi_notifications rows for deadlines.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -21,7 +20,6 @@ import { NextRequest, NextResponse } from "next/server";
 import rulesJson from "@/app/dashboard/deadline-rules.json";
 import {
   ALL_TABLE_CONFIGS,
-  bucketsToFireToday,
   computeDeadlinesForRecords,
 } from "@/lib/dggi-deadline-engine";
 
@@ -29,7 +27,7 @@ import {
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return false; // must be configured
+  if (!secret) return false;
   return req.headers.get("x-cron-secret") === secret;
 }
 
@@ -41,12 +39,36 @@ function adminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-// ─── Column map from JSON ─────────────────────────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
 
 const TABLE_COLUMNS: Record<string, string> = rulesJson.tableColumns;
 
-// Strip relation aliases (e.g. "handling_io_sio:votum_users(name)" → just keep
-// the column name without the join, since we query the raw FK value here)
+const TABLE_RECIPIENTS: Record<string, { sioField: string; groupField: string; officerField: string }> = {
+  dggi_scn_records:                    { sioField: "sio",             groupField: "group",          officerField: "adjudication_formation" },
+  dggi_provisional_attachment_records: { sioField: "sio",             groupField: "group",          officerField: "sio" },
+  dggi_prosecution_arrest_records:     { sioField: "sio",             groupField: "group",          officerField: "sio" },
+  dggi_prosecution_non_arrest_records: { sioField: "sio",             groupField: "group",          officerField: "sio" },
+  dggi_seizure_records:                { sioField: "sio",             groupField: "group",          officerField: "seized_by" },
+  dggi_intel_rapid_records:            { sioField: "sio",             groupField: "assigned_group", officerField: "assigned_group" },
+  dggi_str_records:                    { sioField: "sio",             groupField: "assigned_group", officerField: "assigned_group" },
+  dggi_records:                        { sioField: "handling_io_sio", groupField: "group",          officerField: "handling_io_sio" },
+  dggi_dfl_records:                    { sioField: "sio",             groupField: "group",          officerField: "sio" },
+};
+
+const ENTITY_FIELDS: string[] = [
+  "noticee_name", "entity_name", "person_name", "taxpayer_name",
+  "arrested_person_name", "received_against_entity", "record_id",
+];
+
+function getEntityName(rec: Record<string, unknown>): string {
+  for (const f of ENTITY_FIELDS) {
+    const v = rec[f];
+    if (v && typeof v === "string" && v.trim()) return v.trim();
+  }
+  return (rec.record_id as string | undefined) ?? "";
+}
+
+// Strip relation aliases (e.g. "handling_io_sio:votum_users(name)" → raw FK column)
 function rawColumns(selectStr: string): string {
   return selectStr
     .split(",")
@@ -68,17 +90,17 @@ export async function POST(req: NextRequest) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const summary: Record<string, { records: number; deadlines: number; notified: number }> = {};
-  let totalNotified = 0;
+  const summary: Record<string, { records: number; upserted: number }> = {};
 
   for (const config of ALL_TABLE_CONFIGS) {
     const selectCols = TABLE_COLUMNS[config.source_table];
     if (!selectCols) continue;
 
-    // 1. Fetch all records for this table
+    // 1. Fetch all records
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: records, error: fetchErr } = await supabase
       .from(config.source_table)
-      .select(rawColumns(selectCols));
+      .select(rawColumns(selectCols)) as { data: Record<string, any>[] | null; error: { message: string } | null };
 
     if (fetchErr) {
       console.error(`[deadline-alerts] fetch error ${config.source_table}:`, fetchErr.message);
@@ -88,10 +110,36 @@ export async function POST(req: NextRequest) {
 
     // 2. Compute deadlines
     const computed = computeDeadlinesForRecords(records, config, today);
+    if (!computed.length) continue;
 
-    // 3. Upsert into dggi_computed_deadlines
-    if (computed.length) {
-      const upsertRows = computed.map((d) => ({
+    // 3. Batch-resolve officer names for all unique officer user IDs in this table
+    const rf = TABLE_RECIPIENTS[config.source_table];
+    const officerUserIds = rf
+      ? [...new Set(
+          records.map((r) => r[rf.officerField]).filter((v) => v && typeof v === "string") as string[],
+        )]
+      : [];
+
+    const officerNames = new Map<string, string>();
+    if (officerUserIds.length) {
+      const { data: userRows } = await supabase
+        .from("votum_users")
+        .select("id,name")
+        .in("id", officerUserIds);
+      for (const u of (userRows ?? []) as { id: string; name: string }[]) {
+        if (u.name) officerNames.set(u.id, u.name);
+      }
+    }
+
+    // 4. Upsert — all display + recipient fields denormalised so consumers
+    //    never need to join back to the source table.
+    const upsertRows = computed.map((d) => {
+      const rec = records.find((r) => r.id === d.row_id);
+      const officerRaw = rec && rf ? (rec[rf.officerField] as string | undefined) : undefined;
+      const officerName = officerRaw
+        ? (officerNames.get(officerRaw) ?? officerRaw) // fall back to raw value if not a UUID
+        : null;
+      return {
         workspace_id: d.workspace_id,
         rule_id: d.rule_id,
         source_table: d.source_table,
@@ -102,92 +150,30 @@ export async function POST(req: NextRequest) {
         label: d.label,
         legal_reference: d.legal_reference,
         skipped: d.skipped,
+        sio_user_id:      (rec && rf ? (rec[rf.sioField] ?? null) : null) as string | null,
+        group_name:       (rec && rf ? (rec[rf.groupField] ?? null) : null) as string | null,
+        entity_name:      rec ? getEntityName(rec) : null,
+        officer_name:     officerName,
+        critical_days:    d.critical_days,
+        warning_days:     d.warning_days,
+        max_reminder_days: Math.max(...d.reminder_days_before, 0),
         updated_at: new Date().toISOString(),
-      }));
+      };
+    });
 
-      const { error: upsertErr } = await supabase
-        .from("dggi_computed_deadlines")
-        .upsert(upsertRows, {
-          onConflict: "workspace_id,rule_id,row_id",
-          ignoreDuplicates: false,
-        });
+    const { error: upsertErr } = await supabase
+      .from("dggi_computed_deadlines")
+      .upsert(upsertRows, {
+        onConflict: "workspace_id,rule_id,row_id",
+        ignoreDuplicates: false,
+      });
 
-      if (upsertErr) {
-        console.error(`[deadline-alerts] upsert error ${config.source_table}:`, upsertErr.message);
-      }
+    if (upsertErr) {
+      console.error(`[deadline-alerts] upsert error ${config.source_table}:`, upsertErr.message);
     }
 
-    // 4. Fire notifications for active (non-skipped) deadlines
-    let tableNotified = 0;
-
-    const activeDeadlines = computed.filter((d) => !d.skipped && d.row_id);
-
-    for (const d of activeDeadlines) {
-      const bucketsToday = bucketsToFireToday(d.days_until, d.reminder_days_before);
-      if (!bucketsToday.length) continue;
-
-      // Check which buckets haven't been sent yet
-      const { data: alreadySent } = await supabase
-        .from("dggi_deadline_alerts_sent")
-        .select("reminder_bucket")
-        .eq("workspace_id", d.workspace_id)
-        .eq("rule_id", d.rule_id)
-        .eq("record_id", d.record_id)
-        .in("reminder_bucket", bucketsToday);
-
-      const sentBuckets = new Set((alreadySent ?? []).map((r) => r.reminder_bucket));
-      const newBuckets = bucketsToday.filter((b) => !sentBuckets.has(b));
-      if (!newBuckets.length) continue;
-
-      // 5. Insert notification rows (one per bucket, workspace-wide for now)
-      const notifRows = newBuckets.map((bucket) => ({
-        workspace_id: d.workspace_id,
-        user_id: null, // workspace-wide; can be scoped to SIO later
-        rule_id: d.rule_id,
-        source_table: d.source_table,
-        record_id: d.record_id,
-        row_id: d.row_id || null,
-        deadline_date: d.deadline_date,
-        days_until: d.days_until,
-        label: `${d.label} — ${d.record_id}`,
-        legal_reference: d.legal_reference,
-      }));
-
-      const { error: notifErr } = await supabase
-        .from("dggi_notifications")
-        .insert(notifRows);
-
-      if (notifErr) {
-        console.error(`[deadline-alerts] notification insert error:`, notifErr.message);
-        continue;
-      }
-
-      // 6. Mark buckets as sent
-      const sentRows = newBuckets.map((bucket) => ({
-        workspace_id: d.workspace_id,
-        rule_id: d.rule_id,
-        record_id: d.record_id,
-        reminder_bucket: bucket,
-        last_sent_date: today.toISOString().slice(0, 10),
-      }));
-
-      await supabase
-        .from("dggi_deadline_alerts_sent")
-        .upsert(sentRows, {
-          onConflict: "workspace_id,rule_id,record_id,reminder_bucket",
-          ignoreDuplicates: true,
-        });
-
-      tableNotified += newBuckets.length;
-      totalNotified += newBuckets.length;
-    }
-
-    summary[config.source_table] = {
-      records: records.length,
-      deadlines: computed.length,
-      notified: tableNotified,
-    };
+    summary[config.source_table] = { records: records.length, upserted: upsertRows.length };
   }
 
-  return NextResponse.json({ ok: true, today: today.toISOString().slice(0, 10), summary, totalNotified });
+  return NextResponse.json({ ok: true, today: today.toISOString().slice(0, 10), summary });
 }

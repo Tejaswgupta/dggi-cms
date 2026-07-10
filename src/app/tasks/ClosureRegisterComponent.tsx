@@ -244,7 +244,8 @@ const ClosureRegisterComponent = () => {
   const searchParams = useSearchParams();
   const [records, setRecords] = useState<ClosureRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("non-ir");
+  const initialTab = (searchParams?.get("tab") === "ir" ? "ir" : "non-ir") as ActiveTab;
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [filters, setFilters] = useState<Filters>({
     ...EMPTY_FILTERS,
     search: searchParams?.get("caseId") ?? "",

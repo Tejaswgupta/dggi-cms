@@ -1031,11 +1031,19 @@ const ProvisionalAttachmentComponent = () => {
     return (
       <TableRow
         key={record.id}
+        data-record-id={record.record_id}
         className={`border-b border-[#EDEDEA] text-base hover:bg-white ${isSubRow ? "bg-[#FAFAF8]" : ""}`}
       >
         {COLUMNS.map((col) => (
           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-            {renderCell((record as any)[col.key] ?? "", col.key, col.type, record)}
+            {col.key === "record_id" ? (
+              <button
+                className="text-[#4A5FD4] hover:underline font-medium text-left"
+                onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}
+              >
+                {record.record_id || "—"}
+              </button>
+            ) : renderCell((record as any)[col.key] ?? "", col.key, col.type, record)}
           </TableCell>
         ))}
         <TableCell className="px-3 py-2">

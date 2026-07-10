@@ -354,7 +354,14 @@ const ProsecutionRegisterComponent = () => {
                       <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                         {ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                            {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
+                            {col.key === "record_id" ? (
+                              <button
+                                className="text-[#4A5FD4] hover:underline font-medium text-left"
+                                onClick={() => { setArrestDialogMode("edit"); setArrestDialogDraft({ ...record }); setArrestDialogOpen(true); }}
+                              >
+                                {record.record_id || "—"}
+                              </button>
+                            ) : renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                           </TableCell>
                         ))}
                         <TableCell className="px-3 py-2">
@@ -413,7 +420,14 @@ const ProsecutionRegisterComponent = () => {
                       <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                         {NON_ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-                            {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
+                            {col.key === "record_id" ? (
+                              <button
+                                className="text-[#4A5FD4] hover:underline font-medium text-left"
+                                onClick={() => { setNonArrestDialogMode("edit"); setNonArrestDialogDraft({ ...record }); setNonArrestDialogOpen(true); }}
+                              >
+                                {record.record_id || "—"}
+                              </button>
+                            ) : renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                           </TableCell>
                         ))}
                         <TableCell className="px-3 py-2">

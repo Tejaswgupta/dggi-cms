@@ -1110,18 +1110,31 @@ const ArrestRegisterComponent = () => {
     >
       {COLUMNS.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-          <EditableCell
-            value={((record as any)[col.key] as string) ?? ""}
-            type={col.type}
-            editing={false}
-            readOnly={col.readOnly}
-            onChange={() => {}}
-            cases={caseOptions}
-            users={workspaceUsers}
-            storedName={
-              col.key === "sio" ? (record as any).sio_name : undefined
-            }
-          />
+          {col.key === "record_id" ? (
+            <button
+              className="text-[#4A5FD4] hover:underline font-medium text-left"
+              onClick={() => {
+                setDialogMode("edit");
+                setDialogDraft({ ...record });
+                setDialogOpen(true);
+              }}
+            >
+              {record.record_id || "—"}
+            </button>
+          ) : (
+            <EditableCell
+              value={((record as any)[col.key] as string) ?? ""}
+              type={col.type}
+              editing={false}
+              readOnly={col.readOnly}
+              onChange={() => {}}
+              cases={caseOptions}
+              users={workspaceUsers}
+              storedName={
+                col.key === "sio" ? (record as any).sio_name : undefined
+              }
+            />
+          )}
         </TableCell>
       ))}
       <TableCell className="px-3 py-2">

@@ -51,8 +51,9 @@ export function CaseIdCombobox({
   if (!editing) {
     if (!value) return <span className="text-[#9a9a96]">—</span>;
     const isClosed = selected?.closure_by != null && selected.closure_by !== "";
+    const closureTab = selected?.is_ir ? "&tab=ir" : "&tab=non-ir";
     const caseHref = isClosed
-      ? `/tasks/closure-register?caseId=${encodeURIComponent(value)}`
+      ? `/tasks/closure-register?caseId=${encodeURIComponent(value)}${closureTab}`
       : `/tasks/investigation-cases?caseId=${encodeURIComponent(value)}`;
     return (
       <div className="flex items-center gap-1">
