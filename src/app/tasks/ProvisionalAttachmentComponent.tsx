@@ -119,6 +119,8 @@ interface ProvisionalAttachmentRecord {
   value_movable: string;
   value_shares: string;
   value_bank: string;
+  bank_name: string;
+  bank_ifsc: string;
   value_third_party: string;
   value_others: string;
   value_total: string;
@@ -169,6 +171,8 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
   value_movable: "",
   value_shares: "",
   value_bank: "",
+  bank_name: "",
+  bank_ifsc: "",
   value_third_party: "",
   value_others: "",
   value_total: "",
@@ -217,6 +221,8 @@ const PROPERTY_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
   "value_movable",
   "value_shares",
   "value_bank",
+  "bank_name",
+  "bank_ifsc",
   "value_third_party",
   "value_others",
   "value_total",
@@ -313,6 +319,20 @@ const COLUMNS: RegisterColumn[] = [
     label: "Value – Bank A/c",
     type: "number",
     width: "160px",
+  },
+  {
+    key: "bank_name",
+    label: "Bank Name",
+    type: "text",
+    width: "160px",
+    showWhenNonEmpty: "value_bank",
+  },
+  {
+    key: "bank_ifsc",
+    label: "Bank IFSC",
+    type: "text",
+    width: "160px",
+    showWhenNonEmpty: "value_bank",
   },
   {
     key: "value_third_party",
@@ -667,6 +687,8 @@ const EMPTY_PROPERTY = (): Record<string, string> => ({
   value_movable: "",
   value_shares: "",
   value_bank: "",
+  bank_name: "",
+  bank_ifsc: "",
   value_third_party: "",
   value_others: "",
   value_total: "",
@@ -910,7 +932,11 @@ function AddAttachmentDialog({
                 )}
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                {PROPERTY_COLUMNS_ADD.map((col) => (
+                {PROPERTY_COLUMNS_ADD.filter((col) =>
+                  col.showWhenNonEmpty
+                    ? !!(properties[idx][col.showWhenNonEmpty] ?? "").trim()
+                    : true,
+                ).map((col) => (
                   <div key={col.key} className="flex flex-col gap-1.5">
                     <label className="text-sm font-medium text-[#6b6b6b]">
                       {col.label}

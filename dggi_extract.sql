@@ -574,7 +574,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_prosecution_non_arrest_records" (
 
 -- Table: dggi_provisional_attachment_records
 
-CREATE TABLE IF NOT EXISTS "public"."dggi_provisional_attachment_records" (
+CREATE TABLE IF NOT EXISTS "public"."
+" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "workspace_id" "text" NOT NULL,
     "record_id" "text",

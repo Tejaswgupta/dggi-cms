@@ -67,6 +67,7 @@ export interface RegisterColumn {
   readOnly?: boolean;
   width?: string;
   showWhen?: { field: string; values: string[] };
+  showWhenNonEmpty?: string;
 }
 
 export interface ColumnGroup {
@@ -388,6 +389,9 @@ export function RegisterRecordDialog({
     if (col.showWhen) {
       const fieldVal = draft[col.showWhen.field] ?? "";
       return col.showWhen.values.includes(fieldVal);
+    }
+    if (col.showWhenNonEmpty) {
+      return !!(draft[col.showWhenNonEmpty] ?? "").trim();
     }
     return true;
   });
