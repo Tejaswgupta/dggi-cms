@@ -139,7 +139,9 @@ export default function GlobalNav() {
           supabase
             .from("dggi_notifications")
             .select("id", { count: "exact", head: true })
+            .eq("workspace_id", wid)
             .eq("user_id", user.id)
+            .eq("rule_id", "adg_comment")
             .eq("read", false),
           supabase
             .from("dggi_computed_deadlines")

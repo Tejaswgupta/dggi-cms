@@ -1034,6 +1034,8 @@ export default function DGGIDashboard() {
   const [viewMode, setViewMode] = useState<"table" | "graph">("table");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [showRulesDialog, setShowRulesDialog] = useState(false);
+  const [unreadCommentCount, setUnreadCommentCount] = useState(0);
+  const [notifBannerDismissed, setNotifBannerDismissed] = useState(false);
 
   const getGreeting = useCallback((): string => {
     const h = new Date().getHours();
@@ -1095,6 +1097,19 @@ export default function DGGIDashboard() {
       // ADG role check — also covers dggi_role field
       if (dggiRole === "ADG") {
         setIsAdg(true);
+      }
+
+      // Fetch unread comment notifications for banner
+      const NOTIF_ROLES = ["SIO", "DD", "DD_INT", "IO"];
+      if (NOTIF_ROLES.includes(dggiRole)) {
+        const { count: unread } = await supabase
+          .from("dggi_notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", wid)
+          .eq("user_id", userId)
+          .eq("rule_id", "adg_comment")
+          .eq("read", false);
+        setUnreadCommentCount(unread ?? 0);
       }
 
       const countOnlyTables = REGISTERS.map((r) => r.table);
@@ -1856,6 +1871,40 @@ export default function DGGIDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Notification banner ── */}
+      {unreadCommentCount > 0 && !notifBannerDismissed && (
+        <div className="bg-indigo-50 border-b border-indigo-100 px-6 py-2.5">
+          <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4A5FD4] text-[10px] font-bold text-white shrink-0">
+                {unreadCommentCount > 9 ? "9+" : unreadCommentCount}
+              </span>
+              <span className="text-[12.5px] text-[#4A5FD4] font-medium">
+                {unreadCommentCount === 1
+                  ? "You have 1 unread ADG comment"
+                  : `You have ${unreadCommentCount} unread ADG comments`}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <Link
+                href="/tasks/notifications"
+                className="flex items-center gap-1 text-[12px] font-semibold text-[#4A5FD4] hover:underline"
+              >
+                <Bell size={12} />
+                View notifications
+              </Link>
+              <button
+                onClick={() => setNotifBannerDismissed(true)}
+                className="flex items-center justify-center w-5 h-5 rounded-full hover:bg-indigo-200 text-[#4A5FD4] transition-colors"
+                title="Dismiss"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-[1440px] mx-auto px-6 py-5 flex flex-col gap-4">
         {/* ── KPI Strip ── */}
