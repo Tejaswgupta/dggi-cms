@@ -25,7 +25,7 @@ from supabase import create_client
 SUPABASE_URL = "https://zrkvvedwycdcjjheewef.supabase.co"
 SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpya3Z2ZWR3eWNkY2pqaGVld2VmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwMzAxNjg1NCwiZXhwIjoyMDE4NTkyODU0fQ.ZYgzzv6E--3v2un2uN0jXwHnBvCf0EjPJlGoCQwiqKE"
 
-WORKSPACE_OWNER_EMAIL = "ajinkya@gov.in"
+WORKSPACE_OWNER_EMAIL = "ajinkya.k1@gov.in"
 
 DEFAULT_EXCEL_PATH = os.path.join(
     os.path.expanduser("~"),
@@ -227,7 +227,7 @@ SCN_MAPPING = [
     (9,  "Adjudicating Commissionerate",     "adjudication_formation",None),
     (10, "Adjudicating Commissionerate Zone","remarks",               "combined into remarks"),
     (11, "Period Involved",                  "period_involved",       None),
-    (12, "SIO",                              None,                    "skipped — no user mapping available"),
+    (12, "SIO",                              "sio_name + created_by_name", "name stored as text; no UUID mapping"),
     (13, "Group",                            "group",                 "A→Group A"),
     (14, "Whether updated in DIGIT",         None,                    "skipped — informational only"),
     (15, "MPR Month",                        None,                    "skipped — use dggi_mpr_records instead"),
@@ -357,8 +357,12 @@ def process_scn(ws, sb, workspace_id: str, skipped: list, dry_run: bool = False)
             "period_involved": clean(row[11]),
             "group": normalize_group(row[13]),
             "remarks": " | ".join(remarks_parts) if remarks_parts else None,
+            # competency is required for the SCN Register tabs in the UI;
+            # Excel has no competency column so default to SIO Competency
+            "competency": "SIO Competency",
+            "sio_name": clean(row[12]),
+            "created_by_name": clean(row[12]),
         }
-        # Skip sio_name — no way to map Excel names to user UUIDs
         payload = {k: v for k, v in payload.items() if v is not None}
 
         scn_no = clean(row[4])

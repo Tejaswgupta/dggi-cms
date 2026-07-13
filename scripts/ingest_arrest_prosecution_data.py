@@ -242,6 +242,7 @@ def process_arrest_row(
     row: tuple,
     sb,
     workspace_id: str,
+    created_by: str | None,
     skipped: list,
     dry_run: bool,
 ) -> tuple[str, str | None]:
@@ -304,6 +305,8 @@ def process_arrest_row(
         "role_evidence": role_evidence,
         "prosecution_filed": "Yes" if has_prosecution else "",
         "group": normalize_group(row[COL_GROUP]),
+        "created_by": created_by,
+        "created_by_name": clean(row[COL_SIO]),
     }
 
     # Remove None values (except required fields)
@@ -330,6 +333,7 @@ def process_prosecution_row(
     sb,
     workspace_id: str,
     arrest_id: str | None,
+    created_by: str | None,
     skipped: list,
     dry_run: bool,
 ) -> str:
@@ -384,6 +388,8 @@ def process_prosecution_row(
         "date_of_filing": date_filing,
         "reasons_not_filed": clean(row[COL_REASONS_NOT_FILED]),
         "group": normalize_group(row[COL_GROUP]),
+        "created_by": created_by,
+        "created_by_name": clean(row[COL_SIO]),
     }
 
     payload = {k: v for k, v in payload.items() if v is not None}
@@ -441,7 +447,7 @@ def main():
     for row_idx, row in enumerate(rows[2:], start=3):  # Skip header rows
         # Process arrest
         arrest_status, arrest_id = process_arrest_row(
-            row, sb, workspace_id, skipped, dry_run
+            row, sb, workspace_id, created_by, skipped, dry_run
         )
         if arrest_status == "inserted":
             arrest_inserted += 1
@@ -451,7 +457,7 @@ def main():
         # Process prosecution (only if arrest was created or dry-run)
         if arrest_id or dry_run:
             pros_status = process_prosecution_row(
-                row, sb, workspace_id, arrest_id, skipped, dry_run
+                row, sb, workspace_id, arrest_id, created_by, skipped, dry_run
             )
             if pros_status == "inserted":
                 pros_inserted += 1

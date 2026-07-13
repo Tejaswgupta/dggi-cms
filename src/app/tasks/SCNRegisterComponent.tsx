@@ -569,7 +569,7 @@ const SCNRegisterComponent = () => {
   // ── Filtered + sorted rows ─────────────────────────────────────────────────
 
   const tableRecords = records
-    .filter((r) => r.competency === activeTab)
+    .filter((r) => (r.competency || "SIO Competency") === activeTab)
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
