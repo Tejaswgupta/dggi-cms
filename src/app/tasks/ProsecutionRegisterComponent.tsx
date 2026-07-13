@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
-import { ChevronDown, ChevronUp, Download, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, ExternalLink, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
@@ -293,7 +293,20 @@ const ProsecutionRegisterComponent = () => {
     if (type === "caselink") return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
     if (type === "arrestlink") {
       const arrest = arrestOptions.find((a) => a.id === value);
-      return <span>{arrest ? `${arrest.record_id} — ${arrest.arrested_name || arrest.party_name}` : value || "—"}</span>;
+      if (!arrest) return <span>{value || "—"}</span>;
+      return (
+        <a
+          href="/tasks?register=arrest"
+          className="flex items-center gap-1 text-[#4A5FD4] hover:underline font-medium"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.href = `/tasks?register=arrest#${arrest.record_id}`;
+          }}
+        >
+          {arrest.record_id} — {arrest.arrested_name || arrest.party_name}
+          <ExternalLink size={12} className="opacity-60" />
+        </a>
+      );
     }
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
     return <span>{value || "—"}</span>;

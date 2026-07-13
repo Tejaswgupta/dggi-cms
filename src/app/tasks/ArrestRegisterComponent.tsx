@@ -1340,7 +1340,7 @@ const ArrestRegisterComponent = () => {
               <Input
                 value={filters.search}
                 onChange={(e) => setFilter("search", e.target.value)}
-                placeholder="Search person, unit…"
+                placeholder="Search person, taxpayer, GSTIN…"
                 className="h-9 pl-8 pr-3 min-w-[300px] border-[#EDEDEA] text-base rounded-lg"
               />
               {filters.search && (
