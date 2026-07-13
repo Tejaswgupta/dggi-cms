@@ -17,7 +17,6 @@ import {
   CalendarClock,
   CheckCircle2,
   ChevronRight,
-  ClipboardCheck,
   Clock,
   FileSearch,
   FlaskConical,
@@ -72,7 +71,6 @@ interface ComputedDeadlineRow {
   warning_days: number | null;
   max_reminder_days: number | null;
 }
-
 
 // RBAC: group field and SIO/IO field per table, matching existing register components
 const TABLE_RBAC_FIELDS: Record<
@@ -288,15 +286,15 @@ const REGISTERS: RegisterMeta[] = [
     accentColor: "#1E40AF",
     category: "monitoring",
   },
-  {
-    href: "/tasks/report-compliance",
-    label: "Report Compliance",
-    shortLabel: "Compliance",
-    icon: ClipboardCheck,
-    table: "dggi_report_compliance_records",
-    accentColor: "#047857",
-    category: "monitoring",
-  },
+  // {
+  //   href: "/tasks/report-compliance",
+  //   label: "Report Compliance",
+  //   shortLabel: "Compliance",
+  //   icon: ClipboardCheck,
+  //   table: "dggi_report_compliance_records",
+  //   accentColor: "#047857",
+  //   category: "monitoring",
+  // },
 ];
 
 const INVESTIGATIONS_TABLE = "dggi_records";
@@ -734,7 +732,6 @@ function DeadlineTable({
                   <div className="truncate font-medium text-[#1a1a1a]">
                     {item.ruleLabel}
                   </div>
-
                 </td>
                 <td className="px-4 py-2.5 whitespace-nowrap text-[11.5px] text-[#6b6b6b]">
                   {format(item.deadlineDate, "dd MMM yyyy")}
@@ -997,7 +994,9 @@ export default function DGGIDashboard() {
   const [registerCounts, setRegisterCounts] = useState<Record<string, number>>(
     {},
   );
-  const [computedDeadlineRows, setComputedDeadlineRows] = useState<ComputedDeadlineRow[]>([]);
+  const [computedDeadlineRows, setComputedDeadlineRows] = useState<
+    ComputedDeadlineRow[]
+  >([]);
   const [investigationCount, setInvestigationCount] = useState(0);
   const [fyProvisionalAttachments, setFyProvisionalAttachments] = useState(0);
   const [fySeizures, setFySeizures] = useState(0);
@@ -1142,7 +1141,9 @@ export default function DGGIDashboard() {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let q: any = supabase
             .from("dggi_computed_deadlines")
-            .select("id,rule_id,source_table,record_id,row_id,deadline_date,label,legal_reference,skipped,sio_user_id,group_name,entity_name,officer_name,critical_days,warning_days,max_reminder_days")
+            .select(
+              "id,rule_id,source_table,record_id,row_id,deadline_date,label,legal_reference,skipped,sio_user_id,group_name,entity_name,officer_name,critical_days,warning_days,max_reminder_days",
+            )
             .eq("workspace_id", wid)
             .eq("skipped", false);
           if (rbac.role !== "ADG" && rbac.role !== "DD_INT") {
@@ -1165,7 +1166,10 @@ export default function DGGIDashboard() {
                 .eq("workspace_id", wid),
               table,
               rbac,
-            ).then((r: { count: number | null }) => ({ table, count: r.count ?? 0 })),
+            ).then((r: { count: number | null }) => ({
+              table,
+              count: r.count ?? 0,
+            })),
           ),
         ),
         applyRbacFilter(
@@ -1314,7 +1318,9 @@ export default function DGGIDashboard() {
         ),
       ]);
 
-      setComputedDeadlineRows((deadlineRes.data ?? []) as ComputedDeadlineRow[]);
+      setComputedDeadlineRows(
+        (deadlineRes.data ?? []) as ComputedDeadlineRow[],
+      );
 
       const countsMap: Record<string, number> = {};
       for (const { table, count } of countResults) countsMap[table] = count;
@@ -1720,13 +1726,16 @@ export default function DGGIDashboard() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? res.statusText);
-      const totalUpserted = Object.values(json.summary as Record<string, { upserted: number }>)
-        .reduce((s, v) => s + v.upserted, 0);
+      const totalUpserted = Object.values(
+        json.summary as Record<string, { upserted: number }>,
+      ).reduce((s, v) => s + v.upserted, 0);
       toast.success(`Deadlines synced — ${totalUpserted} rows updated`);
       // Reload deadline rows without full page refresh
       fetchAll();
     } catch (e: unknown) {
-      toast.error("Sync failed: " + (e instanceof Error ? e.message : String(e)));
+      toast.error(
+        "Sync failed: " + (e instanceof Error ? e.message : String(e)),
+      );
     } finally {
       setSyncing(false);
     }
@@ -1744,7 +1753,9 @@ export default function DGGIDashboard() {
     }
     // Remove from local deadline rows immediately so the table updates without refetch.
     // The cron will also mark the row skipped=true on its next run.
-    setComputedDeadlineRows((prev) => prev.filter((r) => r.row_id !== item.rowId));
+    setComputedDeadlineRows((prev) =>
+      prev.filter((r) => r.row_id !== item.rowId),
+    );
     toast.success(`${item.entityName} moved out of monitoring`);
   }
 
@@ -1824,7 +1835,10 @@ export default function DGGIDashboard() {
                   className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-[#F3F2EF] hover:bg-[#EDEDEA] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all text-[11.5px] font-medium disabled:opacity-60"
                   title="Re-compute deadlines from source records"
                 >
-                  <RefreshCw size={13} className={syncing ? "animate-spin" : ""} />
+                  <RefreshCw
+                    size={13}
+                    className={syncing ? "animate-spin" : ""}
+                  />
                   {syncing ? "Syncing…" : "Sync Deadlines"}
                 </button>
               )}

@@ -7,10 +7,9 @@ import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   Archive,
+  BarChart3,
   Bell,
   Brain,
-  BarChart3,
-  ClipboardCheck,
   ClipboardList,
   FileSearch,
   FlaskConical,
@@ -80,11 +79,11 @@ const MONITORING_ITEMS: SidebarItem[] = [
   { href: "/tasks/cpgram", label: "CPGRAM", icon: MessageSquare },
   { href: "/tasks/informer-reward", label: "Informer Reward", icon: Gift },
   { href: "/tasks/dfl-register", label: "DFL", icon: HardDrive },
-  {
-    href: "/tasks/report-compliance",
-    label: "Report Compliance",
-    icon: ClipboardCheck,
-  },
+  // {
+  //   href: "/tasks/report-compliance",
+  //   label: "Report Compliance",
+  //   icon: ClipboardCheck,
+  // },
   { href: "/tasks/evidence-room", label: "Evidence Room", icon: Package },
   { href: "/tasks/mpr", label: "MPR", icon: BarChart3 },
 ];
@@ -133,7 +132,9 @@ export default function GlobalNav() {
           .from("dggi_user_group_assignments")
           .select("group_name")
           .eq("user_id", user.id);
-        const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+        const groups = (groupRows ?? []).map(
+          (g: { group_name: string }) => g.group_name,
+        );
 
         const [{ count: commentCount }, bySio, byGroup] = await Promise.all([
           supabase
@@ -162,8 +163,12 @@ export default function GlobalNav() {
         ]);
 
         const deadlineIds = new Set<string>([
-          ...((bySio as { data: { id: string }[] | null }).data ?? []).map((r) => r.id),
-          ...((byGroup as { data: { id: string }[] | null }).data ?? []).map((r) => r.id),
+          ...((bySio as { data: { id: string }[] | null }).data ?? []).map(
+            (r) => r.id,
+          ),
+          ...((byGroup as { data: { id: string }[] | null }).data ?? []).map(
+            (r) => r.id,
+          ),
         ]);
 
         setUnreadCount((commentCount ?? 0) + deadlineIds.size);
@@ -175,7 +180,7 @@ export default function GlobalNav() {
   const showNotifications = NOTIF_ROLES.includes(dggiRole ?? "");
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter(
-    (item) => item.href !== "/users" || canManageUsers
+    (item) => item.href !== "/users" || canManageUsers,
   );
 
   const visibleInvestigationItems = [
