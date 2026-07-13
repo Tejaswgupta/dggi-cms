@@ -13,14 +13,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { DateInput } from "@/components/ui/date-input";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Command,
   CommandEmpty,
@@ -29,6 +21,14 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { DateInput } from "@/components/ui/date-input";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
@@ -98,7 +98,6 @@ import {
 
 const SCN_DUE_DAYS = 273; // 9 months ≈ 273 days
 const EXPIRY_DAYS = 365; // 1 year
-
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -227,41 +226,179 @@ const PROPERTY_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const COLUMNS: RegisterColumn[] = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
-  { key: "attachment_batch_id", label: "Attachment No.", type: "text", width: "160px", readOnly: true },
-  { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
-  { key: "person_name", label: "Name of Person (Sec. 83)", type: "text", width: "200px" },
+  {
+    key: "record_id",
+    label: "ID",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
+  {
+    key: "attachment_batch_id",
+    label: "Attachment No.",
+    type: "text",
+    width: "160px",
+    readOnly: true,
+  },
+  {
+    key: "linked_case_id",
+    label: "Linked Case",
+    type: "caselink",
+    width: "180px",
+  },
+  {
+    key: "person_name",
+    label: "Name of Taxpayer",
+    type: "text",
+    width: "200px",
+  },
   { key: "gstin_pan", label: "GSTIN/PAN", type: "text", width: "160px" },
-  { key: "person_status", label: "Status of Person", type: "text", width: "180px" },
-  { key: "expected_liability", label: "Expected Liability", type: "number", width: "160px" },
-  { key: "entity_gstin", label: "GSTIN of Entity", type: "text", width: "160px" },
-  { key: "issue_involved", label: "Issue Involved", type: "text", width: "160px" },
-  { key: "person_involvement", label: "Brief Description of Involvement", type: "text", width: "220px" },
+  {
+    key: "person_status",
+    label: "Status of Taxypayer",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "expected_liability",
+    label: "Expected Liability",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "entity_gstin",
+    label: "GSTIN of Entity",
+    type: "text",
+    width: "160px",
+  },
+  {
+    key: "issue_involved",
+    label: "Issue Involved",
+    type: "text",
+    width: "160px",
+  },
+  {
+    key: "person_involvement",
+    label: "Brief Description of Involvement",
+    type: "text",
+    width: "220px",
+  },
   { key: "arrest", label: "Arrest (Yes/No)", type: "text", width: "130px" },
-  { key: "description_of_property", label: "Description of Property", type: "text", width: "220px" },
-  { key: "value_immovable", label: "Value – Immovable Property", type: "number", width: "200px" },
-  { key: "value_movable", label: "Value – Movable Property", type: "number", width: "190px" },
-  { key: "value_shares", label: "Value – Share/Insurance/FD", type: "number", width: "200px" },
-  { key: "value_bank", label: "Value – Bank A/c", type: "number", width: "160px" },
-  { key: "value_third_party", label: "Value – Third Party", type: "number", width: "170px" },
-  { key: "value_others", label: "Value – Others", type: "number", width: "150px" },
-  { key: "value_total", label: "Value – Total", type: "number", width: "150px" },
-  { key: "investigation_completed", label: "Investigation Completed?", type: "text", width: "180px" },
-  { key: "scn_issued", label: "SCN Issued?", type: "select", options: ["Yes", "No"], width: "120px" },
-  { key: "date_of_scn_issuance", label: "Date of SCN Issuance", type: "datepicker", width: "180px" },
-  { key: "letter_issued", label: "Letter to Commissionerate?", type: "select", options: ["Yes", "No"], width: "200px" },
-  { key: "oio_issued", label: "OIO Issued?", type: "select", options: ["Yes", "No"], width: "120px" },
-  { key: "date_of_release", label: "Date of Release of Attachment", type: "datepicker", width: "210px" },
-  { key: "date_of_attachment", label: "Date of Attachment", type: "datepicker", width: "160px" },
-  { key: "linked_scn_no", label: "Linked SCN No.", type: "scncombobox", width: "180px" },
+  {
+    key: "description_of_property",
+    label: "Description of Property",
+    type: "text",
+    width: "220px",
+  },
+  {
+    key: "value_immovable",
+    label: "Value – Immovable Property",
+    type: "number",
+    width: "200px",
+  },
+  {
+    key: "value_movable",
+    label: "Value – Movable Property",
+    type: "number",
+    width: "190px",
+  },
+  {
+    key: "value_shares",
+    label: "Value – Share/Insurance/FD",
+    type: "number",
+    width: "200px",
+  },
+  {
+    key: "value_bank",
+    label: "Value – Bank A/c",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "value_third_party",
+    label: "Value – Third Party",
+    type: "number",
+    width: "170px",
+  },
+  {
+    key: "value_others",
+    label: "Value – Others",
+    type: "number",
+    width: "150px",
+  },
+  {
+    key: "value_total",
+    label: "Value – Total",
+    type: "number",
+    width: "150px",
+  },
+  {
+    key: "investigation_completed",
+    label: "Investigation Completed?",
+    type: "text",
+    width: "180px",
+  },
+  {
+    key: "scn_issued",
+    label: "SCN Issued?",
+    type: "select",
+    options: ["Yes", "No"],
+    width: "120px",
+  },
+  {
+    key: "date_of_scn_issuance",
+    label: "Date of SCN Issuance",
+    type: "datepicker",
+    width: "180px",
+  },
+  {
+    key: "letter_issued",
+    label: "Letter to Commissionerate?",
+    type: "select",
+    options: ["Yes", "No"],
+    width: "200px",
+  },
+  {
+    key: "oio_issued",
+    label: "OIO Issued?",
+    type: "select",
+    options: ["Yes", "No"],
+    width: "120px",
+  },
+  {
+    key: "date_of_release",
+    label: "Date of Release of Attachment",
+    type: "datepicker",
+    width: "210px",
+  },
+  {
+    key: "date_of_attachment",
+    label: "Date of Attachment",
+    type: "datepicker",
+    width: "160px",
+  },
+  {
+    key: "linked_scn_no",
+    label: "Linked SCN No.",
+    type: "scncombobox",
+    width: "180px",
+  },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
+  {
+    key: "group",
+    label: "Group",
+    type: "select",
+    options: DGGI_GROUPS,
+    width: "120px",
+  },
 ];
 
 const TOTAL_COLS = COLUMNS.length + 3; // +3 for SCN Due Date, Expiry Date, Actions
 
 const BATCH_COLUMNS_ADD = COLUMNS.filter(
-  (c) => BATCH_FIELDS.has(c.key as keyof ProvisionalAttachmentRecord) && c.key !== "attachment_batch_id",
+  (c) =>
+    BATCH_FIELDS.has(c.key as keyof ProvisionalAttachmentRecord) &&
+    c.key !== "attachment_batch_id",
 );
 const PROPERTY_COLUMNS_ADD = COLUMNS.filter((c) =>
   PROPERTY_FIELDS.has(c.key as keyof ProvisionalAttachmentRecord),
@@ -269,7 +406,10 @@ const PROPERTY_COLUMNS_ADD = COLUMNS.filter((c) =>
 
 const EDIT_COLUMN_GROUPS: ColumnGroup[] = [
   { label: "Attachment Details", keys: Array.from(BATCH_FIELDS) as string[] },
-  { label: "Attached Property / Person", keys: Array.from(PROPERTY_FIELDS) as string[] },
+  {
+    label: "Attached Property / Person",
+    keys: Array.from(PROPERTY_FIELDS) as string[],
+  },
 ];
 
 // ─── Date-derived computations ────────────────────────────────────────────────
@@ -285,10 +425,20 @@ function computedDates(
   daysToScnDue: number | null;
 } {
   if (!dateOfAttachment)
-    return { expiryDate: null, scnDueDate: null, daysToExpiry: null, daysToScnDue: null };
+    return {
+      expiryDate: null,
+      scnDueDate: null,
+      daysToExpiry: null,
+      daysToScnDue: null,
+    };
   const base = parseISO(dateOfAttachment);
   if (!isValid(base))
-    return { expiryDate: null, scnDueDate: null, daysToExpiry: null, daysToScnDue: null };
+    return {
+      expiryDate: null,
+      scnDueDate: null,
+      daysToExpiry: null,
+      daysToScnDue: null,
+    };
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const expiryDate = addDays(base, EXPIRY_DAYS);
@@ -296,8 +446,12 @@ function computedDates(
   return {
     expiryDate,
     scnDueDate,
-    daysToScnDue: dateOfScnIssuance ? null : differenceInCalendarDays(scnDueDate, now),
-    daysToExpiry: dateOfRelease ? null : differenceInCalendarDays(expiryDate, now),
+    daysToScnDue: dateOfScnIssuance
+      ? null
+      : differenceInCalendarDays(scnDueDate, now),
+    daysToExpiry: dateOfRelease
+      ? null
+      : differenceInCalendarDays(expiryDate, now),
   };
 }
 
@@ -311,34 +465,70 @@ function alarmLevel(daysLeft: number | null): AlarmLevel {
   return null;
 }
 
-function AlarmBadge({ daysLeft, label }: { daysLeft: number | null; label: string }) {
+function AlarmBadge({
+  daysLeft,
+  label,
+}: {
+  daysLeft: number | null;
+  label: string;
+}) {
   const level = alarmLevel(daysLeft);
   if (!level) return null;
   const cfg = {
-    overdue: { cls: "bg-red-100 text-red-700 border border-red-200", icon: <AlertTriangle size={10} className="shrink-0" /> },
-    critical: { cls: "bg-orange-100 text-orange-700 border border-orange-200", icon: <AlertTriangle size={10} className="shrink-0" /> },
-    warning: { cls: "bg-amber-100 text-amber-700 border border-amber-200", icon: <Clock size={10} className="shrink-0" /> },
+    overdue: {
+      cls: "bg-red-100 text-red-700 border border-red-200",
+      icon: <AlertTriangle size={10} className="shrink-0" />,
+    },
+    critical: {
+      cls: "bg-orange-100 text-orange-700 border border-orange-200",
+      icon: <AlertTriangle size={10} className="shrink-0" />,
+    },
+    warning: {
+      cls: "bg-amber-100 text-amber-700 border border-amber-200",
+      icon: <Clock size={10} className="shrink-0" />,
+    },
   }[level];
-  const text = daysLeft! < 0 ? `${Math.abs(daysLeft!)}d overdue` : `${daysLeft}d left`;
+  const text =
+    daysLeft! < 0 ? `${Math.abs(daysLeft!)}d overdue` : `${daysLeft}d left`;
   return (
-    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cfg.cls}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${cfg.cls}`}
+    >
       {cfg.icon}
       {label}: {text}
     </span>
   );
 }
 
-function DateComputedCell({ daysLeft, date }: { daysLeft: number | null; date: Date | null }) {
+function DateComputedCell({
+  daysLeft,
+  date,
+}: {
+  daysLeft: number | null;
+  date: Date | null;
+}) {
   if (!date) return <span className="text-[#9a9a96]">—</span>;
   const level = alarmLevel(daysLeft);
   const fmtd = format(date, "dd/MM/yyyy");
-  if (!level) return <span className="text-base text-[#1a1a1a] whitespace-nowrap">{fmtd}</span>;
+  if (!level)
+    return (
+      <span className="text-base text-[#1a1a1a] whitespace-nowrap">{fmtd}</span>
+    );
   const textCls =
-    level === "overdue" ? "text-red-600" : level === "critical" ? "text-orange-600" : "text-amber-600";
+    level === "overdue"
+      ? "text-red-600"
+      : level === "critical"
+        ? "text-orange-600"
+        : "text-amber-600";
   return (
     <div className="flex flex-col gap-0.5">
-      <span className={`text-base font-medium whitespace-nowrap ${textCls}`}>{fmtd}</span>
-      <AlarmBadge daysLeft={daysLeft} label={level === "overdue" ? "Overdue" : "Due"} />
+      <span className={`text-base font-medium whitespace-nowrap ${textCls}`}>
+        {fmtd}
+      </span>
+      <AlarmBadge
+        daysLeft={daysLeft}
+        label={level === "overdue" ? "Overdue" : "Due"}
+      />
     </div>
   );
 }
@@ -349,7 +539,11 @@ const fmt = (iso: string) => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
 // ─── Filter date picker ───────────────────────────────────────────────────────
@@ -363,16 +557,24 @@ function FilterDatePicker({
   placeholder: string;
   onChange: (v: string) => void;
 }) {
-  const parsed = value && isValid(parseISO(value)) ? parseISO(value) : undefined;
+  const parsed =
+    value && isValid(parseISO(value)) ? parseISO(value) : undefined;
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button className="flex h-9 min-w-[130px] items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
           <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
-          {parsed ? format(parsed, "dd/MM/yyyy") : <span className="text-[#9a9a96]">{placeholder}</span>}
+          {parsed ? (
+            format(parsed, "dd/MM/yyyy")
+          ) : (
+            <span className="text-[#9a9a96]">{placeholder}</span>
+          )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
+      <PopoverContent
+        className="w-auto p-0 border border-[#EDEDEA] shadow-none rounded-xl"
+        align="start"
+      >
         <Calendar
           mode="single"
           selected={parsed}
@@ -414,7 +616,10 @@ function UserSearchCombobox({
           <ChevronsUpDown size={12} className="text-[#9a9a96] shrink-0" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[260px] p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
+      <PopoverContent
+        className="w-[260px] p-0 border border-[#EDEDEA] shadow-none rounded-xl"
+        align="start"
+      >
         <Command>
           <CommandInput
             placeholder="Search user…"
@@ -479,7 +684,10 @@ function AddAttachmentDialog({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSave: (batch: Record<string, string>, properties: Record<string, string>[]) => void;
+  onSave: (
+    batch: Record<string, string>,
+    properties: Record<string, string>[],
+  ) => void;
   saving: boolean;
   caseOptions: DGGICaseOption[];
   users: WorkspaceUser[];
@@ -501,7 +709,9 @@ function AddAttachmentDialog({
     sio: "",
     group: "",
   });
-  const [properties, setProperties] = useState<Record<string, string>[]>([EMPTY_PROPERTY()]);
+  const [properties, setProperties] = useState<Record<string, string>[]>([
+    EMPTY_PROPERTY(),
+  ]);
 
   const handleOpenChange = (v: boolean) => {
     if (v) {
@@ -548,14 +758,25 @@ function AddAttachmentDialog({
   };
 
   const setPropertyField = (idx: number, key: string, val: string) =>
-    setProperties((prev) => prev.map((p, i) => (i === idx ? { ...p, [key]: val } : p)));
+    setProperties((prev) =>
+      prev.map((p, i) => (i === idx ? { ...p, [key]: val } : p)),
+    );
 
-  const renderBatchField = (col: typeof BATCH_COLUMNS_ADD[number]) => {
+  const renderBatchField = (col: (typeof BATCH_COLUMNS_ADD)[number]) => {
     const value = batch[col.key] ?? "";
     if (col.type === "caselink")
-      return <CaseIdCombobox value={value} onChange={(v) => setBatchField(col.key, v)} cases={caseOptions} editing={true} />;
+      return (
+        <CaseIdCombobox
+          value={value}
+          onChange={(v) => setBatchField(col.key, v)}
+          cases={caseOptions}
+          editing={true}
+        />
+      );
     if (col.type === "datepicker")
-      return <DateInput value={value} onChange={(v) => setBatchField(col.key, v)} />;
+      return (
+        <DateInput value={value} onChange={(v) => setBatchField(col.key, v)} />
+      );
     if (col.type === "usercombobox") {
       return (
         <UserSearchCombobox
@@ -571,36 +792,10 @@ function AddAttachmentDialog({
           <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
             <SelectValue placeholder="Select…" />
           </SelectTrigger>
-          <SelectContent>{col.options?.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent>
-        </Select>
-      );
-    }
-    return (
-      <Input
-        value={value}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (col.type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v)) return;
-          setBatchField(col.key, v);
-        }}
-        inputMode={col.type === "number" ? "decimal" : undefined}
-        className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
-      />
-    );
-  };
-
-  const renderPropertyField = (col: typeof PROPERTY_COLUMNS_ADD[number], idx: number) => {
-    const value = properties[idx][col.key] ?? "";
-    if (col.type === "scncombobox") {
-      return (
-        <Select value={value} onValueChange={(v) => setPropertyField(idx, col.key, v)}>
-          <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
-            <SelectValue placeholder="Select SCN…" />
-          </SelectTrigger>
           <SelectContent>
-            {scnOptions.map((s) => (
-              <SelectItem key={s.scn_no} value={s.scn_no}>
-                {s.scn_no}{s.noticee_name ? ` — ${s.noticee_name}` : ""}
+            {col.options?.map((o) => (
+              <SelectItem key={o} value={o}>
+                {o}
               </SelectItem>
             ))}
           </SelectContent>
@@ -612,7 +807,48 @@ function AddAttachmentDialog({
         value={value}
         onChange={(e) => {
           const v = e.target.value;
-          if (col.type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v)) return;
+          if (col.type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v))
+            return;
+          setBatchField(col.key, v);
+        }}
+        inputMode={col.type === "number" ? "decimal" : undefined}
+        className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
+      />
+    );
+  };
+
+  const renderPropertyField = (
+    col: (typeof PROPERTY_COLUMNS_ADD)[number],
+    idx: number,
+  ) => {
+    const value = properties[idx][col.key] ?? "";
+    if (col.type === "scncombobox") {
+      return (
+        <Select
+          value={value}
+          onValueChange={(v) => setPropertyField(idx, col.key, v)}
+        >
+          <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
+            <SelectValue placeholder="Select SCN…" />
+          </SelectTrigger>
+          <SelectContent>
+            {scnOptions.map((s) => (
+              <SelectItem key={s.scn_no} value={s.scn_no}>
+                {s.scn_no}
+                {s.noticee_name ? ` — ${s.noticee_name}` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+    return (
+      <Input
+        value={value}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (col.type === "number" && v !== "" && !/^-?\d*\.?\d*$/.test(v))
+            return;
           setPropertyField(idx, col.key, v);
         }}
         inputMode={col.type === "number" ? "decimal" : undefined}
@@ -625,16 +861,22 @@ function AddAttachmentDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[#EDEDEA] shadow-none font-['DM_Sans']">
         <DialogHeader>
-          <DialogTitle className="text-lg font-medium text-[#1a1a1a]">Add Provisional Attachment</DialogTitle>
+          <DialogTitle className="text-lg font-medium text-[#1a1a1a]">
+            Add Provisional Attachment
+          </DialogTitle>
         </DialogHeader>
 
         {/* Batch fields */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Attachment Details</p>
+          <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+            Attachment Details
+          </p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
             {BATCH_COLUMNS_ADD.map((col) => (
               <div key={col.key} className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-[#6b6b6b]">{col.label}</label>
+                <label className="text-sm font-medium text-[#6b6b6b]">
+                  {col.label}
+                </label>
                 {renderBatchField(col)}
               </div>
             ))}
@@ -644,15 +886,23 @@ function AddAttachmentDialog({
         {/* Property forms */}
         <div className="space-y-3 mt-2">
           <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
-            Attached {properties.length > 1 ? "Properties" : "Property"} / Person{properties.length > 1 ? "s" : ""}
+            Attached {properties.length > 1 ? "Properties" : "Property"} /
+            Person{properties.length > 1 ? "s" : ""}
           </p>
           {properties.map((_, idx) => (
-            <div key={idx} className="rounded-xl border border-[#EDEDEA] px-4 py-3 space-y-3">
+            <div
+              key={idx}
+              className="rounded-xl border border-[#EDEDEA] px-4 py-3 space-y-3"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-[#1a1a1a]">Property {idx + 1}</span>
+                <span className="text-sm font-medium text-[#1a1a1a]">
+                  Property {idx + 1}
+                </span>
                 {properties.length > 1 && (
                   <button
-                    onClick={() => setProperties((prev) => prev.filter((_, i) => i !== idx))}
+                    onClick={() =>
+                      setProperties((prev) => prev.filter((_, i) => i !== idx))
+                    }
                     className="text-[#9a9a96] hover:text-[#C0432A]"
                   >
                     <X size={14} />
@@ -662,7 +912,9 @@ function AddAttachmentDialog({
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 {PROPERTY_COLUMNS_ADD.map((col) => (
                   <div key={col.key} className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-[#6b6b6b]">{col.label}</label>
+                    <label className="text-sm font-medium text-[#6b6b6b]">
+                      {col.label}
+                    </label>
                     {renderPropertyField(col, idx)}
                   </div>
                 ))}
@@ -691,7 +943,11 @@ function AddAttachmentDialog({
             onClick={() => onSave(batch, properties)}
             disabled={saving}
           >
-            {saving ? "Saving…" : properties.length > 1 ? `Add ${properties.length} Properties` : "Add Record"}
+            {saving
+              ? "Saving…"
+              : properties.length > 1
+                ? `Add ${properties.length} Properties`
+                : "Add Record"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -717,13 +973,21 @@ const ProvisionalAttachmentComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
+  const {
+    allUsers: workspaceUsers,
+    sioUsers,
+    loading: usersLoading,
+  } = useGroupFilteredSioUsers();
 
   const [addOpen, setAddOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add-property" | "edit">("edit");
-  const [dialogDraft, setDialogDraft] = useState<Partial<ProvisionalAttachmentRecord>>({});
-  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(new Set());
+  const [dialogDraft, setDialogDraft] = useState<
+    Partial<ProvisionalAttachmentRecord>
+  >({});
+  const [expandedBatches, setExpandedBatches] = useState<Set<string>>(
+    new Set(),
+  );
 
   // ── Bootstrap ────────────────────────────────────────────────────────────────
 
@@ -735,11 +999,20 @@ const ProvisionalAttachmentComponent = () => {
       const uid = authData?.user?.id;
       if (uid) setCurrentUserId(uid);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
-        supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
+        supabase
+          .from("votum_users")
+          .select("dggi_role")
+          .eq("id", uid!)
+          .single(),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
 
       const [cases] = await Promise.all([
         fetchCaseOptions(supabase, wid),
@@ -751,7 +1024,12 @@ const ProvisionalAttachmentComponent = () => {
     init();
   }, []);
 
-  const fetchRecords = async (wid: string, role?: string, groups?: string[], uid?: string) => {
+  const fetchRecords = async (
+    wid: string,
+    role?: string,
+    groups?: string[],
+    uid?: string,
+  ) => {
     let query = supabase
       .from("dggi_provisional_attachment_records")
       .select("*")
@@ -766,7 +1044,10 @@ const ProvisionalAttachmentComponent = () => {
       }
     }
     const { data, error } = await query;
-    if (error) { console.error("fetchRecords error:", error); return; }
+    if (error) {
+      console.error("fetchRecords error:", error);
+      return;
+    }
     setRecords(data ?? []);
   };
 
@@ -780,7 +1061,12 @@ const ProvisionalAttachmentComponent = () => {
     const opts: ScnOption[] = [];
     for (const row of data) {
       if (row.gstin_pan && row.scn_no) map.set(row.gstin_pan, row.scn_no);
-      if (row.scn_no) opts.push({ scn_no: row.scn_no, date_of_scn: row.date_of_scn ?? "", noticee_name: row.noticee_name ?? "" });
+      if (row.scn_no)
+        opts.push({
+          scn_no: row.scn_no,
+          date_of_scn: row.date_of_scn ?? "",
+          noticee_name: row.noticee_name ?? "",
+        });
     }
     setScnByGstin(map);
     setScnOptions(opts);
@@ -798,16 +1084,38 @@ const ProvisionalAttachmentComponent = () => {
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const hit = [r.person_name, r.gstin_pan, r.entity_gstin, r.issue_involved, r.group_sio].some(
-          (v) => v?.toLowerCase().includes(q),
-        );
+        const hit = [
+          r.person_name,
+          r.gstin_pan,
+          r.entity_gstin,
+          r.issue_involved,
+          r.group_sio,
+        ].some((v) => v?.toLowerCase().includes(q));
         if (!hit) return false;
       }
-      if (filters.dateFrom && r.date_of_attachment && r.date_of_attachment < filters.dateFrom) return false;
-      if (filters.dateTo && r.date_of_attachment && r.date_of_attachment > filters.dateTo) return false;
+      if (
+        filters.dateFrom &&
+        r.date_of_attachment &&
+        r.date_of_attachment < filters.dateFrom
+      )
+        return false;
+      if (
+        filters.dateTo &&
+        r.date_of_attachment &&
+        r.date_of_attachment > filters.dateTo
+      )
+        return false;
       if (filters.alarmOnly) {
-        const { daysToExpiry, daysToScnDue } = computedDates(r.date_of_attachment, r.date_of_scn_issuance, r.date_of_release);
-        if (alarmLevel(daysToExpiry) === null && alarmLevel(daysToScnDue) === null) return false;
+        const { daysToExpiry, daysToScnDue } = computedDates(
+          r.date_of_attachment,
+          r.date_of_scn_issuance,
+          r.date_of_release,
+        );
+        if (
+          alarmLevel(daysToExpiry) === null &&
+          alarmLevel(daysToScnDue) === null
+        )
+          return false;
       }
       return true;
     })
@@ -820,8 +1128,14 @@ const ProvisionalAttachmentComponent = () => {
     });
 
   const alarmCount = records.filter((r) => {
-    const { daysToExpiry, daysToScnDue } = computedDates(r.date_of_attachment, r.date_of_scn_issuance, r.date_of_release);
-    return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+    const { daysToExpiry, daysToScnDue } = computedDates(
+      r.date_of_attachment,
+      r.date_of_scn_issuance,
+      r.date_of_release,
+    );
+    return (
+      alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null
+    );
   }).length;
 
   // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -830,7 +1144,9 @@ const ProvisionalAttachmentComponent = () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
     const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS);
-    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
+    (updatePayload as any).sio_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
+      null;
     const { error } = await supabase
       .from("dggi_provisional_attachment_records")
       .update(updatePayload)
@@ -838,7 +1154,11 @@ const ProvisionalAttachmentComponent = () => {
     if (error) {
       toast.error("Failed to save: " + error.message);
     } else {
-      setRecords((prev) => prev.map((r) => (r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)));
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r,
+        ),
+      );
       toast.success("Record saved");
       setDialogOpen(false);
     }
@@ -864,7 +1184,11 @@ const ProvisionalAttachmentComponent = () => {
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id} deleted</span>
         <button
-          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
+          onClick={() => {
+            clearTimeout(timerId);
+            setRecords((prev) => [...prev, record]);
+            toast.dismiss(toastId);
+          }}
           className="font-medium underline underline-offset-2 shrink-0"
         >
           Undo
@@ -874,7 +1198,10 @@ const ProvisionalAttachmentComponent = () => {
     );
   };
 
-  const saveNewBatch = async (batch: Record<string, string>, properties: Record<string, string>[]) => {
+  const saveNewBatch = async (
+    batch: Record<string, string>,
+    properties: Record<string, string>[],
+  ) => {
     if (!workspaceId) return;
     setSavingRow(true);
     const attachment_batch_id = await generateWorkspaceRecordId(
@@ -884,16 +1211,21 @@ const ProvisionalAttachmentComponent = () => {
       workspaceId,
       { separator: "/" },
     );
-    const sio_name = workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
-    const createdByName = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
+    const sio_name =
+      workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
+    const createdByName =
+      workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const payloads = properties.map((prop, idx) => {
-      const p = nullifyEmpty({
-        ...batch,
-        ...prop,
-        attachment_batch_id,
-        record_id: `${attachment_batch_id}-${idx + 1}`,
-        workspace_id: workspaceId,
-      }, COLUMNS);
+      const p = nullifyEmpty(
+        {
+          ...batch,
+          ...prop,
+          attachment_batch_id,
+          record_id: `${attachment_batch_id}-${idx + 1}`,
+          workspace_id: workspaceId,
+        },
+        COLUMNS,
+      );
       (p as any).sio_name = sio_name;
       (p as any).created_by = currentUserId || null;
       (p as any).created_by_name = createdByName;
@@ -908,8 +1240,13 @@ const ProvisionalAttachmentComponent = () => {
     } else {
       setRecords((prev) => [...prev, ...(data ?? [])]);
       setAddOpen(false);
-      if (properties.length > 1) setExpandedBatches((prev) => new Set([...prev, attachment_batch_id]));
-      toast.success(properties.length > 1 ? `${properties.length} properties added` : "Record added");
+      if (properties.length > 1)
+        setExpandedBatches((prev) => new Set([...prev, attachment_batch_id]));
+      toast.success(
+        properties.length > 1
+          ? `${properties.length} properties added`
+          : "Record added",
+      );
     }
     setSavingRow(false);
   };
@@ -917,12 +1254,20 @@ const ProvisionalAttachmentComponent = () => {
   const saveNewProperty = async () => {
     if (!workspaceId || !dialogDraft.attachment_batch_id) return;
     setSavingRow(true);
-    const batchProps = records.filter((r) => r.attachment_batch_id === dialogDraft.attachment_batch_id);
+    const batchProps = records.filter(
+      (r) => r.attachment_batch_id === dialogDraft.attachment_batch_id,
+    );
     const record_id = `${dialogDraft.attachment_batch_id}-${batchProps.length + 1}`;
-    const newPropPayload = nullifyEmpty({ ...dialogDraft, record_id, workspace_id: workspaceId }, COLUMNS);
-    (newPropPayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
+    const newPropPayload = nullifyEmpty(
+      { ...dialogDraft, record_id, workspace_id: workspaceId },
+      COLUMNS,
+    );
+    (newPropPayload as any).sio_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
+      null;
     (newPropPayload as any).created_by = currentUserId || null;
-    (newPropPayload as any).created_by_name = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
+    (newPropPayload as any).created_by_name =
+      workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
       .insert(newPropPayload)
@@ -939,20 +1284,32 @@ const ProvisionalAttachmentComponent = () => {
   };
 
   const handleDraftChange = (key: string, val: string) => {
-    if (dialogMode === "add-property" && BATCH_FIELDS.has(key as keyof ProvisionalAttachmentRecord)) return;
+    if (
+      dialogMode === "add-property" &&
+      BATCH_FIELDS.has(key as keyof ProvisionalAttachmentRecord)
+    )
+      return;
     setDialogDraft((prev) => ({ ...prev, [key]: val }));
   };
 
   const toggleSort = (col: string) => {
     if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortCol(col); setSortDir("asc"); }
+    else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
   };
 
   const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) =>
     setFilters((prev) => ({ ...prev, [key]: val }));
 
   const handleExport = () =>
-    exportRegisterToExcel(tableRecords, COLUMNS, "Provisional_Attachment", (msg) => toast.success(msg));
+    exportRegisterToExcel(
+      tableRecords,
+      COLUMNS,
+      "Provisional_Attachment",
+      (msg) => toast.success(msg),
+    );
 
   // ── Batch grouping ─────────────────────────────────────────────────────────
 
@@ -967,7 +1324,9 @@ const ProvisionalAttachmentComponent = () => {
 
   const openAddProperty = (record: ProvisionalAttachmentRecord) => {
     const batchDraft: Partial<ProvisionalAttachmentRecord> = {};
-    for (const k of Object.keys(record) as (keyof ProvisionalAttachmentRecord)[]) {
+    for (const k of Object.keys(
+      record,
+    ) as (keyof ProvisionalAttachmentRecord)[]) {
       if (BATCH_FIELDS.has(k)) (batchDraft as any)[k] = (record as any)[k];
     }
     for (const k of PROPERTY_FIELDS) (batchDraft as any)[k] = "";
@@ -976,7 +1335,10 @@ const ProvisionalAttachmentComponent = () => {
     setDialogOpen(true);
   };
 
-  const batches: { batchId: string; properties: ProvisionalAttachmentRecord[] }[] = [];
+  const batches: {
+    batchId: string;
+    properties: ProvisionalAttachmentRecord[];
+  }[] = [];
   const batchIndex = new Map<string, number>();
   for (const r of tableRecords) {
     const bid = r.attachment_batch_id || r.id;
@@ -996,16 +1358,22 @@ const ProvisionalAttachmentComponent = () => {
     record: ProvisionalAttachmentRecord,
   ) => {
     if (colKey === "linked_scn_no") {
-      const autoScn = record.gstin_pan ? (scnByGstin.get(record.gstin_pan) ?? null) : null;
+      const autoScn = record.gstin_pan
+        ? (scnByGstin.get(record.gstin_pan) ?? null)
+        : null;
       const displayLinkedScn = record.linked_scn_no || autoScn;
       return (
         <div className="flex flex-col gap-0.5">
           {displayLinkedScn ? (
             <div className="flex items-center gap-1">
               <Link2 size={11} className="text-[#4A5FD4] shrink-0" />
-              <span className="text-base text-[#4A5FD4] font-medium">{displayLinkedScn}</span>
+              <span className="text-base text-[#4A5FD4] font-medium">
+                {displayLinkedScn}
+              </span>
               {autoScn && !record.linked_scn_no && (
-                <span className="text-[10px] text-[#9a9a96] bg-[#F3F2EF] rounded px-1">auto</span>
+                <span className="text-[10px] text-[#9a9a96] bg-[#F3F2EF] rounded px-1">
+                  auto
+                </span>
               )}
             </div>
           ) : (
@@ -1015,19 +1383,37 @@ const ProvisionalAttachmentComponent = () => {
       );
     }
     if (type === "usercombobox")
-      return <span>{workspaceUsers.find((u) => u.id === value)?.name || (colKey === "sio" ? record.sio_name : value) || "—"}</span>;
+      return (
+        <span>
+          {workspaceUsers.find((u) => u.id === value)?.name ||
+            (colKey === "sio" ? record.sio_name : value) ||
+            "—"}
+        </span>
+      );
     if (type === "caselink")
-      return <CaseIdCombobox value={value} onChange={() => {}} cases={caseOptions} editing={false} />;
-    if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
+      return (
+        <CaseIdCombobox
+          value={value}
+          onChange={() => {}}
+          cases={caseOptions}
+          editing={false}
+        />
+      );
+    if (type === "datepicker")
+      return <span className="whitespace-nowrap">{fmt(value)}</span>;
     return <span>{value || "—"}</span>;
   };
 
-  const renderPropertyRow = (record: ProvisionalAttachmentRecord, isSubRow: boolean) => {
-    const { expiryDate, scnDueDate, daysToExpiry, daysToScnDue } = computedDates(
-      record.date_of_attachment ?? "",
-      record.date_of_scn_issuance,
-      record.date_of_release,
-    );
+  const renderPropertyRow = (
+    record: ProvisionalAttachmentRecord,
+    isSubRow: boolean,
+  ) => {
+    const { expiryDate, scnDueDate, daysToExpiry, daysToScnDue } =
+      computedDates(
+        record.date_of_attachment ?? "",
+        record.date_of_scn_issuance,
+        record.date_of_release,
+      );
     return (
       <TableRow
         key={record.id}
@@ -1039,18 +1425,37 @@ const ProvisionalAttachmentComponent = () => {
             {col.key === "record_id" ? (
               <button
                 className="text-[#4A5FD4] hover:underline font-medium text-left"
-                onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}
+                onClick={() => {
+                  setDialogMode("edit");
+                  setDialogDraft({ ...record });
+                  setDialogOpen(true);
+                }}
               >
                 {record.record_id || "—"}
               </button>
-            ) : renderCell((record as any)[col.key] ?? "", col.key, col.type, record)}
+            ) : (
+              renderCell(
+                (record as any)[col.key] ?? "",
+                col.key,
+                col.type,
+                record,
+              )
+            )}
           </TableCell>
         ))}
         <TableCell className="px-3 py-2">
-          {!isSubRow ? <DateComputedCell daysLeft={daysToScnDue} date={scnDueDate} /> : <span className="text-[#9a9a96]">—</span>}
+          {!isSubRow ? (
+            <DateComputedCell daysLeft={daysToScnDue} date={scnDueDate} />
+          ) : (
+            <span className="text-[#9a9a96]">—</span>
+          )}
         </TableCell>
         <TableCell className="px-3 py-2">
-          {!isSubRow ? <DateComputedCell daysLeft={daysToExpiry} date={expiryDate} /> : <span className="text-[#9a9a96]">—</span>}
+          {!isSubRow ? (
+            <DateComputedCell daysLeft={daysToExpiry} date={expiryDate} />
+          ) : (
+            <span className="text-[#9a9a96]">—</span>
+          )}
         </TableCell>
         <TableCell className="px-3 py-2">
           <div className="flex items-center gap-1">
@@ -1069,13 +1474,21 @@ const ProvisionalAttachmentComponent = () => {
               size="icon"
               variant="ghost"
               className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
-              onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}
+              onClick={() => {
+                setDialogMode("edit");
+                setDialogDraft({ ...record });
+                setDialogOpen(true);
+              }}
             >
               <Pencil size={13} />
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                >
                   <Trash2 size={13} />
                 </Button>
               </AlertDialogTrigger>
@@ -1083,7 +1496,8 @@ const ProvisionalAttachmentComponent = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete attachment record?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete {record.record_id} and cannot be undone.
+                    This will permanently delete {record.record_id} and cannot
+                    be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -1116,11 +1530,12 @@ const ProvisionalAttachmentComponent = () => {
 
     if (!isMulti) return renderPropertyRow(rep, false);
 
-    const { expiryDate, scnDueDate, daysToExpiry, daysToScnDue } = computedDates(
-      rep.date_of_attachment ?? "",
-      rep.date_of_scn_issuance,
-      rep.date_of_release,
-    );
+    const { expiryDate, scnDueDate, daysToExpiry, daysToScnDue } =
+      computedDates(
+        rep.date_of_attachment ?? "",
+        rep.date_of_scn_issuance,
+        rep.date_of_release,
+      );
 
     return (
       <>
@@ -1133,14 +1548,36 @@ const ProvisionalAttachmentComponent = () => {
             <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
               {col.key === "attachment_batch_id" ? (
                 <span className="flex items-center gap-1.5 font-medium">
-                  {isExpanded ? <ChevronUp size={13} className="text-[#6b6b6b]" /> : <ChevronDown size={13} className="text-[#6b6b6b]" />}
+                  {isExpanded ? (
+                    <ChevronUp size={13} className="text-[#6b6b6b]" />
+                  ) : (
+                    <ChevronDown size={13} className="text-[#6b6b6b]" />
+                  )}
                   {batchId}
                 </span>
               ) : col.key === "person_name" ? (
-                <span className="text-[#6b6b6b] text-sm">{properties.length} properties</span>
+                <span className="text-[#6b6b6b] text-sm">
+                  {properties.length} properties
+                </span>
               ) : col.key === "record_id" ? (
                 <span className="text-[#9a9a96]">—</span>
-              ) : PROPERTY_FIELDS.has(col.key as keyof ProvisionalAttachmentRecord) ? (
+              ) : col.key === "value_total" ? (
+                (() => {
+                  const sum = properties.reduce((acc, p) => {
+                    const n = parseFloat(p.value_total);
+                    return acc + (isNaN(n) ? 0 : n);
+                  }, 0);
+                  return sum > 0 ? (
+                    <span className="font-medium text-[#1a1a1a]">
+                      {sum.toLocaleString("en-IN")}
+                    </span>
+                  ) : (
+                    <span className="text-[#9a9a96]">—</span>
+                  );
+                })()
+              ) : PROPERTY_FIELDS.has(
+                  col.key as keyof ProvisionalAttachmentRecord,
+                ) ? (
                 <span className="text-[#9a9a96]">—</span>
               ) : (
                 renderCell((rep as any)[col.key] ?? "", col.key, col.type, rep)
@@ -1158,7 +1595,10 @@ const ProvisionalAttachmentComponent = () => {
               size="sm"
               variant="ghost"
               className="h-7 px-2 rounded-lg text-[#4A5FD4] hover:bg-[#EEF0FB] text-xs font-medium"
-              onClick={(e) => { e.stopPropagation(); openAddProperty(rep); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                openAddProperty(rep);
+              }}
             >
               <Plus size={12} className="mr-1" />
               Add Property
@@ -1187,9 +1627,12 @@ const ProvisionalAttachmentComponent = () => {
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-medium text-[#1a1a1a]">Provisional Attachment Register</h1>
+              <h1 className="text-xl font-medium text-[#1a1a1a]">
+                Provisional Attachment Register
+              </h1>
               <p className="text-base text-[#9a9a96]">
-                {tableRecords.length} record{tableRecords.length !== 1 ? "s" : ""}
+                {tableRecords.length} record
+                {tableRecords.length !== 1 ? "s" : ""}
                 {alarmCount > 0 && (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
                     <AlertTriangle size={10} />
@@ -1230,7 +1673,10 @@ const ProvisionalAttachmentComponent = () => {
             </div>
 
             <div className="relative flex items-center">
-              <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
+              <Search
+                size={13}
+                className="absolute left-3 text-[#9a9a96] pointer-events-none"
+              />
               <Input
                 value={filters.search}
                 onChange={(e) => setFilter("search", e.target.value)}
@@ -1238,20 +1684,36 @@ const ProvisionalAttachmentComponent = () => {
                 className="h-9 pl-8 pr-3 min-w-[260px] border-[#EDEDEA] text-base rounded-lg"
               />
               {filters.search && (
-                <button onClick={() => setFilter("search", "")} className="absolute right-2 text-[#9a9a96] hover:text-[#1a1a1a]">
+                <button
+                  onClick={() => setFilter("search", "")}
+                  className="absolute right-2 text-[#9a9a96] hover:text-[#1a1a1a]"
+                >
                   <X size={13} />
                 </button>
               )}
             </div>
 
             <div className="flex items-center gap-1">
-              <span className="text-base text-[#9a9a96] shrink-0">Attachment:</span>
-              <FilterDatePicker value={filters.dateFrom} placeholder="From" onChange={(v) => setFilter("dateFrom", v)} />
+              <span className="text-base text-[#9a9a96] shrink-0">
+                Attachment:
+              </span>
+              <FilterDatePicker
+                value={filters.dateFrom}
+                placeholder="From"
+                onChange={(v) => setFilter("dateFrom", v)}
+              />
               <span className="text-[#9a9a96]">—</span>
-              <FilterDatePicker value={filters.dateTo} placeholder="To" onChange={(v) => setFilter("dateTo", v)} />
+              <FilterDatePicker
+                value={filters.dateTo}
+                placeholder="To"
+                onChange={(v) => setFilter("dateTo", v)}
+              />
               {(filters.dateFrom || filters.dateTo) && (
                 <button
-                  onClick={() => { setFilter("dateFrom", ""); setFilter("dateTo", ""); }}
+                  onClick={() => {
+                    setFilter("dateFrom", "");
+                    setFilter("dateTo", "");
+                  }}
                   className="ml-0.5 text-[#9a9a96] hover:text-[#1a1a1a]"
                 >
                   <X size={13} />
@@ -1272,7 +1734,9 @@ const ProvisionalAttachmentComponent = () => {
               {alarmCount > 0 && (
                 <span
                   className={`flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold ${
-                    filters.alarmOnly ? "bg-red-200 text-red-700" : "bg-[#6b6b6b] text-white"
+                    filters.alarmOnly
+                      ? "bg-red-200 text-red-700"
+                      : "bg-[#6b6b6b] text-white"
                   }`}
                 >
                   {alarmCount}
@@ -1310,7 +1774,12 @@ const ProvisionalAttachmentComponent = () => {
                     >
                       <span className="flex items-center gap-1">
                         {col.label}
-                        {sortCol === col.key && (sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                        {sortCol === col.key &&
+                          (sortDir === "asc" ? (
+                            <ChevronUp size={12} />
+                          ) : (
+                            <ChevronDown size={12} />
+                          ))}
                       </span>
                     </TableHead>
                   ))}
@@ -1318,14 +1787,18 @@ const ProvisionalAttachmentComponent = () => {
                     <span className="flex items-center gap-1">
                       <Clock size={12} className="text-amber-500" />
                       SCN Due Date
-                      <span className="text-[10px] font-normal text-[#9a9a96]">(9mo)</span>
+                      <span className="text-[10px] font-normal text-[#9a9a96]">
+                        (9mo)
+                      </span>
                     </span>
                   </TableHead>
                   <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap min-w-[160px]">
                     <span className="flex items-center gap-1">
                       <AlertTriangle size={12} className="text-orange-500" />
                       Expiry Date
-                      <span className="text-[10px] font-normal text-[#9a9a96]">(1yr)</span>
+                      <span className="text-[10px] font-normal text-[#9a9a96]">
+                        (1yr)
+                      </span>
                     </span>
                   </TableHead>
                   <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[100px]">
@@ -1339,7 +1812,10 @@ const ProvisionalAttachmentComponent = () => {
 
                 {tableRecords.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={TOTAL_COLS} className="py-12 text-center text-base text-[#9a9a96]">
+                    <TableCell
+                      colSpan={TOTAL_COLS}
+                      className="py-12 text-center text-base text-[#9a9a96]"
+                    >
                       No records match the current filters.{" "}
                       {activeFilterCount > 0 && (
                         <button
@@ -1372,16 +1848,24 @@ const ProvisionalAttachmentComponent = () => {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         mode={dialogMode === "add-property" ? "add" : "edit"}
-        title={dialogMode === "add-property" ? `Add Property — ${dialogDraft.attachment_batch_id ?? "batch"}` : undefined}
+        title={
+          dialogMode === "add-property"
+            ? `Add Property — ${dialogDraft.attachment_batch_id ?? "batch"}`
+            : undefined
+        }
         columns={
           dialogMode === "add-property"
-            ? COLUMNS.filter((c) => PROPERTY_FIELDS.has(c.key as keyof ProvisionalAttachmentRecord))
+            ? COLUMNS.filter((c) =>
+                PROPERTY_FIELDS.has(c.key as keyof ProvisionalAttachmentRecord),
+              )
             : COLUMNS
         }
         columnGroups={dialogMode === "edit" ? EDIT_COLUMN_GROUPS : undefined}
         draft={dialogDraft as Record<string, string>}
         onDraftChange={handleDraftChange}
-        onMultiDraftChange={(patches) => setDialogDraft((prev) => ({ ...prev, ...patches }))}
+        onMultiDraftChange={(patches) =>
+          setDialogDraft((prev) => ({ ...prev, ...patches }))
+        }
         onSave={dialogMode === "add-property" ? saveNewProperty : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
