@@ -828,6 +828,22 @@ const ArrestRegisterComponent = () => {
       ]);
       setCaseOptions(cases);
       setLoading(false);
+
+      // Handle URL hash for deep linking (e.g., #ARR/001/26-27)
+      const hash = window.location.hash.replace('#', '');
+      if (hash) {
+        setFilters(prev => ({ ...prev, search: hash }));
+        // Scroll to the record after a short delay to let the table render
+        setTimeout(() => {
+          const row = document.querySelector(`[data-record-id="${hash}"]`);
+          if (row) {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Highlight briefly
+            row.classList.add('bg-[#EEF2FF]');
+            setTimeout(() => row.classList.remove('bg-[#EEF2FF]'), 2000);
+          }
+        }, 500);
+      }
     };
     init();
   }, []);
@@ -1106,6 +1122,7 @@ const ArrestRegisterComponent = () => {
   const renderPersonRow = (record: ArrestRecord, isSubRow: boolean) => (
     <TableRow
       key={record.id}
+      data-record-id={record.record_id}
       className={`border-b border-[#EDEDEA] text-base hover:bg-white ${isSubRow ? "bg-[#FAFAF8]" : ""}`}
     >
       {COLUMNS.map((col) => (
