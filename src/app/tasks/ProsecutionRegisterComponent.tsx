@@ -296,12 +296,8 @@ const ProsecutionRegisterComponent = () => {
       if (!arrest) return <span>{value || "—"}</span>;
       return (
         <a
-          href="/tasks?register=arrest"
+          href={`/tasks/arrest-register#${arrest.record_id}`}
           className="flex items-center gap-1 text-[#4A5FD4] hover:underline font-medium"
-          onClick={(e) => {
-            e.preventDefault();
-            window.location.href = `/tasks?register=arrest#${arrest.record_id}`;
-          }}
         >
           {arrest.record_id} — {arrest.arrested_name || arrest.party_name}
           <ExternalLink size={12} className="opacity-60" />
