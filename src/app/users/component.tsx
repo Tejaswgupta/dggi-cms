@@ -4,7 +4,8 @@ import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Users, ChevronDown, X, Plus, Search, Trash2, UserPlus } from "lucide-react";
+import { Users, ChevronDown, X, Search, Trash2, UserPlus } from "lucide-react";
+import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
 const DGGI_ROLES = ["ADG", "DD_INT", "DD", "AD", "ADC", "JD", "SIO", "IO"] as const;
 type DggiRole = (typeof DGGI_ROLES)[number];
@@ -47,7 +48,6 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [editingUser, setEditingUser] = useState<UserWithGroups | null>(null);
   const [saving, setSaving] = useState(false);
-  const [newGroup, setNewGroup] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState<AddUserForm>({ name: "", email: "", dggi_role: "" });
   const [adding, setAdding] = useState(false);
@@ -107,18 +107,6 @@ export default function UsersPage() {
 
   const openEdit = (user: UserWithGroups) => {
     setEditingUser({ ...user, groups: [...user.groups] });
-    setNewGroup("");
-  };
-
-  const addGroup = () => {
-    const trimmed = newGroup.trim().toUpperCase();
-    if (!trimmed || !editingUser) return;
-    if (editingUser.groups.includes(trimmed)) {
-      setNewGroup("");
-      return;
-    }
-    setEditingUser({ ...editingUser, groups: [...editingUser.groups, trimmed] });
-    setNewGroup("");
   };
 
   const removeGroup = (group: string) => {
@@ -472,21 +460,25 @@ export default function UsersPage() {
                     ))
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    value={newGroup}
-                    onChange={(e) => setNewGroup(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addGroup()}
-                    placeholder="Group name (e.g. GROUP-A)"
-                    className="flex-1 px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg outline-none focus:border-[#4A5FD4]"
-                  />
-                  <button
-                    onClick={addGroup}
-                    className="flex items-center gap-1 px-3 py-2 text-sm bg-[#EEF2FF] text-[#4A5FD4] rounded-lg hover:bg-[#4A5FD4] hover:text-white transition-colors font-medium"
+                <div className="relative">
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val || !editingUser) return;
+                      if (!editingUser.groups.includes(val)) {
+                        setEditingUser({ ...editingUser, groups: [...editingUser.groups, val] });
+                      }
+                      e.target.value = "";
+                    }}
+                    className="w-full appearance-none px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] pr-8"
                   >
-                    <Plus size={14} />
-                    Add
-                  </button>
+                    <option value="">Add a group...</option>
+                    {DGGI_GROUPS.filter((g) => !editingUser?.groups.includes(g)).map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none" />
                 </div>
               </div>
             </div>
