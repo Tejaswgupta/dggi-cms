@@ -337,6 +337,7 @@ const ProsecutionRegisterComponent = () => {
                   {arrestSearch && <button onClick={() => setArrestSearch("")} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className="text-base text-[#9a9a96]">{filteredArrest.length} record{filteredArrest.length !== 1 ? "s" : ""}</span>
                   <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleArrestExport} disabled={filteredArrest.length === 0}><Download size={15} className="mr-1" />Export to Excel</Button>
                   <Button size="sm" className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4" onClick={() => { setArrestDialogMode("add"); setArrestDialogDraft({ ...EMPTY_ARREST }); setArrestDialogOpen(true); }}>
                     <Plus size={15} className="mr-1" />Add Record
@@ -403,6 +404,7 @@ const ProsecutionRegisterComponent = () => {
                   {nonArrestSearch && <button onClick={() => setNonArrestSearch("")} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className="text-base text-[#9a9a96]">{filteredNonArrest.length} record{filteredNonArrest.length !== 1 ? "s" : ""}</span>
                   <Button size="sm" variant="outline" className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4" onClick={handleNonArrestExport} disabled={filteredNonArrest.length === 0}><Download size={15} className="mr-1" />Export to Excel</Button>
                   <Button size="sm" className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4" onClick={() => { setNonArrestDialogMode("add"); setNonArrestDialogDraft({ ...EMPTY_NON_ARREST }); setNonArrestDialogOpen(true); }}>
                     <Plus size={15} className="mr-1" />Add Record

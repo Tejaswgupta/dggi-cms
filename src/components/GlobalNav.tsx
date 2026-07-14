@@ -13,12 +13,8 @@ import {
   ClipboardList,
   FileSearch,
   FlaskConical,
-  Gift,
-  HardDrive,
   LayoutDashboard,
   LogOut,
-  MessageSquare,
-  Package,
   Paperclip,
   Scale,
   ShieldAlert,
@@ -76,15 +72,6 @@ const REGISTER_ITEMS: SidebarItem[] = [
 ];
 
 const MONITORING_ITEMS: SidebarItem[] = [
-  { href: "/tasks/cpgram", label: "CPGRAM", icon: MessageSquare },
-  { href: "/tasks/informer-reward", label: "Informer Reward", icon: Gift },
-  { href: "/tasks/dfl-register", label: "DFL", icon: HardDrive },
-  // {
-  //   href: "/tasks/report-compliance",
-  //   label: "Report Compliance",
-  //   icon: ClipboardCheck,
-  // },
-  { href: "/tasks/evidence-room", label: "Evidence Room", icon: Package },
   { href: "/tasks/mpr", label: "MPR", icon: BarChart3 },
 ];
 
