@@ -98,8 +98,8 @@ import {
 
 const SCN_DUE_DAYS = 273; // 9 months ≈ 273 days
 const EXPIRY_DAYS = 365; // 1 year
-const PAGE_SIZE = 50;
-const SUB_PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
+const SUB_PAGE_SIZE = 20;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1606,6 +1606,9 @@ const ProvisionalAttachmentComponent = () => {
                     <ChevronDown size={13} className="text-[#6b6b6b]" />
                   )}
                   {batchId}
+                  <span className="inline-flex items-center justify-center rounded-full bg-[#4A5FD4]/10 text-[#4A5FD4] text-[10px] font-semibold px-1.5 py-0.5 min-w-[18px]">
+                    {properties.length}
+                  </span>
                 </span>
               ) : col.key === "person_name" ? (
                 <span className="text-[#1a1a1a]">{rep.person_name || "—"}</span>
