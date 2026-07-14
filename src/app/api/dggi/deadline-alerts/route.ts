@@ -26,10 +26,10 @@ import {
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 function isAuthorized(req: NextRequest): boolean {
+  if (req.headers.get("x-internal-cron") === "1") return true;
   const secret = process.env.CRON_SECRET;
-  // If CRON_SECRET is not configured, allow internal Next.js server-action calls
-  if (!secret) return req.headers.get("x-internal-cron") === "1";
-  return req.headers.get("x-cron-secret") === secret;
+  if (secret) return req.headers.get("x-cron-secret") === secret;
+  return false;
 }
 
 // ─── Supabase admin client ────────────────────────────────────────────────────

@@ -177,15 +177,15 @@ const REGISTERS: RegisterMeta[] = [
     accentColor: "#7C3AED",
     category: "register",
   },
-  // {
-  //   href: "/tasks/non-ir-register",
-  //   label: "NON-IR Cases",
-  //   shortLabel: "NON-IR",
-  //   icon: BookOpen,
-  //   table: "dggi_non_ir_case_records",
-  //   accentColor: "#1D4ED8",
-  //   category: "register",
-  // },
+  {
+    href: "/tasks",
+    label: "IR/NON-IR Cases",
+    shortLabel: "Intel Exec.",
+    icon: Shield,
+    table: "dggi_records",
+    accentColor: "#4A5FD4",
+    category: "register",
+  },
   {
     href: "/tasks/incident-report",
     label: "Incident Report",
@@ -259,24 +259,7 @@ const REGISTERS: RegisterMeta[] = [
     accentColor: "#0891B2",
     category: "register",
   },
-  // {
-  //   href: "/tasks/seizure-register",
-  //   label: "Seizure Register",
-  //   shortLabel: "Seizure",
-  //   icon: Package,
-  //   table: "dggi_seizure_records",
-  //   accentColor: "#7F1D1D",
-  //   category: "register",
-  // },
-  {
-    href: "/tasks",
-    label: "IR/NON-IR Cases",
-    shortLabel: "Intel Exec.",
-    icon: Shield,
-    table: "dggi_records",
-    accentColor: "#4A5FD4",
-    category: "register",
-  },
+
   {
     href: "/tasks/dfl-register",
     label: "DFL Register",
@@ -694,6 +677,7 @@ function DeadlineTable({
               <th className={TH_CLS}>Due Date</th>
               <th className={TH_CLS}>Status</th>
               <th className={TH_CLS}>Officer</th>
+              <th className={TH_CLS}>Group</th>
             </tr>
           </thead>
           <tbody>
@@ -746,6 +730,15 @@ function DeadlineTable({
                   {item.officer ? (
                     <span className="inline-flex items-center text-[10px] text-[#4A5FD4] font-medium bg-indigo-50 rounded px-1.5 py-0.5 truncate max-w-full">
                       {item.officer}
+                    </span>
+                  ) : (
+                    <span className="text-[#C4C3BE]">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5 max-w-[130px]">
+                  {item.group ? (
+                    <span className="inline-flex items-center text-[10px] text-[#6b6b6b] font-medium bg-[#F3F2EF] rounded px-1.5 py-0.5 truncate max-w-full">
+                      {item.group}
                     </span>
                   ) : (
                     <span className="text-[#C4C3BE]">—</span>
@@ -1137,25 +1130,36 @@ export default function DGGIDashboard() {
         pmInvRes,
       ] = await Promise.all([
         // Single query replaces 9 source-table fetches — DB already computed & stored everything
-        (() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let q: any = supabase
-            .from("dggi_computed_deadlines")
-            .select(
-              "id,rule_id,source_table,record_id,row_id,deadline_date,label,legal_reference,skipped,sio_user_id,group_name,entity_name,officer_name,critical_days,warning_days,max_reminder_days",
-            )
-            .eq("workspace_id", wid)
-            .eq("skipped", false);
-          if (rbac.role !== "ADG" && rbac.role !== "DD_INT") {
-            if (rbac.role === "IO" || rbac.role === "SIO") {
-              q = q.eq("sio_user_id", rbac.uid);
-            } else if (rbac.groups.length > 0) {
-              q = q.in("group_name", rbac.groups);
-            } else {
-              q = q.eq("group_name", "__none__");
+        (async () => {
+          const PAGE = 1000;
+          const all: ComputedDeadlineRow[] = [];
+          let from = 0;
+          while (true) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let q: any = supabase
+              .from("dggi_computed_deadlines")
+              .select(
+                "id,rule_id,source_table,record_id,row_id,deadline_date,label,legal_reference,skipped,sio_user_id,group_name,entity_name,officer_name,critical_days,warning_days,max_reminder_days",
+              )
+              .eq("workspace_id", wid)
+              .eq("skipped", false)
+              .range(from, from + PAGE - 1);
+            if (rbac.role !== "ADG" && rbac.role !== "DD_INT") {
+              if (rbac.role === "IO" || rbac.role === "SIO") {
+                q = q.eq("sio_user_id", rbac.uid);
+              } else if (rbac.groups.length > 0) {
+                q = q.in("group_name", rbac.groups);
+              } else {
+                q = q.eq("group_name", "__none__");
+              }
             }
+            const { data } = await q;
+            if (!data || data.length === 0) break;
+            all.push(...data);
+            if (data.length < PAGE) break;
+            from += PAGE;
           }
-          return q as Promise<{ data: ComputedDeadlineRow[] | null }>;
+          return { data: all };
         })(),
         Promise.all(
           countOnlyTables.map((table) =>
