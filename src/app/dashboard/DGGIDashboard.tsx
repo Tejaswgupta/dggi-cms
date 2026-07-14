@@ -390,7 +390,7 @@ const URGENCY_CFG: Record<
 
 // Maps a dggi_computed_deadlines row to the DeadlineItem shape the UI uses.
 // days_until is recomputed live so the display is never stale.
-function dbRowToDeadlineItem(row: ComputedDeadlineRow): DeadlineItem | null {
+function dbRowToDeadlineItem(row: ComputedDeadlineRow, usersMap: Map<string, string>): DeadlineItem | null {
   const deadlineDate = parseISO(row.deadline_date);
   if (!isValid(deadlineDate)) return null;
   const today = new Date();
@@ -418,7 +418,7 @@ function dbRowToDeadlineItem(row: ComputedDeadlineRow): DeadlineItem | null {
     recordId: row.record_id || "—",
     rowId: row.row_id,
     entityName: row.entity_name ?? "—",
-    officer: row.officer_name ?? "",
+    officer: (row.sio_user_id ? usersMap.get(row.sio_user_id) : null) ?? row.officer_name ?? "",
     group: row.group_name ?? "",
     deadlineDate,
     daysUntil,
@@ -1020,6 +1020,8 @@ export default function DGGIDashboard() {
     CpgramInformerRow[]
   >([]);
 
+  const [usersMap, setUsersMap] = useState<Map<string, string>>(new Map());
+
   // Deadline Tracker state
   const [regFilter, setRegFilter] = useState<string>("all");
   const [healthFilter, setHealthFilter] = useState<Urgency | null>(null);
@@ -1063,8 +1065,8 @@ export default function DGGIDashboard() {
 
       const supabase = clientConnectionWithSupabase();
 
-      // ── Fetch RBAC role + group assignments ──────────────────────────────────
-      const [{ data: userRow }, { data: groupRows }] = await Promise.all([
+      // ── Fetch RBAC role + group assignments + all users ──────────────────────
+      const [{ data: userRow }, { data: groupRows }, { data: allUsers }] = await Promise.all([
         supabase
           .from("votum_users")
           .select("dggi_role")
@@ -1074,7 +1076,14 @@ export default function DGGIDashboard() {
           .from("dggi_user_group_assignments")
           .select("group_name")
           .eq("user_id", userId),
+        supabase
+          .from("votum_users")
+          .select("id,name")
+          .eq("workspace_id", wid),
       ]);
+      const map = new Map<string, string>();
+      for (const u of allUsers ?? []) if (u.id && u.name) map.set(u.id, u.name);
+      setUsersMap(map);
       const dggiRole = (userRow?.dggi_role as string | undefined) ?? "";
       const assignedGroups = (
         (groupRows ?? []) as { group_name: string }[]
@@ -1499,11 +1508,11 @@ export default function DGGIDashboard() {
   const allDeadlineItemsRaw = useMemo(() => {
     const items: DeadlineItem[] = [];
     for (const row of computedDeadlineRows) {
-      const item = dbRowToDeadlineItem(row);
+      const item = dbRowToDeadlineItem(row, usersMap);
       if (item) items.push(item);
     }
     return items;
-  }, [computedDeadlineRows]);
+  }, [computedDeadlineRows, usersMap]);
 
   // Step 2: derive available groups from raw items (sorted alphabetically)
   const availableGroups = useMemo(

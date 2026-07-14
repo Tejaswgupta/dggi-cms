@@ -77,7 +77,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
@@ -994,7 +994,10 @@ const ProvisionalAttachmentComponent = () => {
     loading: usersLoading,
   } = useGroupFilteredSioUsers();
 
+  const [totalCount, setTotalCount] = useState(0);
+  const [alarmCount, setAlarmCount] = useState(0);
   const [page, setPage] = useState(1);
+  const authCtx = useRef<{ wid: string; role: string; groups: string[]; uid: string } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add-property" | "edit">("edit");
@@ -1019,24 +1022,16 @@ const ProvisionalAttachmentComponent = () => {
       const uid = authData?.user?.id;
       if (uid) setCurrentUserId(uid);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
-        supabase
-          .from("votum_users")
-          .select("dggi_role")
-          .eq("id", uid!)
-          .single(),
-        supabase
-          .from("dggi_user_group_assignments")
-          .select("group_name")
-          .eq("user_id", uid!),
+        supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
+        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map(
-        (g: { group_name: string }) => g.group_name,
-      );
+      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      authCtx.current = { wid, role, groups, uid: uid! };
 
       const [cases] = await Promise.all([
         fetchCaseOptions(supabase, wid),
-        Promise.all([fetchRecords(wid, role, groups, uid!), fetchScnMap(wid)]),
+        Promise.all([fetchRecords(wid, role, groups, uid!, 1, EMPTY_FILTERS), fetchScnMap(wid)]),
       ]);
       setCaseOptions(cases);
       setLoading(false);
@@ -1044,31 +1039,105 @@ const ProvisionalAttachmentComponent = () => {
     init();
   }, []);
 
+  // Re-fetch when page, filters, or sort changes (after initial load)
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (!authCtx.current) return;
+    const { wid, role, groups, uid } = authCtx.current;
+    fetchRecords(wid, role, groups, uid, page, filters);
+  }, [page, filters, sortCol, sortDir]);
+
+  const applyRoleFilter = (
+    q: ReturnType<ReturnType<typeof supabase.from>["select"]>,
+    role: string,
+    groups: string[],
+    uid: string,
+  ) => {
+    if (role && role !== "ADG" && role !== "DD_INT") {
+      if (role === "IO" || role === "SIO") {
+        return (q as any).eq("sio", uid ?? "__none__");
+      } else if (groups && groups.length > 0) {
+        return (q as any).in("group", groups);
+      } else {
+        return (q as any).eq("group", "__none__");
+      }
+    }
+    return q;
+  };
+
   const fetchRecords = async (
     wid: string,
-    role?: string,
-    groups?: string[],
-    uid?: string,
+    role: string,
+    groups: string[],
+    uid: string,
+    pg: number,
+    flt: Filters,
   ) => {
-    let query = supabase
+    const from = (pg - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    // Count query (no range)
+    let countQ = supabase
+      .from("dggi_provisional_attachment_records")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", wid);
+    countQ = applyRoleFilter(countQ as any, role, groups, uid) as any;
+    if (flt.search) {
+      const q = `%${flt.search}%`;
+      countQ = (countQ as any).or(
+        `person_name.ilike.${q},gstin_pan.ilike.${q},entity_gstin.ilike.${q},issue_involved.ilike.${q},group_sio.ilike.${q}`,
+      );
+    }
+    if (flt.dateFrom) countQ = (countQ as any).gte("date_of_attachment", flt.dateFrom);
+    if (flt.dateTo) countQ = (countQ as any).lte("date_of_attachment", flt.dateTo);
+
+    // Alarm count — simple count of all records for alarm calculation
+    let alarmQ = supabase
+      .from("dggi_provisional_attachment_records")
+      .select("date_of_attachment,date_of_scn_issuance,date_of_release")
+      .eq("workspace_id", wid);
+    alarmQ = applyRoleFilter(alarmQ as any, role, groups, uid) as any;
+
+    // Data query
+    let dataQ = supabase
       .from("dggi_provisional_attachment_records")
       .select("*")
       .eq("workspace_id", wid);
-    if (role && role !== "ADG" && role !== "DD_INT") {
-      if (role === "IO" || role === "SIO") {
-        query = query.eq("sio", uid ?? "__none__");
-      } else if (groups && groups.length > 0) {
-        query = query.in("group", groups);
-      } else {
-        query = query.eq("group", "__none__");
-      }
+    dataQ = applyRoleFilter(dataQ as any, role, groups, uid) as any;
+    if (flt.search) {
+      const q = `%${flt.search}%`;
+      dataQ = (dataQ as any).or(
+        `person_name.ilike.${q},gstin_pan.ilike.${q},entity_gstin.ilike.${q},issue_involved.ilike.${q},group_sio.ilike.${q}`,
+      );
     }
-    const { data, error } = await query;
-    if (error) {
-      console.error("fetchRecords error:", error);
-      return;
+    if (flt.dateFrom) dataQ = (dataQ as any).gte("date_of_attachment", flt.dateFrom);
+    if (flt.dateTo) dataQ = (dataQ as any).lte("date_of_attachment", flt.dateTo);
+    if (sortCol) {
+      dataQ = (dataQ as any).order(sortCol, { ascending: sortDir === "asc" });
     }
+    dataQ = (dataQ as any).range(from, to);
+
+    const [{ count }, { data, error }, { data: alarmRows }] = await Promise.all([
+      countQ,
+      dataQ,
+      alarmQ,
+    ]);
+
+    if (error) { console.error("fetchRecords error:", error); return; }
+
+    setTotalCount(count ?? 0);
     setRecords(data ?? []);
+
+    const ac = (alarmRows ?? []).filter((r: any) => {
+      const { daysToExpiry, daysToScnDue } = computedDates(
+        r.date_of_attachment,
+        r.date_of_scn_issuance,
+        r.date_of_release,
+      );
+      return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+    }).length;
+    setAlarmCount(ac);
   };
 
   const fetchScnMap = async (wid: string) => {
@@ -1100,63 +1169,17 @@ const ProvisionalAttachmentComponent = () => {
     (filters.dateTo ? 1 : 0) +
     (filters.alarmOnly ? 1 : 0);
 
-  const tableRecords = records
-    .filter((r) => {
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        const hit = [
-          r.person_name,
-          r.gstin_pan,
-          r.entity_gstin,
-          r.issue_involved,
-          r.group_sio,
-        ].some((v) => v?.toLowerCase().includes(q));
-        if (!hit) return false;
-      }
-      if (
-        filters.dateFrom &&
-        r.date_of_attachment &&
-        r.date_of_attachment < filters.dateFrom
-      )
-        return false;
-      if (
-        filters.dateTo &&
-        r.date_of_attachment &&
-        r.date_of_attachment > filters.dateTo
-      )
-        return false;
-      if (filters.alarmOnly) {
+  // records is already the current page from the server; apply alarmOnly client-side
+  const tableRecords = filters.alarmOnly
+    ? records.filter((r) => {
         const { daysToExpiry, daysToScnDue } = computedDates(
           r.date_of_attachment,
           r.date_of_scn_issuance,
           r.date_of_release,
         );
-        if (
-          alarmLevel(daysToExpiry) === null &&
-          alarmLevel(daysToScnDue) === null
-        )
-          return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (!sortCol) return 0;
-      const av = (a as any)[sortCol] ?? "";
-      const bv = (b as any)[sortCol] ?? "";
-      const cmp = String(av).localeCompare(String(bv));
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-
-  const alarmCount = records.filter((r) => {
-    const { daysToExpiry, daysToScnDue } = computedDates(
-      r.date_of_attachment,
-      r.date_of_scn_issuance,
-      r.date_of_release,
-    );
-    return (
-      alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null
-    );
-  }).length;
+        return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+      })
+    : records;
 
   // ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -1328,6 +1351,7 @@ const ProvisionalAttachmentComponent = () => {
   };
 
   const toggleSort = (col: string) => {
+    setPage(1);
     if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
       setSortCol(col);
@@ -1379,22 +1403,18 @@ const ProvisionalAttachmentComponent = () => {
     setDialogOpen(true);
   };
 
-  const allBatches: {
-    batchId: string;
-    properties: ProvisionalAttachmentRecord[];
-  }[] = [];
+  const batches: { batchId: string; properties: ProvisionalAttachmentRecord[] }[] = [];
   const batchIndex = new Map<string, number>();
   for (const r of tableRecords) {
     const bid = r.attachment_batch_id || r.id;
     if (!batchIndex.has(bid)) {
-      batchIndex.set(bid, allBatches.length);
-      allBatches.push({ batchId: bid, properties: [] });
+      batchIndex.set(bid, batches.length);
+      batches.push({ batchId: bid, properties: [] });
     }
-    allBatches[batchIndex.get(bid)!].properties.push(r);
+    batches[batchIndex.get(bid)!].properties.push(r);
   }
-  const totalPages = Math.max(1, Math.ceil(allBatches.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const batches = allBatches.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ── Row renderers ──────────────────────────────────────────────────────────
 
@@ -1757,8 +1777,8 @@ const ProvisionalAttachmentComponent = () => {
                 Provisional Attachment Register
               </h1>
               <p className="text-base text-[#9a9a96]">
-                {tableRecords.length} record
-                {tableRecords.length !== 1 ? "s" : ""}
+                {totalCount} record
+                {totalCount !== 1 ? "s" : ""}
                 {alarmCount > 0 && (
                   <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
                     <AlertTriangle size={10} />
@@ -1773,7 +1793,7 @@ const ProvisionalAttachmentComponent = () => {
                 variant="outline"
                 className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
                 onClick={handleExport}
-                disabled={tableRecords.length === 0}
+                disabled={totalCount === 0}
               >
                 <Download size={15} className="mr-1" />
                 Export to Excel
@@ -1963,7 +1983,7 @@ const ProvisionalAttachmentComponent = () => {
       {totalPages > 1 && (
         <div className="px-3 sm:px-6 mt-4 flex items-center justify-between gap-3">
           <span className="text-base text-[#9a9a96]">
-            Page {safePage} of {totalPages} &nbsp;·&nbsp; {allBatches.length} attachment{allBatches.length !== 1 ? "s" : ""}
+            Page {safePage} of {totalPages} &nbsp;·&nbsp; {totalCount} record{totalCount !== 1 ? "s" : ""}
           </span>
           <div className="flex items-center gap-1">
             <Button
