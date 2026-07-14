@@ -488,6 +488,7 @@ const SCNRegisterComponent = () => {
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   const [activeTab, setActiveTab] = useState<string>("SIO Competency");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
@@ -738,6 +739,7 @@ const SCNRegisterComponent = () => {
   };
 
   const toggleSort = (col: string) => {
+    setCurrentPage(1);
     if (sortCol === col) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -746,8 +748,10 @@ const SCNRegisterComponent = () => {
     }
   };
 
-  const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) =>
+  const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) => {
+    setCurrentPage(1);
     setFilters((prev) => ({ ...prev, [key]: val }));
+  };
 
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "SCN", (msg) =>
@@ -777,6 +781,11 @@ const SCNRegisterComponent = () => {
       return <span className="whitespace-nowrap">{fmt(value)}</span>;
     return <span>{value || "—"}</span>;
   };
+
+  const PAGE_SIZE = 20;
+  const totalPages = Math.max(1, Math.ceil(tableRecords.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const pagedRecords = tableRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -831,7 +840,7 @@ const SCNRegisterComponent = () => {
         </div>
 
         {/* ── Competency Tabs ─────────────────────────────────────────────── */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setCurrentPage(1); }} className="w-full">
           <TabsList className="mb-4 rounded-xl border border-[#EDEDEA] bg-white h-10 p-1">
             {COMPETENCY_OPTIONS.map((opt) => (
               <TabsTrigger
@@ -948,7 +957,7 @@ const SCNRegisterComponent = () => {
 
                   {activeFilterCount > 0 && (
                     <button
-                      onClick={() => setFilters({ ...EMPTY_FILTERS })}
+                      onClick={() => { setFilters({ ...EMPTY_FILTERS }); setCurrentPage(1); }}
                       className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
                     >
                       <X size={12} />
@@ -992,7 +1001,7 @@ const SCNRegisterComponent = () => {
                     </TableHeader>
 
                     <TableBody>
-                      {tableRecords.map((record) => (
+                      {pagedRecords.map((record) => (
                         <TableRow
                           key={record.id}
                           data-record-id={record.record_id}
@@ -1083,7 +1092,7 @@ const SCNRegisterComponent = () => {
                             {activeFilterCount > 0 && (
                               <button
                                 className="text-[#4A5FD4] underline"
-                                onClick={() => setFilters({ ...EMPTY_FILTERS })}
+                                onClick={() => { setFilters({ ...EMPTY_FILTERS }); setCurrentPage(1); }}
                               >
                                 Clear filters
                               </button>
@@ -1095,6 +1104,88 @@ const SCNRegisterComponent = () => {
                   </Table>
                 </div>
               </div>
+
+              {/* ── Pagination ────────────────────────────────────────────── */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-base text-[#9a9a96]">
+                    Page {safePage} of {totalPages} &middot; {tableRecords.length} record
+                    {tableRecords.length !== 1 ? "s" : ""}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40"
+                      disabled={safePage === 1}
+                      onClick={() => setCurrentPage(1)}
+                    >
+                      «
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40"
+                      disabled={safePage === 1}
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    >
+                      ‹ Prev
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(
+                        (p) =>
+                          p === 1 ||
+                          p === totalPages ||
+                          Math.abs(p - safePage) <= 2,
+                      )
+                      .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                        if (idx > 0 && p - (arr[idx - 1] as number) > 1)
+                          acc.push("…");
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, i) =>
+                        p === "…" ? (
+                          <span key={`ellipsis-${i}`} className="px-1 text-[#9a9a96]">
+                            …
+                          </span>
+                        ) : (
+                          <Button
+                            key={p}
+                            size="sm"
+                            variant={p === safePage ? "default" : "outline"}
+                            className={`h-8 w-8 rounded-lg text-base shadow-none p-0 ${
+                              p === safePage
+                                ? "bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white border-[#4A5FD4]"
+                                : "border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                            }`}
+                            onClick={() => setCurrentPage(p as number)}
+                          >
+                            {p}
+                          </Button>
+                        ),
+                      )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40"
+                      disabled={safePage === totalPages}
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Next ›
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40"
+                      disabled={safePage === totalPages}
+                      onClick={() => setCurrentPage(totalPages)}
+                    >
+                      »
+                    </Button>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           ))}
         </Tabs>

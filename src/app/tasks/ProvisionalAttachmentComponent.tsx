@@ -1074,70 +1074,124 @@ const ProvisionalAttachmentComponent = () => {
     pg: number,
     flt: Filters,
   ) => {
-    const from = (pg - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+    const sortField = sortCol ?? "created_at";
 
-    // Count query (no range)
-    let countQ = supabase
+    // Step 1: lightweight query — fetch just enough columns to deduplicate batches,
+    // compute alarms, and evaluate filters. Range covers the full dataset.
+    const selectCols = Array.from(new Set([
+      "id", "attachment_batch_id",
+      "date_of_attachment", "date_of_scn_issuance", "date_of_release",
+      "created_at", sortField,
+      // needed for server-side search filter
+      "person_name", "gstin_pan", "entity_gstin", "issue_involved", "group_sio",
+    ])).join(",");
+
+    let batchQ = supabase
       .from("dggi_provisional_attachment_records")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", wid);
-    countQ = applyRoleFilter(countQ as any, role, groups, uid) as any;
+      .select(selectCols)
+      .eq("workspace_id", wid)
+      .range(0, 99999);
+    batchQ = applyRoleFilter(batchQ as any, role, groups, uid) as any;
     if (flt.search) {
       const q = `%${flt.search}%`;
-      countQ = (countQ as any).or(
+      batchQ = (batchQ as any).or(
         `person_name.ilike.${q},gstin_pan.ilike.${q},entity_gstin.ilike.${q},issue_involved.ilike.${q},group_sio.ilike.${q}`,
       );
     }
-    if (flt.dateFrom) countQ = (countQ as any).gte("date_of_attachment", flt.dateFrom);
-    if (flt.dateTo) countQ = (countQ as any).lte("date_of_attachment", flt.dateTo);
+    if (flt.dateFrom) batchQ = (batchQ as any).gte("date_of_attachment", flt.dateFrom);
+    if (flt.dateTo) batchQ = (batchQ as any).lte("date_of_attachment", flt.dateTo);
+    batchQ = (batchQ as any).order(sortField, { ascending: sortDir === "asc" });
 
-    // Alarm count — simple count of all records for alarm calculation
-    let alarmQ = supabase
-      .from("dggi_provisional_attachment_records")
-      .select("date_of_attachment,date_of_scn_issuance,date_of_release")
-      .eq("workspace_id", wid);
-    alarmQ = applyRoleFilter(alarmQ as any, role, groups, uid) as any;
+    const { data: batchRows, error: batchErr } = await batchQ;
+    if (batchErr) { console.error("fetchRecords error:", batchErr); return; }
 
-    // Data query
-    let dataQ = supabase
-      .from("dggi_provisional_attachment_records")
-      .select("*")
-      .eq("workspace_id", wid);
-    dataQ = applyRoleFilter(dataQ as any, role, groups, uid) as any;
-    if (flt.search) {
-      const q = `%${flt.search}%`;
-      dataQ = (dataQ as any).or(
-        `person_name.ilike.${q},gstin_pan.ilike.${q},entity_gstin.ilike.${q},issue_involved.ilike.${q},group_sio.ilike.${q}`,
-      );
+    // Deduplicate keeping first occurrence per batch (preserves sort order)
+    const seenBatches = new Set<string>();
+    const batchMeta: { batchId: string; isFallback: boolean; row: any }[] = [];
+    for (const row of batchRows ?? []) {
+      const hasBatch = !!row.attachment_batch_id;
+      const bid = hasBatch ? row.attachment_batch_id : row.id;
+      if (bid && !seenBatches.has(bid)) {
+        seenBatches.add(bid);
+        batchMeta.push({ batchId: bid, isFallback: !hasBatch, row });
+      }
     }
-    if (flt.dateFrom) dataQ = (dataQ as any).gte("date_of_attachment", flt.dateFrom);
-    if (flt.dateTo) dataQ = (dataQ as any).lte("date_of_attachment", flt.dateTo);
-    if (sortCol) {
-      dataQ = (dataQ as any).order(sortCol, { ascending: sortDir === "asc" });
-    }
-    dataQ = (dataQ as any).range(from, to);
 
-    const [{ count }, { data, error }, { data: alarmRows }] = await Promise.all([
-      countQ,
-      dataQ,
-      alarmQ,
-    ]);
-
-    if (error) { console.error("fetchRecords error:", error); return; }
-
-    setTotalCount(count ?? 0);
-    setRecords(data ?? []);
-
-    const ac = (alarmRows ?? []).filter((r: any) => {
+    // Alarm count across all (unfiltered) batches
+    const ac = batchMeta.filter(({ row }) => {
       const { daysToExpiry, daysToScnDue } = computedDates(
-        r.date_of_attachment,
-        r.date_of_scn_issuance,
-        r.date_of_release,
+        row.date_of_attachment,
+        row.date_of_scn_issuance,
+        row.date_of_release,
       );
       return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
     }).length;
     setAlarmCount(ac);
+
+    // Apply alarmOnly filter at batch level
+    const filteredBatches = flt.alarmOnly
+      ? batchMeta.filter(({ row }) => {
+          const { daysToExpiry, daysToScnDue } = computedDates(
+            row.date_of_attachment,
+            row.date_of_scn_issuance,
+            row.date_of_release,
+          );
+          return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+        })
+      : batchMeta;
+
+    setTotalCount(filteredBatches.length);
+
+    const pageBatches = filteredBatches.slice((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE);
+
+    if (pageBatches.length === 0) {
+      setRecords([]);
+      return;
+    }
+
+    // Split page into real-batch IDs vs fallback (no attachment_batch_id) record IDs
+    const realBatchIds = pageBatches.filter((b) => !b.isFallback).map((b) => b.batchId);
+    const fallbackIds = pageBatches.filter((b) => b.isFallback).map((b) => b.batchId);
+
+    // Step 2: fetch full records only for the 20 batches on this page
+    const queries: Promise<{ data: any[] | null; error: any }>[] = [];
+
+    if (realBatchIds.length > 0) {
+      queries.push(
+        (supabase
+          .from("dggi_provisional_attachment_records")
+          .select("*")
+          .eq("workspace_id", wid)
+          .in("attachment_batch_id", realBatchIds)
+          .order(sortField, { ascending: sortDir === "asc" }) as any),
+      );
+    }
+    if (fallbackIds.length > 0) {
+      queries.push(
+        (supabase
+          .from("dggi_provisional_attachment_records")
+          .select("*")
+          .eq("workspace_id", wid)
+          .in("id", fallbackIds)
+          .order(sortField, { ascending: sortDir === "asc" }) as any),
+      );
+    }
+
+    const results = await Promise.all(queries);
+    const fetchError = results.find((r) => r.error)?.error;
+    if (fetchError) { console.error("fetchRecords error:", fetchError); return; }
+
+    const data = results.flatMap((r) => r.data ?? []);
+
+    // Re-sort to match the batch page order, preserving DB order within each batch
+    const batchOrder = new Map(pageBatches.map((b, i) => [b.batchId, i]));
+    const sorted = (data ?? []).slice().sort((a, b) => {
+      const ao = batchOrder.get(a.attachment_batch_id || a.id) ?? 999;
+      const bo = batchOrder.get(b.attachment_batch_id || b.id) ?? 999;
+      return ao - bo;
+    });
+
+    setRecords(sorted);
   };
 
   const fetchScnMap = async (wid: string) => {
@@ -1169,17 +1223,8 @@ const ProvisionalAttachmentComponent = () => {
     (filters.dateTo ? 1 : 0) +
     (filters.alarmOnly ? 1 : 0);
 
-  // records is already the current page from the server; apply alarmOnly client-side
-  const tableRecords = filters.alarmOnly
-    ? records.filter((r) => {
-        const { daysToExpiry, daysToScnDue } = computedDates(
-          r.date_of_attachment,
-          r.date_of_scn_issuance,
-          r.date_of_release,
-        );
-        return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
-      })
-    : records;
+  // records is already the current page (20 batches) from the server
+  const tableRecords = records;
 
   // ── CRUD ──────────────────────────────────────────────────────────────────────
 
