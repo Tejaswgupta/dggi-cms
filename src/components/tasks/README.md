@@ -152,3 +152,42 @@ Manages document upload, display, and actions with enhanced features including d
 6. **Error Handling**: Centralized error handling and user feedback
 
 ---
+
+pg_dump \
+ "postgresql://postgres.zrkvvedwycdcjjheewef:inVAIFRtVEmU4RQ5@aws-0-ap-south-1.pooler.supabase.com:5432/postgres" \
+ --no-owner \
+ --no-privileges \
+ --table "auth.users" \
+ --table "public.votum_workspace" \
+ --table "public.votum_users" \
+ --table "public.designations" \
+ --table "public.dggi_alert_circular_records" \
+ --table "public.dggi_arrest_records" \
+ --table "public.dggi_closure_records" \
+ --table "public.dggi_computed_deadlines" \
+ --table "public.dggi_deadline_alerts_sent" \
+ --table "public.dggi_incident_report_records" \
+ --table "public.dggi_intel_closure_records" \
+ --table "public.dggi_intel_other_source_records" \
+ --table "public.dggi_intel_rapid_records" \
+ --table "public.dggi_modus_operandi_records" \
+ --table "public.dggi_mpr_records" \
+ --table "public.dggi_non_ir_case_records" \
+ --table "public.dggi_notifications" \
+ --table "public.dggi_prosecution_arrest_records" \
+ --table "public.dggi_prosecution_non_arrest_records" \
+ --table "public.dggi_provisional_attachment_records" \
+ --table "public.dggi_records" \
+ --table "public.dggi_report_compliance_records" \
+ --table "public.dggi_scn_records" \
+ --table "public.dggi_seizure_records" \
+ --table "public.dggi_str_records" \
+ --table "public.dggi_user_group_assignments" \
+ -f dggi_complete.sql
+
+CLOUD="postgresql://postgres.zrkvvedwycdcjjheewef:inVAIFRtVEmU4RQ5@aws-0-ap-south-1.pooler.supabase.com
+:5432/postgres"
+
+npx supabase db dump --db-url "$CLOUD" -f roles.sql --role-only
+  npx supabase db dump --db-url "$CLOUD" -f schema.sql
+npx supabase db dump --db-url "$CLOUD" -f data.sql --use-copy --data-only
