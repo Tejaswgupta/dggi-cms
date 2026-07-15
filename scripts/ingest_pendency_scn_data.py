@@ -40,34 +40,6 @@ SKIPPED_CSV = os.path.join(os.path.dirname(__file__), "ingest_skipped.csv")
 # Helpers
 # ---------------------------------------------------------------------------
 
-def current_fy() -> str:
-    """Returns current fiscal year in YY-YY format (e.g., '26-27' for FY 2026-2027)."""
-    now = datetime.now()
-    yr = now.year
-    start = yr if now.month >= 4 else yr - 1
-    return f"{str(start)[2:]}-{str(start + 1)[2:]}"
-
-
-def generate_record_id(sb, workspace_id: str, is_ir: bool) -> str:
-    """Generate sequential record_id matching the DGGI Excel convention.
-    IR cases    → "{seq}/GST/{YYYY-YYYY+1}"  e.g. "001/GST/2026-27"
-    NON-IR cases → "NIR-{seq}-{YY-YY}"       e.g. "NIR-001-26-27"
-    """
-    res = (
-        sb.table("dggi_records")
-        .select("*", count="exact", head=True)
-        .eq("workspace_id", workspace_id)
-        .eq("is_ir", is_ir)
-        .execute()
-    )
-    count = res.count or 0
-    seq = str(count + 1).zfill(3)
-    if is_ir:
-        now = datetime.now()
-        yr = now.year if now.month >= 4 else now.year - 1
-        fy_full = f"{yr}-{str(yr + 1)[2:]}"
-        return f"{seq}/GST/{fy_full}"
-    return f"NIR-{seq}-{current_fy()}"
 
 
 def parse_date(val) -> str | None:
@@ -139,21 +111,18 @@ def upsert_dggi_record(sb, workspace_id: str, file_no: str | None, payload: dict
                 sb.table("dggi_records")
                 .select("id,record_id")
                 .eq("workspace_id", workspace_id)
-                .eq("file_no", file_no)
+                .eq("record_id", file_no)
                 .execute()
             )
             if existing.data:
-                # Update existing — never overwrite record_id
                 if not dry_run:
                     sb.table("dggi_records").update(payload).eq("id", existing.data[0]["id"]).execute()
                 return "updated"
-        # New insert — always generate record_id
-        is_ir = payload.get("is_ir", True)
+        # New insert — use file_no as record_id (legacy data)
         full_payload = {
             **payload,
             "workspace_id": workspace_id,
-            "file_no": file_no,
-            "record_id": generate_record_id(sb, workspace_id, is_ir),
+            "record_id": file_no,
         }
         if not dry_run:
             sb.table("dggi_records").insert(full_payload).execute()
@@ -319,7 +288,7 @@ def process_pendency(ws, sb, workspace_id: str, skipped: list, dry_run: bool = F
 
         file_no = clean(row[3])
         if dry_run:
-            print(f"  [IR] {'UPDATE' if _would_update(sb, workspace_id, 'dggi_records', 'file_no', file_no) else 'INSERT'} | file_no={file_no} | taxpayer={taxpayer_name} | group={payload.get('group')} | date={detection_date}")
+            print(f"  [IR] {'UPDATE' if _would_update(sb, workspace_id, 'dggi_records', 'record_id', file_no) else 'INSERT'} | file_no={file_no} | taxpayer={taxpayer_name} | group={payload.get('group')} | date={detection_date}")
         result = upsert_dggi_record(sb, workspace_id, file_no, payload, skipped, "FInal Pendency", dry_run)
         if result == "inserted":
             inserted += 1
@@ -412,7 +381,7 @@ def process_non_ir(ws, sb, workspace_id: str, skipped: list, dry_run: bool = Fal
         file_no = ir_no or gstin
 
         if dry_run:
-            print(f"  [NON-IR] {'UPDATE' if _would_update(sb, workspace_id, 'dggi_records', 'file_no', file_no) else 'INSERT'} | file_no={file_no} | taxpayer={taxpayer_name} | group={payload.get('group')} | mode={mode} | date={initiation_date}")
+            print(f"  [NON-IR] {'UPDATE' if _would_update(sb, workspace_id, 'dggi_records', 'record_id', file_no) else 'INSERT'} | file_no={file_no} | taxpayer={taxpayer_name} | group={payload.get('group')} | mode={mode} | date={initiation_date}")
         result = upsert_dggi_record(sb, workspace_id, file_no, payload, skipped, "NON-IR", dry_run)
         if result == "inserted":
             inserted += 1

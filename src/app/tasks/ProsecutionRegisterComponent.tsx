@@ -129,6 +129,9 @@ const ProsecutionRegisterComponent = () => {
   const [nonArrestDialogMode, setNonArrestDialogMode] = useState<"add" | "edit">("add");
   const [nonArrestDialogDraft, setNonArrestDialogDraft] = useState<Partial<NonArrestRecord>>({});
 
+  const [arrestPage, setArrestPage] = useState(1);
+  const [nonArrestPage, setNonArrestPage] = useState(1);
+
   useEffect(() => {
     const init = async () => {
       const wid = await getWorkspaceId();
@@ -272,6 +275,15 @@ const ProsecutionRegisterComponent = () => {
     setNonArrestSaving(false);
   };
 
+  const PAGE_SIZE = 20;
+  const arrestTotalPages = Math.max(1, Math.ceil(filteredArrest.length / PAGE_SIZE));
+  const arrestSafePage = Math.min(arrestPage, arrestTotalPages);
+  const pagedArrest = filteredArrest.slice((arrestSafePage - 1) * PAGE_SIZE, arrestSafePage * PAGE_SIZE);
+
+  const nonArrestTotalPages = Math.max(1, Math.ceil(filteredNonArrest.length / PAGE_SIZE));
+  const nonArrestSafePage = Math.min(nonArrestPage, nonArrestTotalPages);
+  const pagedNonArrest = filteredNonArrest.slice((nonArrestSafePage - 1) * PAGE_SIZE, nonArrestSafePage * PAGE_SIZE);
+
   const handleArrestExport = () => {
     exportRegisterToExcel(filteredArrest, ARREST_COLS, "Prosecution_Arrest", (msg) => toast.success(msg));
   };
@@ -282,11 +294,14 @@ const ProsecutionRegisterComponent = () => {
 
   const makeToggleSort = (
     setSort: React.Dispatch<React.SetStateAction<{ col: string | null; dir: "asc" | "desc" }>>,
-  ) => (col: string) =>
+    setPage: React.Dispatch<React.SetStateAction<number>>,
+  ) => (col: string) => {
+    setPage(1);
     setSort((s) => s.col === col ? { col, dir: s.dir === "asc" ? "desc" : "asc" } : { col, dir: "asc" });
+  };
 
-  const toggleArrestSort = makeToggleSort(setArrestSort);
-  const toggleNonArrestSort = makeToggleSort(setNonArrestSort);
+  const toggleArrestSort = makeToggleSort(setArrestSort, setArrestPage);
+  const toggleNonArrestSort = makeToggleSort(setNonArrestSort, setNonArrestPage);
 
   const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
     if (type === "usercombobox") return <span>{workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}</span>;
@@ -332,9 +347,9 @@ const ProsecutionRegisterComponent = () => {
                   <div className="flex items-center gap-1.5 text-base text-[#6b6b6b]"><SlidersHorizontal size={14} /><span className="font-medium">Search</span></div>
                   <div className="relative flex items-center">
                     <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
-                    <Input value={arrestSearch} onChange={(e) => setArrestSearch(e.target.value)} placeholder="Search person, entity…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
+                    <Input value={arrestSearch} onChange={(e) => { setArrestSearch(e.target.value); setArrestPage(1); }} placeholder="Search person, entity…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
                   </div>
-                  {arrestSearch && <button onClick={() => setArrestSearch("")} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
+                  {arrestSearch && <button onClick={() => { setArrestSearch(""); setArrestPage(1); }} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-base text-[#9a9a96]">{filteredArrest.length} record{filteredArrest.length !== 1 ? "s" : ""}</span>
@@ -360,7 +375,7 @@ const ProsecutionRegisterComponent = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredArrest.map((record) => (
+                    {pagedArrest.map((record) => (
                       <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                         {ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
@@ -389,6 +404,29 @@ const ProsecutionRegisterComponent = () => {
                 </Table>
               </div>
             </div>
+            {arrestTotalPages > 1 && (
+              <div className="flex items-center justify-between px-1">
+                <span className="text-base text-[#9a9a96]">
+                  Page {arrestSafePage} of {arrestTotalPages} &middot; {filteredArrest.length} record{filteredArrest.length !== 1 ? "s" : ""}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={arrestSafePage === 1} onClick={() => setArrestPage(1)}>«</Button>
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={arrestSafePage === 1} onClick={() => setArrestPage((p) => Math.max(1, p - 1))}>‹ Prev</Button>
+                  {Array.from({ length: arrestTotalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === arrestTotalPages || Math.abs(p - arrestSafePage) <= 2)
+                    .reduce<(number | "…")[]>((acc, p, idx, arr) => { if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…"); acc.push(p); return acc; }, [])
+                    .map((p, i) => p === "…" ? (
+                      <span key={`ea-${i}`} className="px-1 text-[#9a9a96]">…</span>
+                    ) : (
+                      <Button key={p} size="sm" variant={p === arrestSafePage ? "default" : "outline"}
+                        className={`h-8 w-8 rounded-lg text-base shadow-none p-0 ${p === arrestSafePage ? "bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white border-[#4A5FD4]" : "border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"}`}
+                        onClick={() => setArrestPage(p as number)}>{p}</Button>
+                    ))}
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={arrestSafePage === arrestTotalPages} onClick={() => setArrestPage((p) => Math.min(arrestTotalPages, p + 1))}>Next ›</Button>
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={arrestSafePage === arrestTotalPages} onClick={() => setArrestPage(arrestTotalPages)}>»</Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* ── Non-Arrest Cases ── */}
@@ -399,9 +437,9 @@ const ProsecutionRegisterComponent = () => {
                   <div className="flex items-center gap-1.5 text-base text-[#6b6b6b]"><SlidersHorizontal size={14} /><span className="font-medium">Search</span></div>
                   <div className="relative flex items-center">
                     <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
-                    <Input value={nonArrestSearch} onChange={(e) => setNonArrestSearch(e.target.value)} placeholder="Search person, entity…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
+                    <Input value={nonArrestSearch} onChange={(e) => { setNonArrestSearch(e.target.value); setNonArrestPage(1); }} placeholder="Search person, entity…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
                   </div>
-                  {nonArrestSearch && <button onClick={() => setNonArrestSearch("")} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
+                  {nonArrestSearch && <button onClick={() => { setNonArrestSearch(""); setNonArrestPage(1); }} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-base text-[#9a9a96]">{filteredNonArrest.length} record{filteredNonArrest.length !== 1 ? "s" : ""}</span>
@@ -427,7 +465,7 @@ const ProsecutionRegisterComponent = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredNonArrest.map((record) => (
+                    {pagedNonArrest.map((record) => (
                       <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
                         {NON_ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
@@ -456,6 +494,29 @@ const ProsecutionRegisterComponent = () => {
                 </Table>
               </div>
             </div>
+            {nonArrestTotalPages > 1 && (
+              <div className="flex items-center justify-between px-1">
+                <span className="text-base text-[#9a9a96]">
+                  Page {nonArrestSafePage} of {nonArrestTotalPages} &middot; {filteredNonArrest.length} record{filteredNonArrest.length !== 1 ? "s" : ""}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={nonArrestSafePage === 1} onClick={() => setNonArrestPage(1)}>«</Button>
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={nonArrestSafePage === 1} onClick={() => setNonArrestPage((p) => Math.max(1, p - 1))}>‹ Prev</Button>
+                  {Array.from({ length: nonArrestTotalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === nonArrestTotalPages || Math.abs(p - nonArrestSafePage) <= 2)
+                    .reduce<(number | "…")[]>((acc, p, idx, arr) => { if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…"); acc.push(p); return acc; }, [])
+                    .map((p, i) => p === "…" ? (
+                      <span key={`en-${i}`} className="px-1 text-[#9a9a96]">…</span>
+                    ) : (
+                      <Button key={p} size="sm" variant={p === nonArrestSafePage ? "default" : "outline"}
+                        className={`h-8 w-8 rounded-lg text-base shadow-none p-0 ${p === nonArrestSafePage ? "bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white border-[#4A5FD4]" : "border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"}`}
+                        onClick={() => setNonArrestPage(p as number)}>{p}</Button>
+                    ))}
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={nonArrestSafePage === nonArrestTotalPages} onClick={() => setNonArrestPage((p) => Math.min(nonArrestTotalPages, p + 1))}>Next ›</Button>
+                  <Button size="sm" variant="outline" className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40" disabled={nonArrestSafePage === nonArrestTotalPages} onClick={() => setNonArrestPage(nonArrestTotalPages)}>»</Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

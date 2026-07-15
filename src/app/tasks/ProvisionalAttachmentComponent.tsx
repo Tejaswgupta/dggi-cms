@@ -114,7 +114,7 @@ interface ProvisionalAttachmentRecord {
   expected_liability: string;
   entity_gstin: string;
   issue_involved: string;
-  person_involvement: string;
+  brief_description: string;
   value_immovable: string;
   value_movable: string;
   value_shares: string;
@@ -165,7 +165,7 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
   expected_liability: "",
   entity_gstin: "",
   issue_involved: "",
-  person_involvement: "",
+  brief_description: "",
   value_immovable: "",
   value_movable: "",
   value_shares: "",
@@ -211,10 +211,10 @@ const BATCH_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
   "group",
 ]);
 
-// Fields that belong to each individual attached property / person
+// Fields that belong to each individual attached property
 const PROPERTY_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
   "person_status",
-  "person_involvement",
+  "brief_description",
   "value_immovable",
   "value_movable",
   "value_shares",
@@ -282,8 +282,8 @@ const COLUMNS: RegisterColumn[] = [
     width: "160px",
   },
   {
-    key: "person_involvement",
-    label: "Brief Description of Involvement",
+    key: "brief_description",
+    label: "Brief Description",
     type: "text",
     width: "220px",
   },
@@ -418,7 +418,7 @@ const PROPERTY_COLUMNS_ADD = COLUMNS.filter((c) =>
 const EDIT_COLUMN_GROUPS: ColumnGroup[] = [
   { label: "Attachment Details", keys: Array.from(BATCH_FIELDS) as string[] },
   {
-    label: "Attached Property / Person",
+    label: "Attached Property",
     keys: Array.from(PROPERTY_FIELDS) as string[],
   },
 ];
@@ -671,7 +671,7 @@ const EMPTY_PROPERTY = (): Record<string, string> => ({
   person_name: "",
   gstin_pan: "",
   person_status: "",
-  person_involvement: "",
+  brief_description: "",
   value_immovable: "",
   value_movable: "",
   value_shares: "",
@@ -997,7 +997,12 @@ const ProvisionalAttachmentComponent = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [alarmCount, setAlarmCount] = useState(0);
   const [page, setPage] = useState(1);
-  const authCtx = useRef<{ wid: string; role: string; groups: string[]; uid: string } | null>(null);
+  const authCtx = useRef<{
+    wid: string;
+    role: string;
+    groups: string[];
+    uid: string;
+  } | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add-property" | "edit">("edit");
@@ -1007,8 +1012,13 @@ const ProvisionalAttachmentComponent = () => {
   const [expandedBatches, setExpandedBatches] = useState<Set<string>>(
     new Set(),
   );
-  const [batchSubPage, setBatchSubPage] = useState<Map<string, number>>(new Map());
-  const [linkingBatch, setLinkingBatch] = useState<{ batchId: string; currentCaseId: string } | null>(null);
+  const [batchSubPage, setBatchSubPage] = useState<Map<string, number>>(
+    new Map(),
+  );
+  const [linkingBatch, setLinkingBatch] = useState<{
+    batchId: string;
+    currentCaseId: string;
+  } | null>(null);
   const [linkingCaseId, setLinkingCaseId] = useState("");
   const [savingLink, setSavingLink] = useState(false);
 
@@ -1022,16 +1032,28 @@ const ProvisionalAttachmentComponent = () => {
       const uid = authData?.user?.id;
       if (uid) setCurrentUserId(uid);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
-        supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
+        supabase
+          .from("votum_users")
+          .select("dggi_role")
+          .eq("id", uid!)
+          .single(),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
       authCtx.current = { wid, role, groups, uid: uid! };
 
       const [cases] = await Promise.all([
         fetchCaseOptions(supabase, wid),
-        Promise.all([fetchRecords(wid, role, groups, uid!, 1, EMPTY_FILTERS), fetchScnMap(wid)]),
+        Promise.all([
+          fetchRecords(wid, role, groups, uid!, 1, EMPTY_FILTERS),
+          fetchScnMap(wid),
+        ]),
       ]);
       setCaseOptions(cases);
       setLoading(false);
@@ -1042,29 +1064,14 @@ const ProvisionalAttachmentComponent = () => {
   // Re-fetch when page, filters, or sort changes (after initial load)
   const isFirstRender = useRef(true);
   useEffect(() => {
-    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (!authCtx.current) return;
     const { wid, role, groups, uid } = authCtx.current;
     fetchRecords(wid, role, groups, uid, page, filters);
   }, [page, filters, sortCol, sortDir]);
-
-  const applyRoleFilter = (
-    q: ReturnType<ReturnType<typeof supabase.from>["select"]>,
-    role: string,
-    groups: string[],
-    uid: string,
-  ) => {
-    if (role && role !== "ADG" && role !== "DD_INT") {
-      if (role === "IO" || role === "SIO") {
-        return (q as any).eq("sio", uid ?? "__none__");
-      } else if (groups && groups.length > 0) {
-        return (q as any).in("group", groups);
-      } else {
-        return (q as any).eq("group", "__none__");
-      }
-    }
-    return q;
-  };
 
   const fetchRecords = async (
     wid: string,
@@ -1076,116 +1083,109 @@ const ProvisionalAttachmentComponent = () => {
   ) => {
     const sortField = sortCol ?? "created_at";
 
-    // Step 1: lightweight query — fetch just enough columns to deduplicate batches,
-    // compute alarms, and evaluate filters. Range covers the full dataset.
-    const selectCols = Array.from(new Set([
-      "id", "attachment_batch_id",
-      "date_of_attachment", "date_of_scn_issuance", "date_of_release",
-      "created_at", sortField,
-      // needed for server-side search filter
-      "person_name", "gstin_pan", "entity_gstin", "issue_involved", "group_sio",
-    ])).join(",");
-
-    let batchQ = supabase
-      .from("dggi_provisional_attachment_records")
-      .select(selectCols)
-      .eq("workspace_id", wid)
-      .range(0, 99999);
-    batchQ = applyRoleFilter(batchQ as any, role, groups, uid) as any;
-    if (flt.search) {
-      const q = `%${flt.search}%`;
-      batchQ = (batchQ as any).or(
-        `person_name.ilike.${q},gstin_pan.ilike.${q},entity_gstin.ilike.${q},issue_involved.ilike.${q},group_sio.ilike.${q}`,
-      );
-    }
-    if (flt.dateFrom) batchQ = (batchQ as any).gte("date_of_attachment", flt.dateFrom);
-    if (flt.dateTo) batchQ = (batchQ as any).lte("date_of_attachment", flt.dateTo);
-    batchQ = (batchQ as any).order(sortField, { ascending: sortDir === "asc" });
-
-    const { data: batchRows, error: batchErr } = await batchQ;
-    if (batchErr) { console.error("fetchRecords error:", batchErr); return; }
-
-    // Deduplicate keeping first occurrence per batch (preserves sort order)
-    const seenBatches = new Set<string>();
-    const batchMeta: { batchId: string; isFallback: boolean; row: any }[] = [];
-    for (const row of batchRows ?? []) {
-      const hasBatch = !!row.attachment_batch_id;
-      const bid = hasBatch ? row.attachment_batch_id : row.id;
-      if (bid && !seenBatches.has(bid)) {
-        seenBatches.add(bid);
-        batchMeta.push({ batchId: bid, isFallback: !hasBatch, row });
-      }
+    // Step 1: RPC returns one row per distinct batch, paginated server-side.
+    // total_batches (window COUNT) comes back on every row.
+    const { data: batchRows, error: rpcErr } = await supabase.rpc(
+      "dggi_provisional_attachment_batch_page",
+      {
+        p_workspace_id: wid,
+        p_role: role,
+        p_groups: groups,
+        p_uid: uid,
+        p_search: flt.search ?? "",
+        p_date_from: flt.dateFrom ?? "",
+        p_date_to: flt.dateTo ?? "",
+        p_sort_col: sortField,
+        p_sort_asc: sortDir === "asc",
+        p_limit: PAGE_SIZE,
+        p_offset: (pg - 1) * PAGE_SIZE,
+      },
+    );
+    if (rpcErr) {
+      console.error("fetchRecords rpc error:", rpcErr);
+      return;
     }
 
-    // Alarm count across all (unfiltered) batches
-    const ac = batchMeta.filter(({ row }) => {
+    const rows = batchRows ?? [];
+    setTotalCount(rows.length > 0 ? Number(rows[0].total_batches) : 0);
+
+    // Alarm count: computed client-side from the lightweight date columns the RPC returns
+    const ac = rows.filter((r: any) => {
       const { daysToExpiry, daysToScnDue } = computedDates(
-        row.date_of_attachment,
-        row.date_of_scn_issuance,
-        row.date_of_release,
+        r.date_of_attachment ?? "",
+        r.date_of_scn_issuance ?? "",
+        r.date_of_release ?? "",
       );
-      return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+      return (
+        alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null
+      );
     }).length;
     setAlarmCount(ac);
 
-    // Apply alarmOnly filter at batch level
-    const filteredBatches = flt.alarmOnly
-      ? batchMeta.filter(({ row }) => {
-          const { daysToExpiry, daysToScnDue } = computedDates(
-            row.date_of_attachment,
-            row.date_of_scn_issuance,
-            row.date_of_release,
-          );
-          return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
-        })
-      : batchMeta;
-
-    setTotalCount(filteredBatches.length);
-
-    const pageBatches = filteredBatches.slice((pg - 1) * PAGE_SIZE, pg * PAGE_SIZE);
+    // Filter alarmOnly client-side (RPC already paginated, this just hides non-alarm batches)
+    const pageBatches: { batchId: string; isFallback: boolean }[] = (
+      flt.alarmOnly
+        ? rows.filter((r: any) => {
+            const { daysToExpiry, daysToScnDue } = computedDates(
+              r.date_of_attachment ?? "",
+              r.date_of_scn_issuance ?? "",
+              r.date_of_release ?? "",
+            );
+            return (
+              alarmLevel(daysToExpiry) !== null ||
+              alarmLevel(daysToScnDue) !== null
+            );
+          })
+        : rows
+    ).map((r: any) => ({ batchId: r.batch_key, isFallback: r.is_fallback }));
 
     if (pageBatches.length === 0) {
       setRecords([]);
       return;
     }
 
-    // Split page into real-batch IDs vs fallback (no attachment_batch_id) record IDs
-    const realBatchIds = pageBatches.filter((b) => !b.isFallback).map((b) => b.batchId);
-    const fallbackIds = pageBatches.filter((b) => b.isFallback).map((b) => b.batchId);
+    // Step 2: fetch full records only for the batches on this page
+    const realBatchIds = pageBatches
+      .filter((b) => !b.isFallback)
+      .map((b) => b.batchId);
+    const fallbackIds = pageBatches
+      .filter((b) => b.isFallback)
+      .map((b) => b.batchId);
 
-    // Step 2: fetch full records only for the 20 batches on this page
     const queries: Promise<{ data: any[] | null; error: any }>[] = [];
-
     if (realBatchIds.length > 0) {
       queries.push(
-        (supabase
+        supabase
           .from("dggi_provisional_attachment_records")
           .select("*")
           .eq("workspace_id", wid)
           .in("attachment_batch_id", realBatchIds)
-          .order(sortField, { ascending: sortDir === "asc" }) as any),
+          .order(sortField, { ascending: sortDir === "asc" }) as any,
       );
     }
     if (fallbackIds.length > 0) {
       queries.push(
-        (supabase
+        supabase
           .from("dggi_provisional_attachment_records")
           .select("*")
           .eq("workspace_id", wid)
           .in("id", fallbackIds)
-          .order(sortField, { ascending: sortDir === "asc" }) as any),
+          .order(sortField, { ascending: sortDir === "asc" }) as any,
       );
     }
 
     const results = await Promise.all(queries);
     const fetchError = results.find((r) => r.error)?.error;
-    if (fetchError) { console.error("fetchRecords error:", fetchError); return; }
+    if (fetchError) {
+      console.error("fetchRecords error:", fetchError);
+      return;
+    }
 
     const data = results.flatMap((r) => r.data ?? []);
 
-    // Re-sort to match the batch page order, preserving DB order within each batch
+    // Reassemble in the RPC's batch order; DB sort governs order within each batch
     const batchOrder = new Map(pageBatches.map((b, i) => [b.batchId, i]));
-    const sorted = (data ?? []).slice().sort((a, b) => {
+    const sorted = data.slice().sort((a, b) => {
       const ao = batchOrder.get(a.attachment_batch_id || a.id) ?? 999;
       const bo = batchOrder.get(b.attachment_batch_id || b.id) ?? 999;
       return ao - bo;
@@ -1424,7 +1424,11 @@ const ProvisionalAttachmentComponent = () => {
       const next = new Set(prev);
       if (next.has(batchId)) {
         next.delete(batchId);
-        setBatchSubPage((m) => { const n = new Map(m); n.delete(batchId); return n; });
+        setBatchSubPage((m) => {
+          const n = new Map(m);
+          n.delete(batchId);
+          return n;
+        });
       } else {
         next.add(batchId);
       }
@@ -1448,7 +1452,10 @@ const ProvisionalAttachmentComponent = () => {
     setDialogOpen(true);
   };
 
-  const batches: { batchId: string; properties: ProvisionalAttachmentRecord[] }[] = [];
+  const batches: {
+    batchId: string;
+    properties: ProvisionalAttachmentRecord[];
+  }[] = [];
   const batchIndex = new Map<string, number>();
   for (const r of tableRecords) {
     const bid = r.attachment_batch_id || r.id;
@@ -1516,7 +1523,15 @@ const ProvisionalAttachmentComponent = () => {
     if (type === "number") {
       const n = parseFloat(value);
       if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
-      return <span>{n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Cr</span>;
+      return (
+        <span>
+          {n.toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}{" "}
+          Cr
+        </span>
+      );
     }
     return <span>{value || "—"}</span>;
   };
@@ -1687,7 +1702,11 @@ const ProvisionalAttachmentComponent = () => {
                   }, 0);
                   return (
                     <span className="font-medium text-[#1a1a1a]">
-                      {sum.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Cr
+                      {sum.toLocaleString("en-IN", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      Cr
                     </span>
                   );
                 })()
@@ -1698,7 +1717,10 @@ const ProvisionalAttachmentComponent = () => {
                     onClick={(e) => {
                       e.stopPropagation();
                       setLinkingCaseId(rep.linked_case_id ?? "");
-                      setLinkingBatch({ batchId, currentCaseId: rep.linked_case_id ?? "" });
+                      setLinkingBatch({
+                        batchId,
+                        currentCaseId: rep.linked_case_id ?? "",
+                      });
                     }}
                     className="shrink-0 text-[#9a9a96] hover:text-[#4A5FD4]"
                     title="Link IR"
@@ -1733,70 +1755,100 @@ const ProvisionalAttachmentComponent = () => {
             </Button>
           </TableCell>
         </TableRow>
-        {isExpanded && (() => {
-          const subPage = batchSubPage.get(batchId) ?? 1;
-          const subTotal = Math.max(1, Math.ceil(properties.length / SUB_PAGE_SIZE));
-          const safeSub = Math.min(subPage, subTotal);
-          const visible = properties.slice((safeSub - 1) * SUB_PAGE_SIZE, safeSub * SUB_PAGE_SIZE);
-          return (
-            <>
-              {visible.map((p) => renderPropertyRow(p, true))}
-              {subTotal > 1 && (
-                <TableRow className="bg-[#FAFAF8] border-b border-[#EDEDEA]">
-                  <TableCell colSpan={TOTAL_COLS} className="px-4 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-[#9a9a96] mr-2">
-                        {(safeSub - 1) * SUB_PAGE_SIZE + 1}–{Math.min(safeSub * SUB_PAGE_SIZE, properties.length)} of {properties.length}
-                      </span>
-                      <button
-                        disabled={safeSub === 1}
-                        onClick={() => setSubPage(batchId, 1)}
-                        className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
-                      >«</button>
-                      <button
-                        disabled={safeSub === 1}
-                        onClick={() => setSubPage(batchId, safeSub - 1)}
-                        className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
-                      >‹</button>
-                      {Array.from({ length: subTotal }, (_, i) => i + 1)
-                        .filter((p) => p === 1 || p === subTotal || Math.abs(p - safeSub) <= 1)
-                        .reduce<(number | "…")[]>((acc, p, idx, arr) => {
-                          if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
-                          acc.push(p);
-                          return acc;
-                        }, [])
-                        .map((p, idx) =>
-                          p === "…" ? (
-                            <span key={`e-${idx}`} className="px-1 text-xs text-[#9a9a96]">…</span>
-                          ) : (
-                            <button
-                              key={p}
-                              onClick={() => setSubPage(batchId, p as number)}
-                              className={`px-2 py-0.5 rounded text-xs border ${
-                                p === safeSub
-                                  ? "bg-[#4A5FD4] text-white border-transparent"
-                                  : "border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"
-                              }`}
-                            >{p}</button>
-                          ),
-                        )}
-                      <button
-                        disabled={safeSub === subTotal}
-                        onClick={() => setSubPage(batchId, safeSub + 1)}
-                        className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
-                      >›</button>
-                      <button
-                        disabled={safeSub === subTotal}
-                        onClick={() => setSubPage(batchId, subTotal)}
-                        className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
-                      >»</button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </>
-          );
-        })()}
+        {isExpanded &&
+          (() => {
+            const subPage = batchSubPage.get(batchId) ?? 1;
+            const subTotal = Math.max(
+              1,
+              Math.ceil(properties.length / SUB_PAGE_SIZE),
+            );
+            const safeSub = Math.min(subPage, subTotal);
+            const visible = properties.slice(
+              (safeSub - 1) * SUB_PAGE_SIZE,
+              safeSub * SUB_PAGE_SIZE,
+            );
+            return (
+              <>
+                {visible.map((p) => renderPropertyRow(p, true))}
+                {subTotal > 1 && (
+                  <TableRow className="bg-[#FAFAF8] border-b border-[#EDEDEA]">
+                    <TableCell colSpan={TOTAL_COLS} className="px-4 py-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-[#9a9a96] mr-2">
+                          {(safeSub - 1) * SUB_PAGE_SIZE + 1}–
+                          {Math.min(safeSub * SUB_PAGE_SIZE, properties.length)}{" "}
+                          of {properties.length}
+                        </span>
+                        <button
+                          disabled={safeSub === 1}
+                          onClick={() => setSubPage(batchId, 1)}
+                          className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
+                        >
+                          «
+                        </button>
+                        <button
+                          disabled={safeSub === 1}
+                          onClick={() => setSubPage(batchId, safeSub - 1)}
+                          className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
+                        >
+                          ‹
+                        </button>
+                        {Array.from({ length: subTotal }, (_, i) => i + 1)
+                          .filter(
+                            (p) =>
+                              p === 1 ||
+                              p === subTotal ||
+                              Math.abs(p - safeSub) <= 1,
+                          )
+                          .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                            if (idx > 0 && p - (arr[idx - 1] as number) > 1)
+                              acc.push("…");
+                            acc.push(p);
+                            return acc;
+                          }, [])
+                          .map((p, idx) =>
+                            p === "…" ? (
+                              <span
+                                key={`e-${idx}`}
+                                className="px-1 text-xs text-[#9a9a96]"
+                              >
+                                …
+                              </span>
+                            ) : (
+                              <button
+                                key={p}
+                                onClick={() => setSubPage(batchId, p as number)}
+                                className={`px-2 py-0.5 rounded text-xs border ${
+                                  p === safeSub
+                                    ? "bg-[#4A5FD4] text-white border-transparent"
+                                    : "border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            ),
+                          )}
+                        <button
+                          disabled={safeSub === subTotal}
+                          onClick={() => setSubPage(batchId, safeSub + 1)}
+                          className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
+                        >
+                          ›
+                        </button>
+                        <button
+                          disabled={safeSub === subTotal}
+                          onClick={() => setSubPage(batchId, subTotal)}
+                          className="px-1.5 py-0.5 rounded text-xs border border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-40"
+                        >
+                          »
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </>
+            );
+          })()}
       </>
     );
   };
@@ -1937,7 +1989,10 @@ const ProvisionalAttachmentComponent = () => {
 
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setFilters({ ...EMPTY_FILTERS }); setPage(1); }}
+                onClick={() => {
+                  setFilters({ ...EMPTY_FILTERS });
+                  setPage(1);
+                }}
                 className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
               >
                 <X size={12} />
@@ -2011,7 +2066,10 @@ const ProvisionalAttachmentComponent = () => {
                       {activeFilterCount > 0 && (
                         <button
                           className="text-[#4A5FD4] underline"
-                          onClick={() => { setFilters({ ...EMPTY_FILTERS }); setPage(1); }}
+                          onClick={() => {
+                            setFilters({ ...EMPTY_FILTERS });
+                            setPage(1);
+                          }}
                         >
                           Clear filters
                         </button>
@@ -2028,7 +2086,8 @@ const ProvisionalAttachmentComponent = () => {
       {totalPages > 1 && (
         <div className="px-3 sm:px-6 mt-4 flex items-center justify-between gap-3">
           <span className="text-base text-[#9a9a96]">
-            Page {safePage} of {totalPages} &nbsp;·&nbsp; {totalCount} record{totalCount !== 1 ? "s" : ""}
+            Page {safePage} of {totalPages} &nbsp;·&nbsp; {totalCount} record
+            {totalCount !== 1 ? "s" : ""}
           </span>
           <div className="flex items-center gap-1">
             <Button
@@ -2050,7 +2109,10 @@ const ProvisionalAttachmentComponent = () => {
               ‹
             </Button>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((p) => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+              .filter(
+                (p) =>
+                  p === 1 || p === totalPages || Math.abs(p - safePage) <= 2,
+              )
               .reduce<(number | "…")[]>((acc, p, idx, arr) => {
                 if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
                 acc.push(p);
@@ -2058,7 +2120,12 @@ const ProvisionalAttachmentComponent = () => {
               }, [])
               .map((p, idx) =>
                 p === "…" ? (
-                  <span key={`ellipsis-${idx}`} className="px-1 text-[#9a9a96] text-base">…</span>
+                  <span
+                    key={`ellipsis-${idx}`}
+                    className="px-1 text-[#9a9a96] text-base"
+                  >
+                    …
+                  </span>
                 ) : (
                   <Button
                     key={p}
@@ -2136,7 +2203,12 @@ const ProvisionalAttachmentComponent = () => {
         scnOptions={scnOptions}
       />
 
-      <Dialog open={!!linkingBatch} onOpenChange={(v) => { if (!v) setLinkingBatch(null); }}>
+      <Dialog
+        open={!!linkingBatch}
+        onOpenChange={(v) => {
+          if (!v) setLinkingBatch(null);
+        }}
+      >
         <DialogContent className="max-w-sm rounded-2xl border border-[#EDEDEA] shadow-none font-['DM_Sans']">
           <DialogHeader>
             <DialogTitle className="text-base font-medium text-[#1a1a1a]">
@@ -2145,8 +2217,13 @@ const ProvisionalAttachmentComponent = () => {
           </DialogHeader>
           <div className="space-y-3 py-1">
             <p className="text-sm text-[#6b6b6b]">
-              This will update <span className="font-medium text-[#1a1a1a]">all records</span> in batch{" "}
-              <span className="font-medium text-[#1a1a1a]">{linkingBatch?.batchId}</span> to the selected IR.
+              This will update{" "}
+              <span className="font-medium text-[#1a1a1a]">all records</span> in
+              batch{" "}
+              <span className="font-medium text-[#1a1a1a]">
+                {linkingBatch?.batchId}
+              </span>{" "}
+              to the selected IR.
             </p>
             <CaseIdCombobox
               value={linkingCaseId}

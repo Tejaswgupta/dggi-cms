@@ -132,7 +132,7 @@ def lookup_linked_case_id(sb, workspace_id: str, ir_no: str) -> str | None:
         sb.table("dggi_records")
         .select("record_id")
         .eq("workspace_id", workspace_id)
-        .eq("file_no", ir_no)
+        .eq("record_id", ir_no)
         .limit(1)
         .execute()
     )
@@ -189,6 +189,7 @@ def process_row(
         "linked_case_id": linked_case_id,
         "attachment_batch_id": batch_id,
         "issue_involved": clean(row[COL_TYPOLOGY]),
+        "brief_description": bank_acct,
         "bank_name": clean(row[COL_BANK_NAME]),
         "bank_ifsc": clean(row[COL_BANK_IFSC]),
         "date_of_attachment": date_of_attachment,
@@ -204,6 +205,7 @@ def process_row(
         ), 4)) if any(clean(row[c]) for c in [COL_VALUE_IMMOVABLE, COL_VALUE_MOVABLE, COL_VALUE_TOTAL]) else None,
         "letter_issued": clean(row[COL_NOTICE_ISSUED]),
         "date_of_scn_issuance": parse_date(row[COL_SCN_DATE]),
+        "scn_issued": "Yes" if parse_date(row[COL_SCN_DATE]) else None,
         "group": normalize_group(row[COL_GROUP]),
         "group_sio": sio_name,
         "sio_name": sio_name,

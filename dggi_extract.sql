@@ -585,7 +585,7 @@ CREATE TABLE IF NOT EXISTS "public"."
     "expected_liability" "text",
     "entity_gstin" "text",
     "issue_involved" "text",
-    "person_involvement" "text",
+    "brief_description" "text",
     "arrest" "text",
     "dossier_prepared" "text",
     "value_immovable" "text",
