@@ -11,12 +11,15 @@ Usage:
     python3 scripts/backfill_record_ids.py [--dry-run]
 """
 
+import os
 import sys
 from datetime import datetime
+from dotenv import load_dotenv
 from supabase import create_client
 
-SUPABASE_URL = "https://zrkvvedwycdcjjheewef.supabase.co"
-SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpya3Z2ZWR3eWNkY2pqaGVld2VmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcwMzAxNjg1NCwiZXhwIjoyMDE4NTkyODU0fQ.ZYgzzv6E--3v2un2uN0jXwHnBvCf0EjPJlGoCQwiqKE"
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SERVICE_ROLE_KEY = os.environ["SERVICE_ROLE_KEY"]
 
 WORKSPACE_OWNER_EMAIL = "ajinkya@gov.in"
 

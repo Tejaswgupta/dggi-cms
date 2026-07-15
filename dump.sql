@@ -1706,6 +1706,67 @@ $$;
 ALTER FUNCTION "public"."cleanup_delegation_on_entity_deletion"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."cleanup_expired_tasks"("p_workspace_id" "uuid") RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+DECLARE
+  v_days integer;
+  v_deleted integer := 0;
+  v_expired_ids uuid[];
+BEGIN
+  -- Verify the caller belongs to this workspace
+  IF NOT EXISTS (
+    SELECT 1 FROM public.votum_users
+    WHERE id = auth.uid() AND workspace_id = p_workspace_id
+  ) THEN
+    RAISE EXCEPTION 'Access denied: user not in workspace';
+  END IF;
+
+  -- Check if auto_destruct is enabled for this workspace
+  SELECT auto_destruct_days INTO v_days
+  FROM public.votum_workspace
+  WHERE id = p_workspace_id AND auto_destruct = true;
+
+  IF NOT FOUND OR v_days IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  -- Find expired tasks
+  SELECT array_agg(id) INTO v_expired_ids
+  FROM public.votum_tasks
+  WHERE workspace_id = p_workspace_id
+    AND status = 3
+    AND auto_destruct = true
+    AND moved_to_done_at IS NOT NULL
+    AND moved_to_done_at + (COALESCE(auto_destruct_days, v_days) * interval '1 day') <= now();
+
+  IF v_expired_ids IS NULL OR array_length(v_expired_ids, 1) IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  -- Delete associated documents
+  DELETE FROM public.task_documents
+  WHERE workspace_id = p_workspace_id
+    AND tags @> ARRAY['task']
+    AND EXISTS (
+      SELECT 1 FROM unnest(v_expired_ids) AS eid
+      WHERE tags @> ARRAY[eid::text]
+    );
+
+  -- Delete the tasks
+  DELETE FROM public.votum_tasks
+  WHERE id = ANY(v_expired_ids);
+
+  GET DIAGNOSTICS v_deleted = ROW_COUNT;
+  RETURN v_deleted;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."cleanup_expired_tasks"("p_workspace_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."cleanup_old_audit_logs"("retention_days" integer DEFAULT 365) RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -2106,20 +2167,6 @@ $$;
 ALTER FUNCTION "public"."delegate_approval"("approval_id" "uuid", "delegator_id" "uuid", "delegatee_id" "uuid", "delegation_message" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."delete_workflow_on_task_deletion"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-  DELETE FROM votum_approval_workflows 
-  WHERE task_id = OLD.id;
-  RETURN OLD;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."delete_workflow_on_task_deletion"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."delete_workspace_and_data"("p_workspace_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -2358,6 +2405,102 @@ $$;
 
 
 ALTER FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_assigned_user_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) RETURNS TABLE("batch_key" "text", "is_fallback" boolean, "date_of_attachment" "text", "date_of_scn_issuance" "text", "date_of_release" "text", "total_batches" bigint)
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    AS $_$
+DECLARE
+  v_sort_col text := COALESCE(NULLIF(p_sort_col, ''), 'created_at');
+BEGIN
+  RETURN QUERY EXECUTE format(
+    $sql$
+    WITH filtered AS (
+      SELECT
+        id,
+        COALESCE(NULLIF(attachment_batch_id, ''), id::text) AS batch_key,
+        (attachment_batch_id IS NULL OR attachment_batch_id = '')  AS is_fallback,
+        date_of_attachment::text,
+        date_of_scn_issuance::text,
+        date_of_release::text,
+        %1$I                                                       AS _sort_val,
+        created_at
+      FROM dggi_provisional_attachment_records
+      WHERE workspace_id = %2$L
+        AND (
+          %3$L IN ('ADG', 'DD_INT')
+          OR (
+            %3$L IN ('IO', 'SIO')
+            AND sio = %4$L::uuid
+          )
+          OR (
+            %3$L IN ('ADC', 'JD', 'DD', 'AD')
+            AND "group" = ANY(%5$L::text[])
+          )
+          OR (
+            %3$L NOT IN ('ADG','DD_INT','IO','SIO','ADC','JD','DD','AD')
+            AND "group" = '__none__'
+          )
+        )
+        AND (%6$L = '' OR (
+              person_name   ILIKE '%%' || %6$L || '%%'
+           OR gstin_pan     ILIKE '%%' || %6$L || '%%'
+           OR entity_gstin  ILIKE '%%' || %6$L || '%%'
+           OR issue_involved ILIKE '%%' || %6$L || '%%'
+           OR group_sio     ILIKE '%%' || %6$L || '%%'
+        ))
+        AND (%7$L = '' OR date_of_attachment::text >= %7$L)
+        AND (%8$L = '' OR date_of_attachment::text <= %8$L)
+    ),
+    first_per_batch AS (
+      SELECT DISTINCT ON (batch_key)
+        batch_key,
+        is_fallback,
+        date_of_attachment,
+        date_of_scn_issuance,
+        date_of_release,
+        _sort_val,
+        created_at
+      FROM filtered
+      ORDER BY batch_key, %9$s
+    ),
+    ordered AS (
+      SELECT *,
+             COUNT(*) OVER () AS total_batches,
+             ROW_NUMBER() OVER (ORDER BY %9$s) AS rn
+      FROM first_per_batch
+    )
+    SELECT
+      batch_key,
+      is_fallback,
+      date_of_attachment,
+      date_of_scn_issuance,
+      date_of_release,
+      total_batches
+    FROM ordered
+    WHERE rn > %10$s AND rn <= %10$s + %11$s
+    ORDER BY rn
+    $sql$,
+    v_sort_col,                                 -- %1$I  sort column (identifier)
+    p_workspace_id,                             -- %2$L
+    p_role,                                     -- %3$L
+    p_uid,                                      -- %4$L
+    p_groups,                                   -- %5$L
+    p_search,                                   -- %6$L
+    p_date_from,                                -- %7$L
+    p_date_to,                                  -- %8$L
+    CASE WHEN p_sort_asc
+         THEN format('%I ASC, created_at ASC', v_sort_col)
+         ELSE format('%I DESC, created_at DESC', v_sort_col)
+    END,                                        -- %9$s  (ORDER BY fragment)
+    p_offset,                                   -- %10$s
+    p_limit                                     -- %11$s
+  );
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."dispatch_notification_on_insert"() RETURNS "trigger"
@@ -2777,6 +2920,17 @@ $$;
 ALTER FUNCTION "public"."get_user_usage_summary"("p_user_id" "uuid", "p_billing_period" character varying) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."get_user_workspace_id"() RETURNS "uuid"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+  SELECT workspace_id FROM public.votum_users WHERE id = auth.uid() LIMIT 1;
+$$;
+
+
+ALTER FUNCTION "public"."get_user_workspace_id"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_workspace_storage_bytes"("p_workspace_id" "uuid") RETURNS bigint
     LANGUAGE "sql" STABLE
     AS $$
@@ -3076,32 +3230,6 @@ $$;
 
 
 ALTER FUNCTION "public"."pgmq_send_document"("doc_id" "uuid") OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."playbook_clauses_updated_at"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."playbook_clauses_updated_at"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."playbooks_updated_at"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."playbooks_updated_at"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."reject_proposal"("p_proposal_id" "uuid", "p_user_id" "uuid", "p_rejection_reason" "text") RETURNS boolean
@@ -3967,8 +4095,9 @@ BEGIN
       INTO v_workspace_id, v_task_status, v_task_priority
       FROM votum_tasks WHERE id = p_task_id;
 
+    -- Task may have been deleted (FK cascade); silently no-op.
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Task not found: %', p_task_id;
+        RETURN;
     END IF;
 
     -- Close the ownership period for a specific removed user (if provided)
@@ -4302,31 +4431,6 @@ $$;
 ALTER FUNCTION "public"."update_task_templates_updated_at"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."update_task_workflow_status"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE votum_tasks 
-    SET has_active_workflow = TRUE
-    WHERE id = NEW.task_id;
-  ELSIF TG_OP = 'DELETE' THEN
-    UPDATE votum_tasks 
-    SET has_active_workflow = FALSE
-    WHERE id = OLD.task_id
-    AND NOT EXISTS (
-      SELECT 1 FROM votum_approval_workflows 
-      WHERE task_id = OLD.task_id
-    );
-  END IF;
-  RETURN NULL;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."update_task_workflow_status"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."update_time_entry_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     AS $$
@@ -4492,25 +4596,6 @@ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
 
 
 ALTER FUNCTION "public"."update_worker_proxy_ips_updated_at"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."validate_task_status_change"() RETURNS "trigger"
-    LANGUAGE "plpgsql"
-    AS $$
-BEGIN
-  IF NEW.status = 3 AND NEW.has_active_workflow = TRUE AND 
-     NOT EXISTS (
-       SELECT 1 FROM vw_task_workflow_status 
-       WHERE task_id = NEW.id AND is_completed = TRUE
-     ) THEN
-    RAISE EXCEPTION 'Cannot mark task as complete while approval workflow is pending';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."validate_task_status_change"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."votum_tasks_delete_fn"() RETURNS "trigger"
@@ -5135,6 +5220,23 @@ CREATE TABLE IF NOT EXISTS "public"."compliance_records" (
 ALTER TABLE "public"."compliance_records" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."compliance_source_documents" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "source" "text" NOT NULL,
+    "source_id" "text" NOT NULL,
+    "title" "text" NOT NULL,
+    "publish_date" "date",
+    "content" "text",
+    "pdf_url" "text",
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+    "compliance_processed" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."compliance_source_documents" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."task_assignees" (
     "task_id" "uuid" NOT NULL,
     "user_id" "uuid" NOT NULL,
@@ -5376,7 +5478,10 @@ CREATE TABLE IF NOT EXISTS "public"."delegation_chains" (
     "status" "text" DEFAULT 'delegating'::"text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "completed_at" timestamp with time zone,
-    CONSTRAINT "delegation_chains_status_check" CHECK (("status" = ANY (ARRAY['delegating'::"text", 'working'::"text", 'completed'::"text"]))),
+    "review_required" boolean DEFAULT false,
+    "review_status" "text",
+    CONSTRAINT "delegation_chains_review_status_check" CHECK (("review_status" = ANY (ARRAY['pending'::"text", 'completed'::"text", 'cancelled'::"text"]))),
+    CONSTRAINT "delegation_chains_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'in_progress'::"text", 'in_review'::"text", 'completed'::"text"]))),
     CONSTRAINT "delegation_entity_check" CHECK (((("task_id" IS NOT NULL) AND ("draft_id" IS NULL)) OR (("task_id" IS NULL) AND ("draft_id" IS NOT NULL))))
 );
 
@@ -5398,7 +5503,11 @@ CREATE TABLE IF NOT EXISTS "public"."delegation_steps" (
     "delegated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "completed_at" timestamp with time zone,
     "notes" "text",
-    CONSTRAINT "delegation_steps_status_check" CHECK (("status" = ANY (ARRAY['working'::"text", 'completed'::"text", 'done'::"text"])))
+    "review_status" "text",
+    "reviewed_at" timestamp with time zone,
+    "reviewed_by" "uuid",
+    CONSTRAINT "delegation_steps_review_status_check" CHECK (("review_status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text", 'skipped'::"text"]))),
+    CONSTRAINT "delegation_steps_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'in_progress'::"text", 'in_review'::"text", 'completed'::"text"])))
 );
 
 
@@ -5445,7 +5554,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_alert_circular_records" (
     "linked_case_id" "text",
     "group" "text",
     "sio" "uuid",
-    "sio_name" "text"
+    "sio_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5477,7 +5588,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_arrest_records" (
     "arrest_batch_id" "text",
     "party_name" "text" DEFAULT ''::"text" NOT NULL,
     "unit_gstin" "text" DEFAULT ''::"text" NOT NULL,
-    "prosecution_filed" "text" DEFAULT ''::"text" NOT NULL
+    "prosecution_filed" "text" DEFAULT ''::"text" NOT NULL,
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5518,7 +5631,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_closure_records" (
     "created_at" timestamp with time zone DEFAULT "now"(),
     "sio_name" "text",
     "closure_reason" "text",
-    "transferred_to" "text"
+    "transferred_to" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5537,38 +5652,18 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_computed_deadlines" (
     "label" "text" NOT NULL,
     "legal_reference" "text",
     "skipped" boolean DEFAULT false NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "sio_user_id" "text",
+    "group_name" "text",
+    "entity_name" "text",
+    "officer_name" "text",
+    "critical_days" integer,
+    "warning_days" integer,
+    "max_reminder_days" integer
 );
 
 
 ALTER TABLE "public"."dggi_computed_deadlines" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."dggi_cpgram_records" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workspace_id" "text" NOT NULL,
-    "record_id" "text",
-    "cpgram_registration_no" "text",
-    "date_of_receipt" "date",
-    "complainant_name" "text",
-    "complaint_subject" "text",
-    "department_referred" "text",
-    "date_sent_to_department" "date",
-    "reply_status" "text",
-    "date_of_reply" "date",
-    "remarks" "text",
-    "handling_officer" "text",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "linked_case_id" "text",
-    "disposed" "text",
-    "group" "text",
-    "sio" "uuid",
-    "sio_name" "text",
-    "handling_officer_name" "text"
-);
-
-
-ALTER TABLE "public"."dggi_cpgram_records" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."dggi_deadline_alerts_sent" (
@@ -5583,61 +5678,6 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_deadline_alerts_sent" (
 
 
 ALTER TABLE "public"."dggi_deadline_alerts_sent" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."dggi_dfl_records" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workspace_id" "text" NOT NULL,
-    "record_id" "text",
-    "dfl_request_no" "text",
-    "date_of_request" "date",
-    "case_file_no" "text",
-    "entity_name" "text",
-    "nature_of_request" "text",
-    "devices_submitted" "text",
-    "lab_received_date" "date",
-    "report_received_date" "date",
-    "findings_summary" "text",
-    "action_taken" "text",
-    "remarks" "text",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "linked_case_id" "text",
-    "group" "text",
-    "sio" "uuid",
-    "sio_name" "text"
-);
-
-
-ALTER TABLE "public"."dggi_dfl_records" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."dggi_evidence_room_records" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workspace_id" "text" NOT NULL,
-    "record_id" "text",
-    "case_file_no" "text",
-    "entity_name" "text",
-    "evidence_description" "text",
-    "date_of_seizure" "date",
-    "evidence_type" "text",
-    "quantity" "text",
-    "storage_location" "text",
-    "condition" "text",
-    "date_released" "date",
-    "released_to" "text",
-    "court_order_ref" "text",
-    "remarks" "text",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "linked_case_id" "text",
-    "group" "text",
-    "sio" "uuid",
-    "seized_by" "uuid",
-    "sio_name" "text",
-    "seized_by_name" "text"
-);
-
-
-ALTER TABLE "public"."dggi_evidence_room_records" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."dggi_incident_report_records" (
@@ -5663,37 +5703,13 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_incident_report_records" (
     "digit_id" "text",
     "gstin" "text",
     "sio" "uuid",
-    "sio_name" "text"
+    "sio_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
 ALTER TABLE "public"."dggi_incident_report_records" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."dggi_informer_reward_records" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workspace_id" "text" NOT NULL,
-    "record_id" "text",
-    "informer_code" "text",
-    "date_of_information" "date",
-    "file_no" "text",
-    "entity_name" "text",
-    "amount_detected" "text",
-    "amount_recovered" "text",
-    "reward_percentage" "text",
-    "reward_amount" "text",
-    "reward_sanctioned_date" "date",
-    "reward_paid_date" "date",
-    "remarks" "text",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "linked_case_id" "text",
-    "group" "text",
-    "sio" "uuid",
-    "sio_name" "text"
-);
-
-
-ALTER TABLE "public"."dggi_informer_reward_records" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."dggi_intel_closure_records" (
@@ -5708,7 +5724,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_closure_records" (
     "remarks" "text",
     "closed_by" "text",
     "created_at" timestamp with time zone DEFAULT "now"(),
-    "linked_case_id" "text"
+    "linked_case_id" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5736,7 +5754,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_other_source_records" (
     "sio" "uuid",
     "assigned_group" "text",
     "sio_name" "text",
-    "e_office_ref_no" "text"
+    "e_office_ref_no" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5770,7 +5790,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_rapid_records" (
     "sio" "uuid",
     "sender_email" "text",
     "sender_mobile" "text",
-    "sio_name" "text"
+    "sio_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5793,11 +5815,32 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_modus_operandi_records" (
     "linked_case_id" "text",
     "group" "text",
     "sio" "uuid",
-    "sio_name" "text"
+    "sio_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
 ALTER TABLE "public"."dggi_modus_operandi_records" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."dggi_mpr_records" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "workspace_id" "text" NOT NULL,
+    "year" integer NOT NULL,
+    "month" integer NOT NULL,
+    "report_type" "text" NOT NULL,
+    "filed" boolean DEFAULT false NOT NULL,
+    "filed_date" "date",
+    "filed_by" "text",
+    "remarks" "text",
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "dggi_mpr_records_month_check" CHECK ((("month" >= 1) AND ("month" <= 12)))
+);
+
+
+ALTER TABLE "public"."dggi_mpr_records" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."dggi_non_ir_case_records" (
@@ -5812,7 +5855,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_non_ir_case_records" (
     "linked_case_id" "text",
     "group" "text",
     "sio" "uuid",
-    "sio_name" "text"
+    "sio_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5860,7 +5905,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_prosecution_arrest_records" (
     "group" "text",
     "sio" "uuid",
     "sio_name" "text",
-    "linked_arrest_id" "uuid"
+    "linked_arrest_id" "uuid",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5885,7 +5932,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_prosecution_non_arrest_records" (
     "brief_modus_operandi" "text",
     "prosecution_complaint_status" "text",
     "date_of_filing" "date",
-    "reasons_not_filed" "text"
+    "reasons_not_filed" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5902,8 +5951,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_provisional_attachment_records" (
     "expected_liability" "text",
     "entity_gstin" "text",
     "issue_involved" "text",
-    "person_involvement" "text",
-    "arrest" "text",
+    "brief_description" "text",
     "dossier_prepared" "text",
     "value_immovable" "text",
     "value_movable" "text",
@@ -5930,10 +5978,13 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_provisional_attachment_records" (
     "date_of_scn_issuance" "date",
     "date_of_release" "date",
     "out_of_monitoring" boolean DEFAULT false,
-    "description_of_property" "text",
     "sio" "uuid",
     "sio_name" "text",
-    "attachment_batch_id" "text"
+    "attachment_batch_id" "text",
+    "bank_name" "text",
+    "bank_ifsc" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -5976,7 +6027,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_records" (
     "handling_io_sio_name" "text",
     "closure_reason" "text",
     "pr_adg_comments_updated_at" timestamp with time zone,
-    CONSTRAINT "dggi_records_group_check" CHECK (("group" = ANY (ARRAY['Group A'::"text", 'Group B'::"text", 'Group C'::"text", 'Group D'::"text", 'Group E'::"text"]))),
+    "created_by" "uuid",
+    "created_by_name" "text",
+    CONSTRAINT "dggi_records_group_check" CHECK (("group" = ANY (ARRAY['Group A'::"text", 'Group B'::"text", 'Group C'::"text", 'Group D'::"text", 'Group E'::"text", 'Group F'::"text"]))),
     CONSTRAINT "dggi_records_mode_of_initiation_check" CHECK (("mode_of_initiation" = ANY (ARRAY['Letter'::"text", 'Email'::"text", 'Summons'::"text", 'Inspection'::"text", 'Search'::"text"])))
 );
 
@@ -6001,7 +6054,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_report_compliance_records" (
     "group" "text",
     "sio" "uuid",
     "sio_name" "text",
-    "submitted_by_name" "text"
+    "submitted_by_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -6036,7 +6091,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_scn_records" (
     "competency" "text",
     "sio_name" "text",
     "adjudicating_authority" "text",
-    "common_adjudicating_authority" "text"
+    "common_adjudicating_authority" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -6070,7 +6127,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_seizure_records" (
     "group" "text",
     "sio" "uuid",
     "sio_name" "text",
-    "seized_by_name" "text"
+    "seized_by_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -6109,7 +6168,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_str_records" (
     "non_ir_no" "text",
     "non_ir_date" "date",
     "sio" "uuid",
-    "sio_name" "text"
+    "sio_name" "text",
+    "created_by" "uuid",
+    "created_by_name" "text"
 );
 
 
@@ -6122,7 +6183,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_user_group_assignments" (
     "group_name" "text" NOT NULL,
     "workspace_id" "uuid" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "dggi_user_group_valid_group" CHECK (("group_name" = ANY (ARRAY['Group A'::"text", 'Group B'::"text", 'Group C'::"text", 'Group D'::"text", 'Group E'::"text"])))
+    CONSTRAINT "dggi_user_group_valid_group" CHECK (("group_name" = ANY (ARRAY['Group A'::"text", 'Group B'::"text", 'Group C'::"text", 'Group D'::"text", 'Group E'::"text", 'Group F'::"text"])))
 );
 
 
@@ -6326,7 +6387,8 @@ CREATE TABLE IF NOT EXISTS "public"."egazette_compliance_obligations" (
     "issuing_authority" "text",
     "tags" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     "processed_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "source" "text" DEFAULT 'egazette'::"text" NOT NULL
 );
 
 
@@ -6380,6 +6442,26 @@ CREATE TABLE IF NOT EXISTS "public"."intake_submissions" (
 
 
 ALTER TABLE "public"."intake_submissions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."ip_block_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "scraper_name" "text" NOT NULL,
+    "court_code" "text",
+    "target_url" "text",
+    "block_type" "text" NOT NULL,
+    "proxy_ip" "text",
+    "response_status" integer,
+    "response_preview" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."ip_block_events" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."ip_block_events" IS 'Tracks every detected IP block/ban across all scrapers to determine when new IPs are needed.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."ipr_clearance_searches" (
@@ -6747,10 +6829,8 @@ CREATE TABLE IF NOT EXISTS "public"."votum_workspace" (
     "notification_settings" "jsonb" DEFAULT '{"timezone": "UTC", "notification_time": "09:00", "invoice_reminders_enabled": true, "task_notifications_enabled": true, "email_notifications_enabled": true}'::"jsonb",
     "cal_team_config" "jsonb" DEFAULT '{}'::"jsonb",
     "delegation_workflow_enabled" boolean DEFAULT false,
-    "quota" integer DEFAULT 0,
     "organization_type" "public"."organization_type" DEFAULT 'other'::"public"."organization_type" NOT NULL,
     "enabled_modules" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
-    "transcription_quota_seconds" integer DEFAULT 0 NOT NULL,
     "transcription_quota_used_seconds" integer DEFAULT 0 NOT NULL,
     "transcription_quota_reset_at" timestamp with time zone DEFAULT "date_trunc"('month'::"text", "now"()) NOT NULL,
     "storage_limit_bytes" bigint DEFAULT '21474836480'::bigint,
@@ -6768,15 +6848,7 @@ COMMENT ON COLUMN "public"."votum_workspace"."cal_team_config" IS 'JSON structur
 
 
 
-COMMENT ON COLUMN "public"."votum_workspace"."quota" IS 'Available translation quota for the workspace (1 quota = 1 page)';
-
-
-
 COMMENT ON COLUMN "public"."votum_workspace"."enabled_modules" IS 'List of module keys enabled for this workspace (e.g. cases, drafts, clm, translate). Controlled by superadmins.';
-
-
-
-COMMENT ON COLUMN "public"."votum_workspace"."transcription_quota_seconds" IS 'Monthly transcription allowance in seconds (default 7200 = 2 hours)';
 
 
 
@@ -7173,38 +7245,20 @@ CREATE TABLE IF NOT EXISTS "public"."pdf_ink_strokes" (
 ALTER TABLE "public"."pdf_ink_strokes" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."playbook_clauses" (
+CREATE TABLE IF NOT EXISTS "public"."police_cctns_checks" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "playbook_id" "uuid" NOT NULL,
     "workspace_id" "uuid" NOT NULL,
-    "clause_type" "text" NOT NULL,
-    "title" "text" NOT NULL,
-    "position" "text" NOT NULL,
-    "notes" "text",
-    "outcome" "text",
-    "sort_order" integer DEFAULT 0,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "checked_date" "date" DEFAULT CURRENT_DATE NOT NULL,
+    "file_name" "text" NOT NULL,
+    "total_firs_in_file" integer NOT NULL,
+    "missing_firs_count" integer NOT NULL,
+    "missing_firs_details" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
 
 
-ALTER TABLE "public"."playbook_clauses" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."playbooks" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workspace_id" "uuid" NOT NULL,
-    "created_by" "uuid" NOT NULL,
-    "name" "text" NOT NULL,
-    "description" "text",
-    "practice_area" "text",
-    "deal_type" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."playbooks" OWNER TO "postgres";
+ALTER TABLE "public"."police_cctns_checks" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."police_fir_co_remarks" (
@@ -7229,7 +7283,6 @@ CREATE TABLE IF NOT EXISTS "public"."police_firs" (
     "circle" "text",
     "act_section" "jsonb",
     "crime_category" "text",
-    "io_name" "text",
     "accused_party_name" "text",
     "custody" "text" DEFAULT 'bail'::"text",
     "blocker" "text",
@@ -7239,7 +7292,11 @@ CREATE TABLE IF NOT EXISTS "public"."police_firs" (
     "created_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"(),
     "io_user_id" "uuid",
-    "station_unit_id" "uuid"
+    "station_unit_id" "uuid",
+    "pdf_url" "text",
+    "fir_pdf_url" "text",
+    "chargesheet_pdf_url" "text",
+    "fr_pdf_url" "text"
 );
 
 
@@ -7247,59 +7304,65 @@ ALTER TABLE "public"."police_firs" OWNER TO "postgres";
 
 
 CREATE OR REPLACE VIEW "public"."police_firs_with_urgency" AS
- SELECT "police_firs"."id",
-    "police_firs"."workspace_id",
-    "police_firs"."fir_no",
-    "police_firs"."registration_date",
-    "police_firs"."police_station",
-    "police_firs"."circle",
-    "police_firs"."act_section",
-    "police_firs"."crime_category",
-    "police_firs"."io_name",
-    "police_firs"."accused_party_name",
-    "police_firs"."custody",
-    "police_firs"."blocker",
-    "police_firs"."time_limit",
-    "police_firs"."status",
-    "police_firs"."remarks",
-    "police_firs"."created_by",
-    "police_firs"."created_at",
-    "police_firs"."io_user_id",
-    "police_firs"."station_unit_id",
-    COALESCE("police_firs"."registration_date", ("police_firs"."created_at")::"date") AS "fir_date_computed",
+ SELECT "f"."id",
+    "f"."workspace_id",
+    "f"."fir_no",
+    "f"."registration_date",
+    "f"."police_station",
+    "f"."circle",
+    "f"."act_section",
+    "f"."crime_category",
+    "f"."accused_party_name",
+    "f"."custody",
+    "f"."blocker",
+    "f"."time_limit",
+    "f"."status",
+    "f"."remarks",
+    "f"."created_by",
+    "f"."created_at",
+    "f"."io_user_id",
+    "f"."station_unit_id",
+    "f"."pdf_url",
+    "f"."fir_pdf_url",
+    "f"."chargesheet_pdf_url",
+    "f"."fr_pdf_url",
+    "u"."name" AS "io_name",
+    COALESCE("f"."registration_date", ("f"."created_at")::"date") AS "fir_date_computed",
         CASE
-            WHEN ("police_firs"."time_limit" = '90 Days'::"text") THEN 90
+            WHEN ("f"."time_limit" = '90 Days'::"text") THEN 90
             ELSE 60
         END AS "track_days",
-    ((COALESCE("police_firs"."registration_date", ("police_firs"."created_at")::"date") + ((
+    ((COALESCE("f"."registration_date", ("f"."created_at")::"date") + ((
         CASE
-            WHEN ("police_firs"."time_limit" = '90 Days'::"text") THEN 90
+            WHEN ("f"."time_limit" = '90 Days'::"text") THEN 90
             ELSE 60
         END)::double precision * '1 day'::interval)))::"date" AS "deadline_date_computed",
-    (((COALESCE("police_firs"."registration_date", ("police_firs"."created_at")::"date") + ((
+    (((COALESCE("f"."registration_date", ("f"."created_at")::"date") + ((
         CASE
-            WHEN ("police_firs"."time_limit" = '90 Days'::"text") THEN 90
+            WHEN ("f"."time_limit" = '90 Days'::"text") THEN 90
             ELSE 60
         END)::double precision * '1 day'::interval)))::"date" - CURRENT_DATE) AS "days_remaining_computed",
         CASE
-            WHEN ((((COALESCE("police_firs"."registration_date", ("police_firs"."created_at")::"date") + ((
+            WHEN ((((COALESCE("f"."registration_date", ("f"."created_at")::"date") + ((
             CASE
-                WHEN ("police_firs"."time_limit" = '90 Days'::"text") THEN 90
+                WHEN ("f"."time_limit" = '90 Days'::"text") THEN 90
                 ELSE 60
             END)::double precision * '1 day'::interval)))::"date" - CURRENT_DATE) < 0) THEN 'breached'::"text"
-            WHEN ((((COALESCE("police_firs"."registration_date", ("police_firs"."created_at")::"date") + ((
+            WHEN ((((COALESCE("f"."registration_date", ("f"."created_at")::"date") + ((
             CASE
-                WHEN ("police_firs"."time_limit" = '90 Days'::"text") THEN 90
+                WHEN ("f"."time_limit" = '90 Days'::"text") THEN 90
                 ELSE 60
             END)::double precision * '1 day'::interval)))::"date" - CURRENT_DATE) <= 7) THEN 'critical'::"text"
-            WHEN ((((COALESCE("police_firs"."registration_date", ("police_firs"."created_at")::"date") + ((
+            WHEN ((((COALESCE("f"."registration_date", ("f"."created_at")::"date") + ((
             CASE
-                WHEN ("police_firs"."time_limit" = '90 Days'::"text") THEN 90
+                WHEN ("f"."time_limit" = '90 Days'::"text") THEN 90
                 ELSE 60
             END)::double precision * '1 day'::interval)))::"date" - CURRENT_DATE) <= 15) THEN 'warning'::"text"
             ELSE 'safe'::"text"
         END AS "urgency_level"
-   FROM "public"."police_firs";
+   FROM ("public"."police_firs" "f"
+     LEFT JOIN "public"."votum_users" "u" ON (("u"."id" = "f"."io_user_id")))
+  WHERE (("f"."status" <> ALL (ARRAY['Chargesheet Filed'::"text", 'Final Report'::"text", 'Stayed'::"text"])) OR ("f"."status" IS NULL));
 
 
 ALTER TABLE "public"."police_firs_with_urgency" OWNER TO "postgres";
@@ -7739,6 +7802,7 @@ CREATE TABLE IF NOT EXISTS "public"."user_postings" (
     "effective_to" "date",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "rank" integer,
     CONSTRAINT "user_postings_check" CHECK ((("effective_to" IS NULL) OR ("effective_to" >= "effective_from")))
 );
 
@@ -7750,52 +7814,8 @@ COMMENT ON TABLE "public"."user_postings" IS 'User designation and org-unit assi
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."votum_approval_workflow_steps" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workflow_id" "uuid" NOT NULL,
-    "signer_id" "uuid",
-    "signer_email" "text" NOT NULL,
-    "signer_name" "text" NOT NULL,
-    "rank" integer NOT NULL,
-    "signer_status" "text" DEFAULT 'not-assigned'::"text" NOT NULL,
-    "opened_on" timestamp with time zone,
-    "signed_on" timestamp with time zone,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone,
-    "last_updated_by" "uuid" NOT NULL,
-    "deadline_days" integer,
-    "deadline_date" timestamp with time zone
-);
+COMMENT ON COLUMN "public"."user_postings"."rank" IS 'Authority rank within the org unit. 1 = head, 2 = deputy, etc. Used for dashboard scoping.';
 
-
-ALTER TABLE "public"."votum_approval_workflow_steps" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."votum_approval_workflows" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "created_by" "uuid" NOT NULL,
-    "type" "text" NOT NULL,
-    "draft_id" "uuid",
-    "document_record_id" "uuid",
-    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
-    "access_type" "text" DEFAULT 'workspace-required'::"text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone,
-    "last_updated_by" "uuid" NOT NULL,
-    "workspace_id" "uuid",
-    "start_date" timestamp with time zone,
-    "use_deadlines" boolean DEFAULT false,
-    "draft_title" "text",
-    "draft_content" "text",
-    "version_number" bigint,
-    "original_draft_updated_at" timestamp with time zone,
-    "task_id" "uuid",
-    CONSTRAINT "valid_workflow_type" CHECK (("type" = ANY (ARRAY['draft'::"text", 'task'::"text"]))),
-    CONSTRAINT "workflow_entity_check" CHECK (((("draft_id" IS NOT NULL) AND ("task_id" IS NULL)) OR (("draft_id" IS NULL) AND ("task_id" IS NOT NULL))))
-);
-
-
-ALTER TABLE "public"."votum_approval_workflows" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."votum_case_custom_fields" (
@@ -7828,6 +7848,10 @@ CREATE TABLE IF NOT EXISTS "public"."votum_clauses" (
 
 
 ALTER TABLE "public"."votum_clauses" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "public"."votum_clauses" IS 'Primary clause storage. Replaced deprecated playbooks/playbook_clauses tables (dropped in migration 042). Includes outcome and notes columns added in migration 007.';
+
 
 
 COMMENT ON COLUMN "public"."votum_clauses"."outcome" IS 'Clause outcome classification: favourable, neutral, or onerous';
@@ -8484,41 +8508,6 @@ Use sync_status = ''NEEDS_SYNC'' to identify tasks that may need manual sync.';
 
 
 
-CREATE OR REPLACE VIEW "public"."vw_task_workflow_status" AS
- SELECT "w"."id" AS "workflow_id",
-    "w"."task_id",
-    "w"."workspace_id",
-    "w"."created_at",
-    "w"."created_by",
-    "w"."status" AS "workflow_status",
-    "count"("s"."id") AS "total_steps",
-    "sum"(
-        CASE
-            WHEN ("s"."signer_status" = 'approved'::"text") THEN 1
-            ELSE 0
-        END) AS "completed_steps",
-        CASE
-            WHEN ("count"("s"."id") = "sum"(
-            CASE
-                WHEN ("s"."signer_status" = 'approved'::"text") THEN 1
-                ELSE 0
-            END)) THEN true
-            ELSE false
-        END AS "is_completed",
-    "min"(
-        CASE
-            WHEN ("s"."signer_status" = 'pending'::"text") THEN "s"."rank"
-            ELSE NULL::integer
-        END) AS "current_step"
-   FROM ("public"."votum_approval_workflows" "w"
-     JOIN "public"."votum_approval_workflow_steps" "s" ON (("w"."id" = "s"."workflow_id")))
-  WHERE ("w"."type" = 'task'::"text")
-  GROUP BY "w"."id", "w"."task_id", "w"."workspace_id", "w"."created_at", "w"."created_by", "w"."status";
-
-
-ALTER TABLE "public"."vw_task_workflow_status" OWNER TO "postgres";
-
-
 CREATE OR REPLACE VIEW "public"."vw_user_delegations" AS
  SELECT "dc"."id" AS "chain_id",
     "dc"."task_id",
@@ -8800,6 +8789,16 @@ ALTER TABLE ONLY "public"."compliance_records"
 
 
 
+ALTER TABLE ONLY "public"."compliance_source_documents"
+    ADD CONSTRAINT "compliance_source_documents_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."compliance_source_documents"
+    ADD CONSTRAINT "compliance_source_documents_source_source_id_key" UNIQUE ("source", "source_id");
+
+
+
 ALTER TABLE ONLY "public"."contact_requests"
     ADD CONSTRAINT "contact_requests_pkey" PRIMARY KEY ("id");
 
@@ -8870,11 +8869,6 @@ ALTER TABLE ONLY "public"."dggi_computed_deadlines"
 
 
 
-ALTER TABLE ONLY "public"."dggi_cpgram_records"
-    ADD CONSTRAINT "dggi_cpgram_records_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."dggi_deadline_alerts_sent"
     ADD CONSTRAINT "dggi_deadline_alerts_sent_pkey" PRIMARY KEY ("id");
 
@@ -8885,23 +8879,8 @@ ALTER TABLE ONLY "public"."dggi_deadline_alerts_sent"
 
 
 
-ALTER TABLE ONLY "public"."dggi_dfl_records"
-    ADD CONSTRAINT "dggi_dfl_records_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."dggi_evidence_room_records"
-    ADD CONSTRAINT "dggi_evidence_room_records_pkey" PRIMARY KEY ("id");
-
-
-
 ALTER TABLE ONLY "public"."dggi_incident_report_records"
     ADD CONSTRAINT "dggi_incident_report_records_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."dggi_informer_reward_records"
-    ADD CONSTRAINT "dggi_informer_reward_records_pkey" PRIMARY KEY ("id");
 
 
 
@@ -8922,6 +8901,16 @@ ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
 
 ALTER TABLE ONLY "public"."dggi_modus_operandi_records"
     ADD CONSTRAINT "dggi_modus_operandi_records_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_mpr_records"
+    ADD CONSTRAINT "dggi_mpr_records_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_mpr_records"
+    ADD CONSTRAINT "dggi_mpr_records_workspace_id_year_month_report_type_key" UNIQUE ("workspace_id", "year", "month", "report_type");
 
 
 
@@ -9050,6 +9039,11 @@ ALTER TABLE ONLY "public"."intake_submissions"
 
 
 
+ALTER TABLE ONLY "public"."ip_block_events"
+    ADD CONSTRAINT "ip_block_events_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."ipr_clearance_searches"
     ADD CONSTRAINT "ipr_clearance_searches_pkey" PRIMARY KEY ("id");
 
@@ -9175,13 +9169,8 @@ ALTER TABLE ONLY "public"."pdf_ink_strokes"
 
 
 
-ALTER TABLE ONLY "public"."playbook_clauses"
-    ADD CONSTRAINT "playbook_clauses_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."playbooks"
-    ADD CONSTRAINT "playbooks_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."police_cctns_checks"
+    ADD CONSTRAINT "police_cctns_checks_pkey" PRIMARY KEY ("id");
 
 
 
@@ -9382,16 +9371,6 @@ ALTER TABLE ONLY "public"."votum_notes"
 
 ALTER TABLE ONLY "public"."votum_notifications"
     ADD CONSTRAINT "votum_notifications_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflows"
-    ADD CONSTRAINT "votum_signing_workflow_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflow_steps"
-    ADD CONSTRAINT "votum_signing_workflow_progress_pkey" PRIMARY KEY ("id");
 
 
 
@@ -9759,23 +9738,7 @@ CREATE INDEX "dggi_closure_records_workspace_idx" ON "public"."dggi_closure_reco
 
 
 
-CREATE INDEX "dggi_cpgram_workspace_idx" ON "public"."dggi_cpgram_records" USING "btree" ("workspace_id");
-
-
-
-CREATE INDEX "dggi_dfl_workspace_idx" ON "public"."dggi_dfl_records" USING "btree" ("workspace_id");
-
-
-
-CREATE INDEX "dggi_evidence_room_workspace_idx" ON "public"."dggi_evidence_room_records" USING "btree" ("workspace_id");
-
-
-
 CREATE INDEX "dggi_incident_report_records_workspace_idx" ON "public"."dggi_incident_report_records" USING "btree" ("workspace_id");
-
-
-
-CREATE INDEX "dggi_informer_reward_workspace_idx" ON "public"."dggi_informer_reward_records" USING "btree" ("workspace_id");
 
 
 
@@ -9959,18 +9922,6 @@ CREATE INDEX "idx_app_event_id" ON "public"."calendar_event_mappings" USING "btr
 
 
 
-CREATE INDEX "idx_approval_workflow_steps_signer_id" ON "public"."votum_approval_workflow_steps" USING "btree" ("signer_id");
-
-
-
-CREATE INDEX "idx_approval_workflow_steps_workflow_id" ON "public"."votum_approval_workflow_steps" USING "btree" ("workflow_id");
-
-
-
-CREATE INDEX "idx_approval_workflows_task_id" ON "public"."votum_approval_workflows" USING "btree" ("task_id");
-
-
-
 CREATE INDEX "idx_audit_logs_action" ON "public"."votum_audit_logs" USING "btree" ("action");
 
 
@@ -10015,7 +9966,15 @@ CREATE INDEX "idx_credit_transactions_type" ON "public"."credit_transactions" US
 
 
 
+CREATE INDEX "idx_delegation_chains_review_status" ON "public"."delegation_chains" USING "btree" ("review_status", "workspace_id") WHERE ("review_status" = 'pending'::"text");
+
+
+
 CREATE INDEX "idx_delegation_chains_task_status" ON "public"."delegation_chains" USING "btree" ("task_id", "status") WHERE ("task_id" IS NOT NULL);
+
+
+
+CREATE INDEX "idx_delegation_steps_chain_id" ON "public"."delegation_steps" USING "btree" ("delegation_chain_id");
 
 
 
@@ -10023,11 +9982,31 @@ CREATE INDEX "idx_delegation_steps_chain_status" ON "public"."delegation_steps" 
 
 
 
+CREATE INDEX "idx_delegation_steps_review_status" ON "public"."delegation_steps" USING "btree" ("delegated_by", "review_status") WHERE ("review_status" = 'pending'::"text");
+
+
+
+CREATE INDEX "idx_dggi_computed_deadlines_group" ON "public"."dggi_computed_deadlines" USING "btree" ("workspace_id", "group_name", "skipped", "deadline_date");
+
+
+
 CREATE INDEX "idx_dggi_computed_deadlines_lookup" ON "public"."dggi_computed_deadlines" USING "btree" ("workspace_id", "deadline_date", "skipped");
 
 
 
+CREATE INDEX "idx_dggi_computed_deadlines_sio" ON "public"."dggi_computed_deadlines" USING "btree" ("workspace_id", "sio_user_id", "skipped", "deadline_date");
+
+
+
+CREATE INDEX "idx_dggi_computed_deadlines_workspace_skipped" ON "public"."dggi_computed_deadlines" USING "btree" ("workspace_id", "skipped", "deadline_date");
+
+
+
 CREATE INDEX "idx_dggi_deadline_alerts_sent_lookup" ON "public"."dggi_deadline_alerts_sent" USING "btree" ("workspace_id", "rule_id", "record_id", "reminder_bucket");
+
+
+
+CREATE INDEX "idx_dggi_mpr_workspace_month" ON "public"."dggi_mpr_records" USING "btree" ("workspace_id", "year", "month");
 
 
 
@@ -10080,6 +10059,14 @@ CREATE INDEX "idx_email_accounts_workspace_id" ON "public"."votum_email_accounts
 
 
 CREATE INDEX "idx_google_event_id" ON "public"."calendar_event_mappings" USING "btree" ("google_event_id");
+
+
+
+CREATE INDEX "idx_ip_block_events_created" ON "public"."ip_block_events" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "idx_ip_block_events_scraper" ON "public"."ip_block_events" USING "btree" ("scraper_name", "created_at" DESC);
 
 
 
@@ -10163,23 +10150,11 @@ CREATE INDEX "idx_notifications_target_user_id" ON "public"."votum_notifications
 
 
 
-CREATE INDEX "idx_playbook_clauses_clause_type" ON "public"."playbook_clauses" USING "btree" ("clause_type");
+CREATE INDEX "idx_police_cctns_checks_checked_date" ON "public"."police_cctns_checks" USING "btree" ("workspace_id", "checked_date");
 
 
 
-CREATE INDEX "idx_playbook_clauses_playbook_id" ON "public"."playbook_clauses" USING "btree" ("playbook_id");
-
-
-
-CREATE INDEX "idx_playbook_clauses_workspace_id" ON "public"."playbook_clauses" USING "btree" ("workspace_id");
-
-
-
-CREATE INDEX "idx_playbooks_practice_area" ON "public"."playbooks" USING "btree" ("practice_area");
-
-
-
-CREATE INDEX "idx_playbooks_workspace_id" ON "public"."playbooks" USING "btree" ("workspace_id");
+CREATE INDEX "idx_police_cctns_checks_workspace_id" ON "public"."police_cctns_checks" USING "btree" ("workspace_id");
 
 
 
@@ -10244,6 +10219,10 @@ CREATE INDEX "idx_stack_documents_stack_id" ON "public"."stack_documents" USING 
 
 
 CREATE INDEX "idx_stacks_workspace_id" ON "public"."stacks" USING "btree" ("workspace_id");
+
+
+
+CREATE INDEX "idx_task_assignees_task_id" ON "public"."task_assignees" USING "btree" ("task_id");
 
 
 
@@ -10364,6 +10343,10 @@ CREATE INDEX "idx_votum_users_checklist_state" ON "public"."votum_users" USING "
 
 
 CREATE INDEX "idx_votum_users_dggi_role" ON "public"."votum_users" USING "btree" ("dggi_role");
+
+
+
+CREATE INDEX "idx_votum_users_id_workspace" ON "public"."votum_users" USING "btree" ("id") INCLUDE ("workspace_id");
 
 
 
@@ -10607,14 +10590,6 @@ CREATE OR REPLACE TRIGGER "notify_high_usage_trigger" AFTER INSERT ON "public"."
 
 
 
-CREATE OR REPLACE TRIGGER "playbook_clauses_updated_at" BEFORE UPDATE ON "public"."playbook_clauses" FOR EACH ROW EXECUTE FUNCTION "public"."playbook_clauses_updated_at"();
-
-
-
-CREATE OR REPLACE TRIGGER "playbooks_updated_at" BEFORE UPDATE ON "public"."playbooks" FOR EACH ROW EXECUTE FUNCTION "public"."playbooks_updated_at"();
-
-
-
 CREATE OR REPLACE TRIGGER "set_billing_period_trigger" BEFORE INSERT ON "public"."api_usage_tracking" FOR EACH ROW EXECUTE FUNCTION "public"."set_billing_period"();
 
 
@@ -10628,18 +10603,6 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."votum_user
 
 
 CREATE OR REPLACE TRIGGER "sync_ownership_on_assignee_change_trigger" AFTER INSERT OR DELETE ON "public"."task_assignees" FOR EACH ROW EXECUTE FUNCTION "public"."sync_ownership_on_assignee_change"();
-
-
-
-CREATE OR REPLACE TRIGGER "task_deletion_trigger" BEFORE DELETE ON "public"."votum_tasks" FOR EACH ROW EXECUTE FUNCTION "public"."delete_workflow_on_task_deletion"();
-
-
-
-CREATE OR REPLACE TRIGGER "task_status_change_trigger" BEFORE UPDATE ON "public"."votum_tasks" FOR EACH ROW WHEN (("old"."status" <> "new"."status")) EXECUTE FUNCTION "public"."validate_task_status_change"();
-
-
-
-CREATE OR REPLACE TRIGGER "task_workflow_completion_trigger" AFTER UPDATE ON "public"."votum_approval_workflow_steps" FOR EACH ROW EXECUTE FUNCTION "public"."update_task_status_on_workflow_completion"();
 
 
 
@@ -10724,10 +10687,6 @@ CREATE OR REPLACE TRIGGER "votum_tasks_after_delete_trg" AFTER DELETE ON "public
 
 
 CREATE OR REPLACE TRIGGER "worker_proxy_ips_updated_at" BEFORE UPDATE ON "public"."worker_proxy_ips" FOR EACH ROW EXECUTE FUNCTION "public"."update_worker_proxy_ips_updated_at"();
-
-
-
-CREATE OR REPLACE TRIGGER "workflow_task_status_trigger" AFTER INSERT OR DELETE ON "public"."votum_approval_workflows" FOR EACH ROW EXECUTE FUNCTION "public"."update_task_workflow_status"();
 
 
 
@@ -10871,8 +10830,18 @@ ALTER TABLE ONLY "public"."delegation_steps"
 
 
 
+ALTER TABLE ONLY "public"."delegation_steps"
+    ADD CONSTRAINT "delegation_steps_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "public"."votum_users"("id");
+
+
+
 ALTER TABLE ONLY "public"."designations"
     ADD CONSTRAINT "designations_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."dggi_alert_circular_records"
+    ADD CONSTRAINT "dggi_alert_circular_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10882,7 +10851,17 @@ ALTER TABLE ONLY "public"."dggi_alert_circular_records"
 
 
 ALTER TABLE ONLY "public"."dggi_arrest_records"
+    ADD CONSTRAINT "dggi_arrest_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_arrest_records"
     ADD CONSTRAINT "dggi_arrest_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dggi_closure_records"
+    ADD CONSTRAINT "dggi_closure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10891,23 +10870,8 @@ ALTER TABLE ONLY "public"."dggi_closure_records"
 
 
 
-ALTER TABLE ONLY "public"."dggi_cpgram_records"
-    ADD CONSTRAINT "dggi_cpgram_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."dggi_dfl_records"
-    ADD CONSTRAINT "dggi_dfl_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."dggi_evidence_room_records"
-    ADD CONSTRAINT "dggi_evidence_room_records_seized_by_fkey" FOREIGN KEY ("seized_by") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."dggi_evidence_room_records"
-    ADD CONSTRAINT "dggi_evidence_room_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+ALTER TABLE ONLY "public"."dggi_incident_report_records"
+    ADD CONSTRAINT "dggi_incident_report_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10916,8 +10880,13 @@ ALTER TABLE ONLY "public"."dggi_incident_report_records"
 
 
 
-ALTER TABLE ONLY "public"."dggi_informer_reward_records"
-    ADD CONSTRAINT "dggi_informer_reward_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+ALTER TABLE ONLY "public"."dggi_intel_closure_records"
+    ADD CONSTRAINT "dggi_intel_closure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_intel_other_source_records"
+    ADD CONSTRAINT "dggi_intel_other_source_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10932,7 +10901,17 @@ ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
 
 
 ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
+    ADD CONSTRAINT "dggi_intel_rapid_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
     ADD CONSTRAINT "dggi_intel_rapid_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dggi_modus_operandi_records"
+    ADD CONSTRAINT "dggi_modus_operandi_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10942,7 +10921,17 @@ ALTER TABLE ONLY "public"."dggi_modus_operandi_records"
 
 
 ALTER TABLE ONLY "public"."dggi_non_ir_case_records"
+    ADD CONSTRAINT "dggi_non_ir_case_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_non_ir_case_records"
     ADD CONSTRAINT "dggi_non_ir_case_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dggi_prosecution_arrest_records"
+    ADD CONSTRAINT "dggi_prosecution_arrest_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10957,7 +10946,17 @@ ALTER TABLE ONLY "public"."dggi_prosecution_arrest_records"
 
 
 ALTER TABLE ONLY "public"."dggi_prosecution_non_arrest_records"
+    ADD CONSTRAINT "dggi_prosecution_non_arrest_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_prosecution_non_arrest_records"
     ADD CONSTRAINT "dggi_prosecution_non_arrest_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dggi_provisional_attachment_records"
+    ADD CONSTRAINT "dggi_provisional_attachment_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10972,7 +10971,17 @@ ALTER TABLE ONLY "public"."dggi_records"
 
 
 ALTER TABLE ONLY "public"."dggi_records"
+    ADD CONSTRAINT "dggi_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_records"
     ADD CONSTRAINT "dggi_records_handling_io_sio_fkey" FOREIGN KEY ("handling_io_sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dggi_report_compliance_records"
+    ADD CONSTRAINT "dggi_report_compliance_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10982,7 +10991,17 @@ ALTER TABLE ONLY "public"."dggi_report_compliance_records"
 
 
 ALTER TABLE ONLY "public"."dggi_scn_records"
+    ADD CONSTRAINT "dggi_scn_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."dggi_scn_records"
     ADD CONSTRAINT "dggi_scn_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dggi_seizure_records"
+    ADD CONSTRAINT "dggi_seizure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -10993,6 +11012,11 @@ ALTER TABLE ONLY "public"."dggi_seizure_records"
 
 ALTER TABLE ONLY "public"."dggi_seizure_records"
     ADD CONSTRAINT "dggi_seizure_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."dggi_str_records"
+    ADD CONSTRAINT "dggi_str_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 
 
@@ -11221,8 +11245,13 @@ ALTER TABLE ONLY "public"."outreach_sequence_log"
 
 
 
-ALTER TABLE ONLY "public"."playbook_clauses"
-    ADD CONSTRAINT "playbook_clauses_playbook_id_fkey" FOREIGN KEY ("playbook_id") REFERENCES "public"."playbooks"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."police_cctns_checks"
+    ADD CONSTRAINT "police_cctns_checks_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."police_cctns_checks"
+    ADD CONSTRAINT "police_cctns_checks_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id") ON DELETE CASCADE;
 
 
 
@@ -11386,11 +11415,6 @@ ALTER TABLE ONLY "public"."user_postings"
 
 
 
-ALTER TABLE ONLY "public"."votum_approval_workflows"
-    ADD CONSTRAINT "votum_approval_workflows_task_id_fkey" FOREIGN KEY ("task_id") REFERENCES "public"."votum_tasks"("id") ON DELETE CASCADE;
-
-
-
 ALTER TABLE ONLY "public"."votum_audit_logs"
     ADD CONSTRAINT "votum_audit_logs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
@@ -11503,41 +11527,6 @@ ALTER TABLE ONLY "public"."votum_notifications"
 
 ALTER TABLE ONLY "public"."votum_notifications"
     ADD CONSTRAINT "votum_notifications_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id");
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflows"
-    ADD CONSTRAINT "votum_signing_workflow_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."votum_users"("id");
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflows"
-    ADD CONSTRAINT "votum_signing_workflow_draft_id_fkey" FOREIGN KEY ("draft_id") REFERENCES "public"."drafts"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflows"
-    ADD CONSTRAINT "votum_signing_workflow_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflow_steps"
-    ADD CONSTRAINT "votum_signing_workflow_progress_last_updated_by_fkey" FOREIGN KEY ("last_updated_by") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflow_steps"
-    ADD CONSTRAINT "votum_signing_workflow_progress_signer_id_fkey" FOREIGN KEY ("signer_id") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflow_steps"
-    ADD CONSTRAINT "votum_signing_workflow_progress_workflow_id_fkey" FOREIGN KEY ("workflow_id") REFERENCES "public"."votum_approval_workflows"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."votum_approval_workflows"
-    ADD CONSTRAINT "votum_signing_workflow_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id") ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 
@@ -11847,6 +11836,95 @@ ALTER TABLE "public"."credit_packages" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."credit_transactions" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."delegation_chains" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "delegation_chains_delete" ON "public"."delegation_chains" FOR DELETE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "delegation_chains_insert" ON "public"."delegation_chains" FOR INSERT WITH CHECK (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "delegation_chains_select" ON "public"."delegation_chains" FOR SELECT USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "delegation_chains_update" ON "public"."delegation_chains" FOR UPDATE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+ALTER TABLE "public"."delegation_steps" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "delegation_steps_delete" ON "public"."delegation_steps" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."delegation_chains" "c"
+  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "delegation_steps_insert" ON "public"."delegation_steps" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."delegation_chains" "c"
+  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "delegation_steps_select" ON "public"."delegation_steps" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."delegation_chains" "c"
+  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "delegation_steps_update" ON "public"."delegation_steps" FOR UPDATE USING ((EXISTS ( SELECT 1
+   FROM "public"."delegation_chains" "c"
+  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+ALTER TABLE "public"."designations" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "designations_delete" ON "public"."designations" FOR DELETE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "designations_insert" ON "public"."designations" FOR INSERT WITH CHECK (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "designations_select" ON "public"."designations" FOR SELECT USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "designations_update" ON "public"."designations" FOR UPDATE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
 ALTER TABLE "public"."dggi_computed_deadlines" ENABLE ROW LEVEL SECURITY;
 
 
@@ -11890,12 +11968,6 @@ CREATE POLICY "ipr_matters_update_policy" ON "public"."ipr_matters" FOR UPDATE U
 
 
 
-ALTER TABLE "public"."playbook_clauses" ENABLE ROW LEVEL SECURITY;
-
-
-ALTER TABLE "public"."playbooks" ENABLE ROW LEVEL SECURITY;
-
-
 CREATE POLICY "public insert intake_submissions" ON "public"."intake_submissions" FOR INSERT TO "anon" WITH CHECK (true);
 
 
@@ -11907,6 +11979,132 @@ CREATE POLICY "public read active intake_forms" ON "public"."intake_forms" FOR S
 ALTER TABLE "public"."razorpay_transactions" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."task_assignees" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "task_assignees_delete" ON "public"."task_assignees" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."votum_tasks" "t"
+  WHERE (("t"."id" = "task_assignees"."task_id") AND ("t"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "task_assignees_insert" ON "public"."task_assignees" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."votum_tasks" "t"
+  WHERE (("t"."id" = "task_assignees"."task_id") AND ("t"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "task_assignees_select" ON "public"."task_assignees" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."votum_tasks" "t"
+  WHERE (("t"."id" = "task_assignees"."task_id") AND ("t"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+ALTER TABLE "public"."task_documents" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "task_documents_delete" ON "public"."task_documents" FOR DELETE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "task_documents_insert" ON "public"."task_documents" FOR INSERT WITH CHECK (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "task_documents_select" ON "public"."task_documents" FOR SELECT USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "task_documents_update" ON "public"."task_documents" FOR UPDATE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "tasks_delete_creator_only" ON "public"."votum_tasks" FOR DELETE USING ((("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))) AND ("created_by" = "auth"."uid"())));
+
+
+
+CREATE POLICY "tasks_insert_own_workspace" ON "public"."votum_tasks" FOR INSERT WITH CHECK (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "tasks_select_workspace" ON "public"."votum_tasks" FOR SELECT USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "tasks_update_own_workspace" ON "public"."votum_tasks" FOR UPDATE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "team_members_delete" ON "public"."votum_team_members" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."votum_teams" "t"
+  WHERE (("t"."id" = "votum_team_members"."team_id") AND ("t"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "team_members_insert" ON "public"."votum_team_members" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."votum_teams" "t"
+  WHERE (("t"."id" = "votum_team_members"."team_id") AND ("t"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "team_members_select" ON "public"."votum_team_members" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM "public"."votum_teams" "t"
+  WHERE (("t"."id" = "votum_team_members"."team_id") AND ("t"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
+           FROM "public"."votum_users"
+          WHERE ("votum_users"."id" = "auth"."uid"())))))));
+
+
+
+CREATE POLICY "teams_delete_workspace" ON "public"."votum_teams" FOR DELETE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "teams_insert_workspace" ON "public"."votum_teams" FOR INSERT WITH CHECK (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "teams_select_workspace" ON "public"."votum_teams" FOR SELECT USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "teams_update_workspace" ON "public"."votum_teams" FOR UPDATE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
+
+
+
 ALTER TABLE "public"."user_credits" ENABLE ROW LEVEL SECURITY;
 
 
@@ -11915,6 +12113,18 @@ CREATE POLICY "users can view own transactions" ON "public"."razorpay_transactio
 
 
 ALTER TABLE "public"."votum_task_ownership_periods" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."votum_tasks" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."votum_team_members" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."votum_teams" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."votum_workspace" ENABLE ROW LEVEL SECURITY;
 
 
 CREATE POLICY "workspace members can delete compliance records" ON "public"."compliance_records" FOR DELETE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
@@ -11967,15 +12177,17 @@ CREATE POLICY "workspace members read submissions" ON "public"."intake_submissio
 
 
 
-CREATE POLICY "workspace_members_can_access_playbook_clauses" ON "public"."playbook_clauses" USING (("workspace_id" IN ( SELECT "playbook_clauses"."workspace_id"
-   FROM "public"."votum_team_members"
-  WHERE ("votum_team_members"."user_id" = "auth"."uid"()))));
+CREATE POLICY "workspace_select_own" ON "public"."votum_workspace" FOR SELECT USING (("id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))));
 
 
 
-CREATE POLICY "workspace_members_can_access_playbooks" ON "public"."playbooks" USING (("workspace_id" IN ( SELECT "playbooks"."workspace_id"
-   FROM "public"."votum_team_members"
-  WHERE ("votum_team_members"."user_id" = "auth"."uid"()))));
+CREATE POLICY "workspace_update_admin" ON "public"."votum_workspace" FOR UPDATE USING ((("id" IN ( SELECT "votum_users"."workspace_id"
+   FROM "public"."votum_users"
+  WHERE ("votum_users"."id" = "auth"."uid"()))) AND (EXISTS ( SELECT 1
+   FROM "public"."votum_users"
+  WHERE (("votum_users"."id" = "auth"."uid"()) AND ("votum_users"."role" = ANY (ARRAY['admin'::"text", 'superadmin'::"text"])))))));
 
 
 
@@ -12236,6 +12448,11 @@ GRANT ALL ON FUNCTION "public"."claim_keyword_tasks"("p_run_id" "uuid", "p_worke
 
 
 
+GRANT ALL ON FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_task_queue_progress"("p_run_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_task_queue_progress"("p_run_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_task_queue_progress"("p_run_id" "uuid") TO "service_role";
@@ -12473,6 +12690,11 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."compliance_records" TO "ser
 
 
 
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."compliance_source_documents" TO "service_role";
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."compliance_source_documents" TO "authenticated";
+
+
+
 GRANT ALL ON TABLE "public"."task_assignees" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."task_assignees" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."task_assignees" TO "service_role";
@@ -12573,39 +12795,15 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_computed_deadlines" TO
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_cpgram_records" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_cpgram_records" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_cpgram_records" TO "service_role";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_deadline_alerts_sent" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_deadline_alerts_sent" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_deadline_alerts_sent" TO "service_role";
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_dfl_records" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_dfl_records" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_dfl_records" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_evidence_room_records" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_evidence_room_records" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_evidence_room_records" TO "service_role";
-
-
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_incident_report_records" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_incident_report_records" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_incident_report_records" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_informer_reward_records" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_informer_reward_records" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_informer_reward_records" TO "service_role";
 
 
 
@@ -12630,6 +12828,10 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_intel_rapid_records" T
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_modus_operandi_records" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_modus_operandi_records" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_modus_operandi_records" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."dggi_mpr_records" TO "authenticated";
 
 
 
@@ -12768,6 +12970,10 @@ GRANT INSERT ON TABLE "public"."intake_submissions" TO "anon";
 GRANT ALL ON TABLE "public"."intake_submissions" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."intake_submissions" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."intake_submissions" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."ip_block_events" TO "authenticated";
 
 
 
@@ -12936,15 +13142,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."pdf_ink_strokes" TO "servic
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."playbook_clauses" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."playbook_clauses" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."playbook_clauses" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."playbooks" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."playbooks" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."playbooks" TO "service_role";
+GRANT ALL ON TABLE "public"."police_cctns_checks" TO "authenticated";
 
 
 
@@ -12960,7 +13158,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."police_firs" TO "service_ro
 
 
 
-GRANT ALL ON TABLE "public"."police_firs_with_urgency" TO PUBLIC;
+GRANT ALL ON TABLE "public"."police_firs_with_urgency" TO "authenticated";
 
 
 
@@ -13063,18 +13261,6 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."user_credits" TO "service_r
 GRANT ALL ON TABLE "public"."user_postings" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."user_postings" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."user_postings" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."votum_approval_workflow_steps" TO PUBLIC;
-GRANT ALL ON TABLE "public"."votum_approval_workflow_steps" TO "service_role";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."votum_approval_workflow_steps" TO "authenticated";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."votum_approval_workflows" TO PUBLIC;
-GRANT ALL ON TABLE "public"."votum_approval_workflows" TO "service_role";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."votum_approval_workflows" TO "authenticated";
 
 
 
@@ -13283,12 +13469,6 @@ GRANT ALL ON TABLE "public"."votum_user_tokens" TO "service_role";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_delegation_sync_status" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_delegation_sync_status" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_delegation_sync_status" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_workflow_status" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_workflow_status" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_workflow_status" TO "service_role";
 
 
 
