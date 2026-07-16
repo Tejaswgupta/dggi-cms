@@ -80,6 +80,11 @@ import {
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import {
+  AdgCommentThread,
+  parseAdgComments,
+  serializeAdgComments,
+} from "./AdgCommentThread";
 import { type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
@@ -91,12 +96,6 @@ import {
   type RegisterColumn,
   type ScnOption,
 } from "./RegisterRecordDialog";
-import {
-  AdgCommentThread,
-  parseAdgComments,
-  serializeAdgComments,
-  type AdgComment,
-} from "./AdgCommentThread";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -119,19 +118,15 @@ const MODE_OPTIONS: ModeOfInitiation[] = [
 
 const OTHER_SENTINEL = "__other__";
 
-
-
 type GroupByField =
   | "group"
   | "mode_of_initiation"
-  | "handling_io_sio"
-  | "is_ir";
+  | "handling_io_sio";
 
 const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
   { value: "group", label: "Group" },
   { value: "mode_of_initiation", label: "Mode of Initiation" },
   { value: "handling_io_sio", label: "Handling SIO" },
-  { value: "is_ir", label: "IR / NON-IR" },
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -177,6 +172,7 @@ interface WorkspaceUser {
   id: string;
   name: string;
   email: string;
+  dggi_role?: string;
 }
 
 interface Filters {
@@ -719,20 +715,24 @@ function UserCombobox({
   onChange,
   users,
   className,
+  filterRole,
 }: {
   value: string;
   onChange: (v: string) => void;
   users: WorkspaceUser[];
   className?: string;
+  filterRole?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const filtered = users.filter(
-    (u) =>
-      u.name?.toLowerCase().includes(query.toLowerCase()) ||
-      u.email?.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = users
+    .filter((u) => !filterRole || u.dggi_role === filterRole)
+    .filter(
+      (u) =>
+        u.name?.toLowerCase().includes(query.toLowerCase()) ||
+        u.email?.toLowerCase().includes(query.toLowerCase()),
+    );
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={true}>
@@ -804,6 +804,7 @@ function EditableCell({
   users,
   readOnly,
   storedName,
+  columnKey,
 }: {
   value: string | boolean;
   type:
@@ -821,17 +822,23 @@ function EditableCell({
   users?: WorkspaceUser[];
   readOnly?: boolean;
   storedName?: string;
+  columnKey?: string;
 }) {
   if (!editing || readOnly) {
     if (type === "adgcomments") {
       const comments = parseAdgComments(value as string);
-      if (comments.length === 0) return <span className="text-[#9a9a96]">—</span>;
+      if (comments.length === 0)
+        return <span className="text-[#9a9a96]">—</span>;
       const last = comments[comments.length - 1];
       return (
         <div className="flex flex-col gap-0.5 max-w-[190px]">
-          <span className="text-base text-[#1a1a1a] truncate" title={last.text}>{last.text}</span>
+          <span className="text-base text-[#1a1a1a] truncate" title={last.text}>
+            {last.text}
+          </span>
           {comments.length > 1 && (
-            <span className="text-xs text-[#9a9a96]">+{comments.length - 1} more</span>
+            <span className="text-xs text-[#9a9a96]">
+              +{comments.length - 1} more
+            </span>
           )}
         </div>
       );
@@ -870,6 +877,7 @@ function EditableCell({
         value={value as string}
         onChange={(v) => onChange(v)}
         users={users ?? []}
+        filterRole={columnKey === "handling_io_sio" ? "SIO" : undefined}
       />
     );
   }
@@ -1092,11 +1100,13 @@ function UserFilter({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
-  const filtered = users.filter(
-    (u) =>
-      u.name?.toLowerCase().includes(query.toLowerCase()) ||
-      u.email?.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = users
+    .filter((u) => u.dggi_role === "SIO")
+    .filter(
+      (u) =>
+        u.name?.toLowerCase().includes(query.toLowerCase()) ||
+        u.email?.toLowerCase().includes(query.toLowerCase()),
+    );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -1172,8 +1182,6 @@ function UserFilter({
     </Popover>
   );
 }
-
-
 
 // ─── Intel source types ───────────────────────────────────────────────────────
 
@@ -2238,7 +2246,13 @@ const NON_IR_STAGES: {
       "date_of_initiation",
       "issue_involved",
     ],
-    requiredFields: ["group", "intel_source", "taxpayer_name", "file_no", "handling_io_sio"],
+    requiredFields: [
+      "group",
+      "intel_source",
+      "taxpayer_name",
+      "file_no",
+      "handling_io_sio",
+    ],
   },
   {
     label: "Intelligence Action",
@@ -2394,6 +2408,7 @@ export function DGGIRecordDialog({
           onChange={(v) => onDraftChange(col.key, v)}
           users={users}
           className="w-full h-9"
+          filterRole={col.key === "handling_io_sio" ? "SIO" : undefined}
         />
       );
     }
@@ -2777,28 +2792,30 @@ export function DGGIRecordDialog({
                           (draft as any).intel_source === "Int",
                       )
                       .map((col) => (
-                      <div
-                        key={col.key}
-                        className={`flex flex-col gap-1.5 ${col.key === "pr_adg_comments" ? "col-span-2" : ""}`}
-                      >
-                        <label
-                          className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
+                        <div
+                          key={col.key}
+                          className={`flex flex-col gap-1.5 ${col.key === "pr_adg_comments" ? "col-span-2" : ""}`}
                         >
-                          {col.label}
-                          {stage.requiredFields.includes(
-                            col.key as keyof DGGIRecord,
-                          ) && <span className="text-[#C0432A] ml-0.5">*</span>}
-                        </label>
-                        {renderField(
-                          col,
-                          !unlocked ||
-                            (mode === "edit" &&
-                              FROZEN_ON_EDIT.has(
-                                col.key as keyof DGGIRecord,
-                              )),
-                        )}
-                      </div>
-                    ))}
+                          <label
+                            className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
+                          >
+                            {col.label}
+                            {stage.requiredFields.includes(
+                              col.key as keyof DGGIRecord,
+                            ) && (
+                              <span className="text-[#C0432A] ml-0.5">*</span>
+                            )}
+                          </label>
+                          {renderField(
+                            col,
+                            !unlocked ||
+                              (mode === "edit" &&
+                                FROZEN_ON_EDIT.has(
+                                  col.key as keyof DGGIRecord,
+                                )),
+                          )}
+                        </div>
+                      ))}
                     {stage.label === "Closure" &&
                       (draft.closure_by === "Transfer To" ||
                         draft.closure_by === "Transferred") && (
@@ -2923,12 +2940,14 @@ function BulkTransferDialog({
   };
 
   const affectedCount = fromUserId
-    ? records.filter((r) => r.handling_io_sio === fromUserId && !r.closure_by).length
+    ? records.filter((r) => r.handling_io_sio === fromUserId && !r.closure_by)
+        .length
     : 0;
 
   const fromUser = users.find((u) => u.id === fromUserId);
   const toUser = users.find((u) => u.id === toUserId);
-  const canTransfer = fromUserId && toUserId && fromUserId !== toUserId && affectedCount > 0;
+  const canTransfer =
+    fromUserId && toUserId && fromUserId !== toUserId && affectedCount > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -2943,12 +2962,15 @@ function BulkTransferDialog({
         <div className="space-y-4 py-1">
           {/* From */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#6b6b6b]">Transfer from</label>
+            <label className="text-sm font-medium text-[#6b6b6b]">
+              Transfer from
+            </label>
             <UserCombobox
               value={fromUserId}
               onChange={setFromUserId}
               users={users}
               className="w-full h-9"
+              filterRole="SIO"
             />
             {fromUserId && (
               <p className="text-sm text-[#9a9a96]">
@@ -2961,20 +2983,27 @@ function BulkTransferDialog({
 
           {/* To */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#6b6b6b]">Transfer to</label>
+            <label className="text-sm font-medium text-[#6b6b6b]">
+              Transfer to
+            </label>
             <UserCombobox
               value={toUserId}
               onChange={setToUserId}
               users={users.filter((u) => u.id !== fromUserId)}
               className="w-full h-9"
+              filterRole="SIO"
             />
           </div>
 
           {/* Confirmation summary */}
           {canTransfer && (
             <div className="rounded-xl border border-[#4A5FD4]/20 bg-[#EEF2FF] px-4 py-3 text-sm text-[#4A5FD4]">
-              <span className="font-medium">{affectedCount} case{affectedCount !== 1 ? "s" : ""}</span>
-              {" and their linked SCN, Arrest, and Provisional Attachment records will be reassigned from "}
+              <span className="font-medium">
+                {affectedCount} case{affectedCount !== 1 ? "s" : ""}
+              </span>
+              {
+                " and their linked SCN, Arrest, and Provisional Attachment records will be reassigned from "
+              }
               <span className="font-medium">{fromUser?.name}</span>
               {" to "}
               <span className="font-medium">{toUser?.name}</span>.
@@ -2998,7 +3027,9 @@ function BulkTransferDialog({
             onClick={() => onTransfer(fromUserId, toUserId)}
             disabled={!canTransfer || transferring}
           >
-            {transferring ? "Transferring…" : `Transfer ${affectedCount > 0 ? affectedCount : ""} Case${affectedCount !== 1 ? "s" : ""}`}
+            {transferring
+              ? "Transferring…"
+              : `Transfer ${affectedCount > 0 ? affectedCount : ""} Case${affectedCount !== 1 ? "s" : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -3062,7 +3093,9 @@ const DGGIComponent = () => {
     }
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
-  const [unseenAdgComments, setUnseenAdgComments] = useState<Set<string>>(new Set());
+  const [unseenAdgComments, setUnseenAdgComments] = useState<Set<string>>(
+    new Set(),
+  );
   const [bulkTransferOpen, setBulkTransferOpen] = useState(false);
   const [transferring, setTransferring] = useState(false);
 
@@ -3192,14 +3225,17 @@ const DGGIComponent = () => {
     setRecords(data ?? []);
   };
 
-  // ── Unseen ADG comments (for IO/SIO only) ────────────────────────────────
-  // After records load, mark any record whose pr_adg_comments_updated_at is
+  // ── Unseen ADG comments (for SIO only) ────────────────────────────────
   // newer than the timestamp we last stored in localStorage for that record id.
   useEffect(() => {
-    if (userRole === "ADG" || !records.length || !currentUserId || !workspaceId) return;
+    if (userRole === "ADG" || !records.length || !currentUserId || !workspaceId)
+      return;
     let seen: Record<string, string> = {};
     try {
-      seen = JSON.parse(localStorage.getItem(adgCommentSeenKey(currentUserId, workspaceId)) ?? "{}");
+      seen = JSON.parse(
+        localStorage.getItem(adgCommentSeenKey(currentUserId, workspaceId)) ??
+          "{}",
+      );
     } catch {}
     const unseen = new Set<string>();
     for (const r of records) {
@@ -3381,14 +3417,20 @@ const DGGIComponent = () => {
     const hadClosureBefore = !!existingRecord?.closure_by;
     const isNowClosed = !!dialogDraft.closure_by;
     const shouldWriteClosureEntry = !hadClosureBefore && isNowClosed;
-    const normNew = serializeAdgComments(parseAdgComments(dialogDraft.pr_adg_comments));
-    const normOld = serializeAdgComments(parseAdgComments(existingRecord?.pr_adg_comments));
+    const normNew = serializeAdgComments(
+      parseAdgComments(dialogDraft.pr_adg_comments),
+    );
+    const normOld = serializeAdgComments(
+      parseAdgComments(existingRecord?.pr_adg_comments),
+    );
     const commentChanged = userRole === "ADG" && normNew !== normOld;
 
     const updatePayload: Record<string, any> = { ...dialogDraft };
     if (userRole !== "ADG") delete updatePayload.pr_adg_comments;
     else if (updatePayload.pr_adg_comments !== undefined) {
-      updatePayload.pr_adg_comments = parseAdgComments(updatePayload.pr_adg_comments);
+      updatePayload.pr_adg_comments = parseAdgComments(
+        updatePayload.pr_adg_comments,
+      );
     }
 
     const { error } = await supabase
@@ -3459,7 +3501,9 @@ const DGGIComponent = () => {
           handling_io_sio: dialogDraft.handling_io_sio || null,
           issue_involved: dialogDraft.issue_involved || null,
           latest_status: dialogDraft.latest_status || null,
-          pr_adg_comments: dialogDraft.pr_adg_comments ? parseAdgComments(dialogDraft.pr_adg_comments) : null,
+          pr_adg_comments: dialogDraft.pr_adg_comments
+            ? parseAdgComments(dialogDraft.pr_adg_comments)
+            : null,
           detection_amount: dialogDraft.detection_amount || null,
           recovery_itc: dialogDraft.recovery_itc || null,
           recovery_cash: dialogDraft.recovery_cash || null,
@@ -3511,7 +3555,10 @@ const DGGIComponent = () => {
           row_id: dialogEditingId,
           deadline_date: new Date().toISOString().slice(0, 10),
           days_until: 0,
-          label: `ADG comment on ${dialogDraft.record_id ?? "case"}: ${(() => { const c = parseAdgComments(dialogDraft.pr_adg_comments ?? ""); return c.length ? c[c.length - 1].text.slice(0, 80) : ""; })()}`,
+          label: `ADG comment on ${dialogDraft.record_id ?? "case"}: ${(() => {
+            const c = parseAdgComments(dialogDraft.pr_adg_comments ?? "");
+            return c.length ? c[c.length - 1].text.slice(0, 80) : "";
+          })()}`,
           legal_reference: null,
         }));
         await supabase.from("dggi_notifications").insert(notifRows);
@@ -3568,7 +3615,10 @@ const DGGIComponent = () => {
     const [caseRes, scnRes, arrestRes, provRes] = await Promise.all([
       supabase
         .from("dggi_records")
-        .update({ handling_io_sio: toUserId, handling_io_sio_name: newUser.name })
+        .update({
+          handling_io_sio: toUserId,
+          handling_io_sio_name: newUser.name,
+        })
         .eq("handling_io_sio", fromUserId)
         .eq("workspace_id", workspaceId)
         .is("closure_by", null),
@@ -3611,7 +3661,11 @@ const DGGIComponent = () => {
       setRecords((prev) =>
         prev.map((r) =>
           r.handling_io_sio === fromUserId && !r.closure_by
-            ? { ...r, handling_io_sio: toUserId, handling_io_sio_name: newUser.name }
+            ? {
+                ...r,
+                handling_io_sio: toUserId,
+                handling_io_sio_name: newUser.name,
+              }
             : r,
         ),
       );
@@ -3634,7 +3688,10 @@ const DGGIComponent = () => {
     setSavingRow(true);
     const payload = {
       ...draft,
-      pr_adg_comments: userRole === "ADG" && draft.pr_adg_comments ? (parseAdgComments(draft.pr_adg_comments) as any) : null,
+      pr_adg_comments:
+        userRole === "ADG" && draft.pr_adg_comments
+          ? (parseAdgComments(draft.pr_adg_comments) as any)
+          : null,
       record_id: await generateWorkspaceRecordId(
         supabase,
         "dggi_records",
@@ -3661,7 +3718,8 @@ const DGGIComponent = () => {
       converted_from_non_ir: draft.converted_from_non_ir || null,
       workspace_id: workspaceId,
       created_by: currentUserId || null,
-      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
+      created_by_name:
+        workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     if (userRole !== "ADG") {
       delete (payload as any).pr_adg_comments;
@@ -3755,7 +3813,9 @@ const DGGIComponent = () => {
             handling_io_sio: sourceDraft.handling_io_sio || null,
             issue_involved: sourceDraft.issue_involved || null,
             latest_status: sourceDraft.latest_status || null,
-            pr_adg_comments: sourceDraft.pr_adg_comments ? parseAdgComments(sourceDraft.pr_adg_comments) : null,
+            pr_adg_comments: sourceDraft.pr_adg_comments
+              ? parseAdgComments(sourceDraft.pr_adg_comments)
+              : null,
             detection_amount: sourceDraft.detection_amount || null,
             recovery_itc: sourceDraft.recovery_itc || null,
             recovery_cash: sourceDraft.recovery_cash || null,
@@ -3956,7 +4016,8 @@ const DGGIComponent = () => {
       ),
       workspace_id: workspaceId,
       created_by: currentUserId || null,
-      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
+      created_by_name:
+        workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     const { data, error } = await supabase
       .from("dggi_arrest_records")
@@ -4100,7 +4161,8 @@ const DGGIComponent = () => {
       ),
       workspace_id: workspaceId,
       created_by: currentUserId || null,
-      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
+      created_by_name:
+        workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     const { data, error } = await supabase
       .from("dggi_provisional_attachment_records")
@@ -4211,7 +4273,8 @@ const DGGIComponent = () => {
       ),
       workspace_id: workspaceId,
       created_by: currentUserId || null,
-      created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
+      created_by_name:
+        workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
     const { data, error } = await supabase
       .from("dggi_scn_records")
@@ -4494,6 +4557,7 @@ const DGGIComponent = () => {
                   editing={false}
                   users={workspaceUsers}
                   readOnly={col.readOnly}
+                  columnKey={col.key}
                   onChange={() => {}}
                 />
               </div>
@@ -4510,6 +4574,7 @@ const DGGIComponent = () => {
                     ? record.handling_io_sio_name
                     : undefined
                 }
+                columnKey={col.key}
                 onChange={() => {}}
               />
             )}
@@ -4886,32 +4951,6 @@ const DGGIComponent = () => {
               onChange={(v) => setFilter("modes", v)}
             />
 
-            {/* Group */}
-            <Select
-              value={groupFilter ?? "all"}
-              onValueChange={(v) =>
-                setGroupFilter(v === "all" ? null : (v as GroupName))
-              }
-            >
-              <SelectTrigger
-                className={`h-9 w-[130px] rounded-lg text-base border ${
-                  groupFilter
-                    ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]"
-                    : "border-[#EDEDEA] text-[#1a1a1a]"
-                }`}
-              >
-                <SelectValue placeholder="Group" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Groups</SelectItem>
-                {GROUPS.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             {/* Handling IO/SIO */}
             <UserFilter
               value={filters.handlingIo}
@@ -5058,118 +5097,118 @@ const DGGIComponent = () => {
 
         {/* ── Records table ─────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-white">
-                <TableRow className="bg-white border-b border-[#EDEDEA]">
-                  {visibleColumns.map((col) => (
-                    <TableHead
-                      key={col.key}
-                      style={{ minWidth: col.width }}
-                      className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
-                      onClick={() => toggleSort(col.key)}
-                    >
-                      <span className="flex items-center gap-1">
-                        {col.label}
-                        {sortCol === col.key &&
-                          (sortDir === "asc" ? (
-                            <ChevronUp size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          ))}
-                      </span>
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
-                    Actions
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-white">
+              <TableRow className="bg-white border-b border-[#EDEDEA]">
+                {visibleColumns.map((col) => (
+                  <TableHead
+                    key={col.key}
+                    style={{ minWidth: col.width }}
+                    className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
+                    onClick={() => toggleSort(col.key)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {col.label}
+                      {sortCol === col.key &&
+                        (sortDir === "asc" ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        ))}
+                    </span>
                   </TableHead>
-                </TableRow>
-              </TableHeader>
+                ))}
+                <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-              <TableBody>
-                {groupBy === "none" ? (
-                  /* ── Flat view ── */
-                  <>
-                    {tableRecords.map(renderRow)}
+            <TableBody>
+              {groupBy === "none" ? (
+                /* ── Flat view ── */
+                <>
+                  {tableRecords.map(renderRow)}
 
-                    {tableRecords.length === 0 && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={totalCols}
-                          className="py-12 text-center text-base text-[#9a9a96]"
-                        >
-                          No {topFilter === "ir" ? "IR" : "NON-IR"} records
-                          match the current filters.{" "}
-                          {activeFilterCount > 0 && (
-                            <button
-                              className="text-[#4A5FD4] underline"
-                              onClick={() => setFilters({ ...EMPTY_FILTERS })}
+                  {tableRecords.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={totalCols}
+                        className="py-12 text-center text-base text-[#9a9a96]"
+                      >
+                        No {topFilter === "ir" ? "IR" : "NON-IR"} records match
+                        the current filters.{" "}
+                        {activeFilterCount > 0 && (
+                          <button
+                            className="text-[#4A5FD4] underline"
+                            onClick={() => setFilters({ ...EMPTY_FILTERS })}
+                          >
+                            Clear filters
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
+              ) : (
+                /* ── Grouped view ── */
+                <>
+                  {groupedBuckets.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={totalCols}
+                        className="py-12 text-center text-base text-[#9a9a96]"
+                      >
+                        No records match the current filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    groupedBuckets.map(({ key, label, rows }) => {
+                      const collapsed = collapsedGroups.has(key);
+                      return (
+                        <>
+                          {/* Group header row */}
+                          <TableRow
+                            key={`hdr-${key}`}
+                            className="bg-white border-b border-[#EDEDEA] cursor-pointer select-none hover:bg-[#F0EEFA]"
+                            onClick={() => toggleGroupCollapse(key)}
+                          >
+                            <TableCell
+                              colSpan={totalCols}
+                              className="px-3 py-2"
                             >
-                              Clear filters
-                            </button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
-                ) : (
-                  /* ── Grouped view ── */
-                  <>
-                    {groupedBuckets.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={totalCols}
-                          className="py-12 text-center text-base text-[#9a9a96]"
-                        >
-                          No records match the current filters.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      groupedBuckets.map(({ key, label, rows }) => {
-                        const collapsed = collapsedGroups.has(key);
-                        return (
-                          <>
-                            {/* Group header row */}
-                            <TableRow
-                              key={`hdr-${key}`}
-                              className="bg-white border-b border-[#EDEDEA] cursor-pointer select-none hover:bg-[#F0EEFA]"
-                              onClick={() => toggleGroupCollapse(key)}
-                            >
-                              <TableCell
-                                colSpan={totalCols}
-                                className="px-3 py-2"
-                              >
-                                <div className="flex items-center gap-2">
-                                  {collapsed ? (
-                                    <ChevronRight
-                                      size={14}
-                                      className="text-[#6b6b6b] shrink-0"
-                                    />
-                                  ) : (
-                                    <ChevronDown
-                                      size={14}
-                                      className="text-[#6b6b6b] shrink-0"
-                                    />
-                                  )}
-                                  <span className="text-base font-semibold text-[#1a1a1a]">
-                                    {label}
-                                  </span>
-                                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#4A5FD4] px-1.5 text-xs text-white font-medium">
-                                    {rows.length}
-                                  </span>
-                                </div>
-                              </TableCell>
-                            </TableRow>
+                              <div className="flex items-center gap-2">
+                                {collapsed ? (
+                                  <ChevronRight
+                                    size={14}
+                                    className="text-[#6b6b6b] shrink-0"
+                                  />
+                                ) : (
+                                  <ChevronDown
+                                    size={14}
+                                    className="text-[#6b6b6b] shrink-0"
+                                  />
+                                )}
+                                <span className="text-base font-semibold text-[#1a1a1a]">
+                                  {label}
+                                </span>
+                                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#4A5FD4] px-1.5 text-xs text-white font-medium">
+                                  {rows.length}
+                                </span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
 
-                            {/* Group rows */}
-                            {!collapsed && rows.map(renderRow)}
-                          </>
-                        );
-                      })
-                    )}
-                  </>
-                )}
-              </TableBody>
-            </Table>
+                          {/* Group rows */}
+                          {!collapsed && rows.map(renderRow)}
+                        </>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>

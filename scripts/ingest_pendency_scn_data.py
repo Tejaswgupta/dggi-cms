@@ -350,9 +350,43 @@ def process_scn(ws, sb, workspace_id: str, skipped: list, dry_run: bool = False)
     print(f"[SCN]          {'Would insert' if dry_run else 'Inserted'}: {inserted} | {'Would update' if dry_run else 'Updated'}: {updated} | Skipped: {skipped_count}")
 
 
+def _fy_short(date_str: str | None) -> str:
+    """'2026-05-01' → '26-27',  '2025-11-01' → '25-26'"""
+    if not date_str:
+        return "26-27"
+    year = int(date_str[:4])
+    month = int(date_str[5:7])
+    fy_start = year if month >= 4 else year - 1
+    return f"{str(fy_start)[2:]}-{str(fy_start + 1)[2:]}"
+
+
+def _next_nir_seq(sb, workspace_id: str, fy: str) -> int:
+    """Return the next available sequence number for NIR-XXX-{fy} record_ids."""
+    import re
+    prefix = f"NIR-"
+    suffix = f"-{fy}"
+    res = (
+        sb.table("dggi_records")
+        .select("record_id")
+        .eq("workspace_id", workspace_id)
+        .eq("is_ir", False)
+        .like("record_id", f"NIR-%-{fy}")
+        .execute()
+    )
+    max_seq = 0
+    for r in res.data:
+        m = re.match(r"NIR-(\d+)-", r["record_id"] or "")
+        if m:
+            max_seq = max(max_seq, int(m.group(1)))
+    return max_seq + 1
+
+
 def process_non_ir(ws, sb, workspace_id: str, skipped: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
     inserted = updated = skipped_count = 0
+
+    # Cache next seq per FY so we don't re-query for every row
+    _seq_cache: dict[str, int] = {}
 
     for row in rows[2:]:
         taxpayer_name = clean(row[1])
@@ -375,15 +409,27 @@ def process_non_ir(ws, sb, workspace_id: str, skipped: list, dry_run: bool = Fal
             "latest_status": clean(row[8]),
             "is_ir": False,
         }
-        # Skip handling_io_sio_name — no way to map Excel names to user UUIDs
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        ir_no = clean(row[9])
+        ir_no = clean(row[9])   # col 9: IR No. if subsequently issued
         gstin = clean(row[2])
-        file_no = ir_no or gstin
+
+        # Upsert key priority: IR No. (if issued) → GSTIN (existing bad record_ids) → generate NIR-XXX-FY
+        if ir_no:
+            file_no = ir_no
+        elif gstin and _would_update(sb, workspace_id, "dggi_records", "record_id", gstin):
+            file_no = gstin
+        else:
+            # Generate new NIR number
+            fy = _fy_short(initiation_date)
+            if fy not in _seq_cache:
+                _seq_cache[fy] = _next_nir_seq(sb, workspace_id, fy)
+            file_no = f"NIR-{_seq_cache[fy]:03d}-{fy}"
+            _seq_cache[fy] += 1
 
         if dry_run:
-            print(f"  [NON-IR] {'UPDATE' if _would_update(sb, workspace_id, 'dggi_records', 'record_id', file_no) else 'INSERT'} | file_no={file_no} | taxpayer={taxpayer_name} | group={payload.get('group')} | mode={mode} | date={initiation_date}")
+            action = "UPDATE" if _would_update(sb, workspace_id, "dggi_records", "record_id", file_no) else "INSERT"
+            print(f"  [NON-IR] {action} | record_id={file_no} | taxpayer={taxpayer_name} | group={payload.get('group')} | mode={mode} | date={initiation_date}")
         result = upsert_dggi_record(sb, workspace_id, file_no, payload, skipped, "NON-IR", dry_run)
         if result == "inserted":
             inserted += 1

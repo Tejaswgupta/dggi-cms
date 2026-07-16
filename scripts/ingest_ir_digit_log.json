@@ -7,16 +7,19 @@
     "existing_record_id": "03/2026-27-GST",
     "db_id": "e5c8c0d1-e1b2-4d2f-9ac5-d22fcd8d843f",
     "digit_id": "DIGIT-20260401132436-258",
-    "taxpayer_name": "M/s Hella Infra Market Pipes & Fittings Private Limited"
+    "taxpayer_name": "M/s Hella Infra Market Pipes & Fittings Private Limited",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 2,
-    "new_record_id": "02/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "02/GST/2026-27",
+    "existing_record_id": "02/GST/2026-27",
+    "db_id": "21fd206f-e39e-44a6-9e89-5a05c7f8951e",
     "digit_id": "DIGIT-20260415130000-782",
-    "taxpayer_name": "Dr. Balabhai Nanavati Hospital"
+    "taxpayer_name": "Dr. Balabhai Nanavati Hospital",
+    "closed": false
   },
   {
     "action": "update",
@@ -26,25 +29,30 @@
     "existing_record_id": "01/GST/2026-27",
     "db_id": "c0c90920-779b-48dc-aff5-43876c3c628c",
     "digit_id": "DIGIT-20260415124631-410",
-    "taxpayer_name": "M/s. Alps Hospital Limited"
+    "taxpayer_name": "M/s. Alps Hospital Limited",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 4,
-    "new_record_id": "48/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "48/GST/2026-27",
+    "existing_record_id": "48/GST/2026-27",
+    "db_id": "2e52bf32-e5ee-4f7b-84fa-5015b22c1fe8",
     "digit_id": "DIGIT-20260601184636-309",
-    "taxpayer_name": "M/s QUICK INFRASTRUCTURE & DEVELOPERS PVT LTD"
+    "taxpayer_name": "M/s QUICK INFRASTRUCTURE & DEVELOPERS PVT LTD",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 5,
-    "new_record_id": "47/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "47/GST/2026-27",
+    "existing_record_id": "47/GST/2026-27",
+    "db_id": "4bf3e986-4b9b-4303-92aa-5561503e1d22",
     "digit_id": "DIGIT-20260601183434-314",
-    "taxpayer_name": "M/s AVM ARCHITECTS"
+    "taxpayer_name": "M/s AVM ARCHITECTS",
+    "closed": false
   },
   {
     "action": "update",
@@ -54,7 +62,8 @@
     "existing_record_id": "46/GST/2026-27",
     "db_id": "bdd2850b-625f-470d-9722-0a74ca59134a",
     "digit_id": "DIGIT-20260601181952-440",
-    "taxpayer_name": "M/s GM Interiors"
+    "taxpayer_name": "M/s GM Interiors",
+    "closed": false
   },
   {
     "action": "update",
@@ -64,7 +73,8 @@
     "existing_record_id": "45/2025-26-GST",
     "db_id": "45bd3db1-97d3-4b43-9991-6687e9515b93",
     "digit_id": "DIGIT-20260601161916-525",
-    "taxpayer_name": "Green Lawns Corporate Advisors LLP"
+    "taxpayer_name": "Green Lawns Corporate Advisors LLP",
+    "closed": false
   },
   {
     "action": "update",
@@ -74,7 +84,8 @@
     "existing_record_id": "44/2025-26-GST",
     "db_id": "a5410c87-6d72-4c52-a9f7-cf8b05bdc549",
     "digit_id": "DIGIT-20260601161159-294",
-    "taxpayer_name": "Shri Karan Yash Johar (Trade Name - M/s. Dharma Productions)"
+    "taxpayer_name": "Shri Karan Yash Johar (Trade Name - M/s. Dharma Productions)",
+    "closed": false
   },
   {
     "action": "update",
@@ -84,7 +95,8 @@
     "existing_record_id": "05/GST/2026-27",
     "db_id": "392f0a91-a3f6-4c19-aaa2-8f6572852edd",
     "digit_id": "DIGIT-20260402185921-988",
-    "taxpayer_name": "ECC-Konark Joint Venture"
+    "taxpayer_name": "ECC-Konark Joint Venture",
+    "closed": false
   },
   {
     "action": "update",
@@ -94,7 +106,8 @@
     "existing_record_id": "49/GST/2026-27",
     "db_id": "0642741c-773c-40ad-85ee-7aa28ebeb51c",
     "digit_id": "DIGIT-20260602133248-519",
-    "taxpayer_name": "M/s Crescent Realtors (India) Pvt Ltd"
+    "taxpayer_name": "M/s Crescent Realtors (India) Pvt Ltd",
+    "closed": false
   },
   {
     "action": "update",
@@ -104,7 +117,8 @@
     "existing_record_id": "51/GST/2026-27",
     "db_id": "71d2fa65-b412-43eb-9fde-516a5e2d236d",
     "digit_id": "DIGIT-20260603172433-425",
-    "taxpayer_name": "SKDK Steels pvt ltd"
+    "taxpayer_name": "SKDK Steels pvt ltd",
+    "closed": false
   },
   {
     "action": "update",
@@ -114,7 +128,8 @@
     "existing_record_id": "52/GST/2026-27",
     "db_id": "606663d4-e43a-43ac-ad12-2433e7870cca",
     "digit_id": "DIGIT-20260603175814-210",
-    "taxpayer_name": "M/s CAPCHEM ELECTRICALS LIMITED"
+    "taxpayer_name": "M/s CAPCHEM ELECTRICALS LIMITED",
+    "closed": false
   },
   {
     "action": "update",
@@ -124,7 +139,8 @@
     "existing_record_id": "53/GST/2026-27",
     "db_id": "fecea296-1306-4a76-a5fd-91887bdd31eb",
     "digit_id": "DIGIT-20260603191011-975",
-    "taxpayer_name": "M/s TEAM WORK"
+    "taxpayer_name": "M/s TEAM WORK",
+    "closed": false
   },
   {
     "action": "update",
@@ -134,7 +150,8 @@
     "existing_record_id": "50/GST/2026-27",
     "db_id": "d8bbbccd-8d78-4a9d-a979-c81b959d9f72",
     "digit_id": "DIGIT-20260603123500-921",
-    "taxpayer_name": "M/s Aakar Signature Co."
+    "taxpayer_name": "M/s Aakar Signature Co.",
+    "closed": false
   },
   {
     "action": "update",
@@ -144,16 +161,19 @@
     "existing_record_id": "58/GST/2026-27",
     "db_id": "8c3ef3b6-36d9-408c-b8b5-718d47455b76",
     "digit_id": "DIGIT-20260608142547-564",
-    "taxpayer_name": "G V MISTRY"
+    "taxpayer_name": "G V MISTRY",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 16,
-    "new_record_id": "54/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "54/GST/2026-27",
+    "existing_record_id": "54/GST/2026-27",
+    "db_id": "03918df2-7e82-4774-b352-5ff647a3781d",
     "digit_id": "DIGIT-20260604121712-311",
-    "taxpayer_name": "Hazoor Multi Projects"
+    "taxpayer_name": "Hazoor Multi Projects",
+    "closed": false
   },
   {
     "action": "update",
@@ -163,7 +183,8 @@
     "existing_record_id": "55/GST/2026-27",
     "db_id": "f7b7e0c0-edce-47aa-bdb1-e7aff3001d2d",
     "digit_id": "DIGIT-20260605143714-257",
-    "taxpayer_name": "AMTRADE"
+    "taxpayer_name": "AMTRADE",
+    "closed": false
   },
   {
     "action": "update",
@@ -173,7 +194,8 @@
     "existing_record_id": "59/GST/2026-27",
     "db_id": "fb31989f-04fa-47d5-8078-fce1ff5f580a",
     "digit_id": "DIGIT-20260608162106-942",
-    "taxpayer_name": "M/s Integra Industries Pvt Ltd"
+    "taxpayer_name": "M/s Integra Industries Pvt Ltd",
+    "closed": false
   },
   {
     "action": "update",
@@ -183,7 +205,8 @@
     "existing_record_id": "60/GST/2026-27",
     "db_id": "f8db512f-c08b-41aa-a3bf-3173bd6522f3",
     "digit_id": "DIGIT-20260609121428-375",
-    "taxpayer_name": "Zion Werkstatt Pvt Ltd"
+    "taxpayer_name": "Zion Werkstatt Pvt Ltd",
+    "closed": false
   },
   {
     "action": "update",
@@ -193,7 +216,8 @@
     "existing_record_id": "61/GST/2026-27",
     "db_id": "0e4020db-196e-4d79-acce-20595011d324",
     "digit_id": "DIGIT-20260609124324-403",
-    "taxpayer_name": "Nakoda Electric and Hardware Stores"
+    "taxpayer_name": "Nakoda Electric and Hardware Stores",
+    "closed": false
   },
   {
     "action": "update",
@@ -203,7 +227,8 @@
     "existing_record_id": "63/GST/2026-27",
     "db_id": "1ffc0a74-cf7d-435c-8d99-7c40d587470b",
     "digit_id": "DIGIT-20260609144636-359",
-    "taxpayer_name": "Bricks and Beyond Projects LLP"
+    "taxpayer_name": "Bricks and Beyond Projects LLP",
+    "closed": false
   },
   {
     "action": "update",
@@ -213,7 +238,8 @@
     "existing_record_id": "63/GST/2026-27",
     "db_id": "1ffc0a74-cf7d-435c-8d99-7c40d587470b",
     "digit_id": "DIGIT-20260609152329-205",
-    "taxpayer_name": "Vis Interior Solutions Pvt LTd"
+    "taxpayer_name": "Vis Interior Solutions Pvt LTd",
+    "closed": false
   },
   {
     "action": "update",
@@ -223,24 +249,35 @@
     "existing_record_id": "57/GST/2026-27",
     "db_id": "5083ca32-108a-4fb3-ae9d-7401ba93a3fd",
     "digit_id": "DIGIT-20260605174100-612",
-    "taxpayer_name": "MACRO WALLS AND FLOORS LLP"
+    "taxpayer_name": "MACRO WALLS AND FLOORS LLP",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 24,
-    "new_record_id": "56/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "56/GST/2026-27",
+    "existing_record_id": "56/GST/2026-27",
+    "db_id": "f7302642-cfa6-4544-9a7f-646b4d6281c2",
     "digit_id": "DIGIT-20260605163351-447",
-    "taxpayer_name": "MORESHWAR DEVELOPERS"
+    "taxpayer_name": "MORESHWAR DEVELOPERS",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 25,
-    "new_record_id": "29/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "29/GST/2026-27",
+    "existing_record_id": "29/GST/2026-27",
+    "db_id": "2a048d0f-8814-43f7-b400-594a450e1a23",
     "digit_id": "DIGIT-20260505170719-694",
+    "taxpayer_name": "M/s Masa Hotels Private Limited",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/015/26-27",
+    "source_record_id": "29/GST/2026-27",
     "taxpayer_name": "M/s Masa Hotels Private Limited"
   },
   {
@@ -251,7 +288,8 @@
     "existing_record_id": "30/GST/2026-27",
     "db_id": "19b6e630-d7ff-45ba-be2b-0d3770835d16",
     "digit_id": "DIGIT-20260505173220-199",
-    "taxpayer_name": "Life Insurance Corporation of India"
+    "taxpayer_name": "Life Insurance Corporation of India",
+    "closed": false
   },
   {
     "action": "update",
@@ -261,42 +299,63 @@
     "existing_record_id": "27/GST/2026-27",
     "db_id": "146473c0-1030-418d-83db-41925fcef52e",
     "digit_id": "DIGIT-20260505181648-681",
-    "taxpayer_name": "ORGANIC INDIA PRIVATE LIMITED"
+    "taxpayer_name": "ORGANIC INDIA PRIVATE LIMITED",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 28,
-    "new_record_id": "26/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "26/GST/2026-27",
+    "existing_record_id": "26/GST/2026-27",
+    "db_id": "7af5cfc0-5b8c-4922-b17d-f9b80cd346dd",
     "digit_id": "DIGIT-20260506122822-164",
-    "taxpayer_name": "CONCENTRIX DAKSH SERVICES INDIA PRIVATE LIMITED"
+    "taxpayer_name": "CONCENTRIX DAKSH SERVICES INDIA PRIVATE LIMITED",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 29,
-    "new_record_id": "25/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "25/GST/2026-27",
+    "existing_record_id": "25/GST/2026-27",
+    "db_id": "90deb7a6-27fc-4090-a3d2-3e97cf39c5c8",
     "digit_id": "DIGIT-20260507123025-905",
-    "taxpayer_name": "GENPACT INDIA PRIVATE LIMITED"
+    "taxpayer_name": "GENPACT INDIA PRIVATE LIMITED",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 30,
-    "new_record_id": "07/GST/2025-26",
-    "db_id": null,
     "excel_ir_no": "07/GST/2025-26",
+    "existing_record_id": "07/GST/2025-26",
+    "db_id": "e380f671-7eaf-4fd7-9a53-9bb1dc4a044d",
     "digit_id": "DIGIT-20260408131135-615",
+    "taxpayer_name": "ROOFSOL RENEWABLES FOUR PRIVATE LIMITED",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/016/26-27",
+    "source_record_id": "07/GST/2025-26",
     "taxpayer_name": "ROOFSOL RENEWABLES FOUR PRIVATE LIMITED"
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 31,
-    "new_record_id": "08/GST/2025-26",
-    "db_id": null,
     "excel_ir_no": "08/GST/2025-26",
+    "existing_record_id": "08/GST/2025-26",
+    "db_id": "872dd3e5-5830-4830-b13b-3daea3a95b78",
     "digit_id": "DIGIT-20260408132559-501",
+    "taxpayer_name": "ROOFSOL RENEWABLES THREE PRIVATE LIMITED",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/017/26-27",
+    "source_record_id": "08/GST/2025-26",
     "taxpayer_name": "ROOFSOL RENEWABLES THREE PRIVATE LIMITED"
   },
   {
@@ -307,15 +366,24 @@
     "existing_record_id": "11/GST/2026-27",
     "db_id": "7db06d81-3386-4521-bf4c-0ea021c21542",
     "digit_id": "DIGIT-20260408131609-763",
-    "taxpayer_name": "M/s Bhanushali Studios LLP"
+    "taxpayer_name": "M/s Bhanushali Studios LLP",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 33,
-    "new_record_id": "09/GST/2025-26",
-    "db_id": null,
     "excel_ir_no": "09/GST/2025-26",
+    "existing_record_id": "09/GST/2025-26",
+    "db_id": "e06438ca-3239-47be-8f60-a7745ec8ae0d",
     "digit_id": "DIGIT-20260408131834-506",
+    "taxpayer_name": "ROOFSOL RENEWABLES PRIVATE LIMITED",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/018/26-27",
+    "source_record_id": "09/GST/2025-26",
     "taxpayer_name": "ROOFSOL RENEWABLES PRIVATE LIMITED"
   },
   {
@@ -326,7 +394,8 @@
     "existing_record_id": "12/GST/2026-27",
     "db_id": "f28a8020-0f89-41cb-8ecd-2f1e3001d34a",
     "digit_id": "DIGIT-20260408132521-615",
-    "taxpayer_name": "M/s Aurega Studios LLP"
+    "taxpayer_name": "M/s Aurega Studios LLP",
+    "closed": false
   },
   {
     "action": "update",
@@ -336,34 +405,47 @@
     "existing_record_id": "13/GST/2026-27",
     "db_id": "3ce9e699-e483-43b0-9031-b3717a658c6d",
     "digit_id": "DIGIT-20260408133604-140",
-    "taxpayer_name": "M/s Pen India Pvt Ltd"
+    "taxpayer_name": "M/s Pen India Pvt Ltd",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 36,
-    "new_record_id": "10/GST/2025-26",
-    "db_id": null,
     "excel_ir_no": "10/GST/2025-26",
+    "existing_record_id": "10/GST/2025-26",
+    "db_id": "3b211506-1eef-4139-ade3-af8c0110ac28",
     "digit_id": "DIGIT-20260408133647-407",
+    "taxpayer_name": "AETHON DEVELOPERS PRIVATE LIMITED",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/019/26-27",
+    "source_record_id": "10/GST/2025-26",
     "taxpayer_name": "AETHON DEVELOPERS PRIVATE LIMITED"
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 37,
-    "new_record_id": "77/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "77/GST/2026-27",
+    "existing_record_id": "77/GST/2026-27",
+    "db_id": "987a9e3a-4627-4af7-bac0-dc1e96daccfd",
     "digit_id": "DIGIT-20260708135324-626",
-    "taxpayer_name": "Parvmed Chemicals Private Limited"
+    "taxpayer_name": "Parvmed Chemicals Private Limited",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 38,
-    "new_record_id": "43/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "43/GST/2026-27",
+    "existing_record_id": "43/GST/2026-27",
+    "db_id": "2fc62077-4baf-47cc-a1f5-732cead44172",
     "digit_id": "DIGIT-20260608170732-588",
-    "taxpayer_name": "M/s. MUKTAA ENTERPRISES"
+    "taxpayer_name": "M/s. MUKTAA ENTERPRISES",
+    "closed": false
   },
   {
     "action": "update",
@@ -373,24 +455,35 @@
     "existing_record_id": "06/2026-27/GST",
     "db_id": "90e86d05-1d94-4905-bed7-2d4e5f9a9679",
     "digit_id": "DIGIT-20260409175444-324",
-    "taxpayer_name": "M/s Parinee Realty Private Limited"
+    "taxpayer_name": "M/s Parinee Realty Private Limited",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 40,
-    "new_record_id": "78/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "78/GST/2026-27",
+    "existing_record_id": "78/GST/2026-27",
+    "db_id": "7edac6b0-080c-4107-ad1a-9ab1560a0117",
     "digit_id": "DIGIT-20260709174429-544",
-    "taxpayer_name": "Counfreedise Retail Services Limited"
+    "taxpayer_name": "Counfreedise Retail Services Limited",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 41,
-    "new_record_id": "14 / GST / 2026-27",
-    "db_id": null,
     "excel_ir_no": "14 / GST / 2026-27",
+    "existing_record_id": "14 / GST / 2026-27",
+    "db_id": "4eadf1a5-9773-440e-b9f3-dfabde4e3814",
     "digit_id": "DIGIT-20260410121116-248",
+    "taxpayer_name": "M/s Honest Shelters Private Limited",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/020/26-27",
+    "source_record_id": "14 / GST / 2026-27",
     "taxpayer_name": "M/s Honest Shelters Private Limited"
   },
   {
@@ -401,7 +494,8 @@
     "existing_record_id": "20/GST/2026-27",
     "db_id": "5d16fb05-e857-4024-b1e1-36f72ef2972d",
     "digit_id": "DIGIT-20260410172315-888",
-    "taxpayer_name": "M/s Amity Constructions"
+    "taxpayer_name": "M/s Amity Constructions",
+    "closed": false
   },
   {
     "action": "update",
@@ -411,7 +505,8 @@
     "existing_record_id": "16/GST/2026-27",
     "db_id": "bc6ac4fb-50e7-430c-ab27-4dd79e07a42a",
     "digit_id": "DIGIT-20260410125838-256",
-    "taxpayer_name": "M/s IMC India Securities Private Limited"
+    "taxpayer_name": "M/s IMC India Securities Private Limited",
+    "closed": false
   },
   {
     "action": "update",
@@ -421,7 +516,8 @@
     "existing_record_id": "15/2026-27-GST",
     "db_id": "83aaf70c-3b56-4d35-8c87-d504026eeb9b",
     "digit_id": "DIGIT-20260410125842-547",
-    "taxpayer_name": "M/s Incline Realty Pvt Ltd"
+    "taxpayer_name": "M/s Incline Realty Pvt Ltd",
+    "closed": false
   },
   {
     "action": "update",
@@ -431,7 +527,8 @@
     "existing_record_id": "21/GST/2026-27",
     "db_id": "76215f9d-0640-44c7-8f12-04c92a063319",
     "digit_id": "DIGIT-20260410170005-174",
-    "taxpayer_name": "ROYAL FOOD PRODUCT"
+    "taxpayer_name": "ROYAL FOOD PRODUCT",
+    "closed": false
   },
   {
     "action": "update",
@@ -441,7 +538,8 @@
     "existing_record_id": "19/2026-27-GST",
     "db_id": "31759e86-cc58-427e-9c05-6b753dd1dc7a",
     "digit_id": "DIGIT-20260410134225-354",
-    "taxpayer_name": "Hella Infra Market Limited"
+    "taxpayer_name": "Hella Infra Market Limited",
+    "closed": false
   },
   {
     "action": "update",
@@ -451,7 +549,8 @@
     "existing_record_id": "18/GST/2026-27",
     "db_id": "124354b1-6979-4a3d-b147-168f8440555f",
     "digit_id": "DIGIT-20260410134157-268",
-    "taxpayer_name": "ARIHANT AUTOMOBILES"
+    "taxpayer_name": "ARIHANT AUTOMOBILES",
+    "closed": false
   },
   {
     "action": "update",
@@ -461,34 +560,41 @@
     "existing_record_id": "17/GST/2026-27",
     "db_id": "4028ac41-1152-45e0-a9e8-6b54378673f0",
     "digit_id": "DIGIT-20260410133356-922",
-    "taxpayer_name": "M/s Yash Enterprises"
+    "taxpayer_name": "M/s Yash Enterprises",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 49,
-    "new_record_id": "81/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "81/GST/2026-27",
+    "existing_record_id": "81/GST/2026-27",
+    "db_id": "90e3d43a-3c5e-46f5-90ea-67fd0dab65ec",
     "digit_id": "DIGIT-20260710175610-488",
-    "taxpayer_name": "Indian Railway Finance Corporation Ltd"
+    "taxpayer_name": "Indian Railway Finance Corporation Ltd",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 50,
-    "new_record_id": "80/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "80/GST/2026-27",
+    "existing_record_id": "80/GST/2026-27",
+    "db_id": "bfe587cf-2393-4bc6-9828-85608a5af423",
     "digit_id": "DIGIT-20260710134629-915",
-    "taxpayer_name": "Upvan Developers"
+    "taxpayer_name": "Upvan Developers",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 51,
-    "new_record_id": "79/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "79/GST/2026-27",
+    "existing_record_id": "79/GST/2026-27",
+    "db_id": "e59b525a-1473-4575-b3f5-3abf3d1a40b7",
     "digit_id": "DIGIT-20260710134226-755",
-    "taxpayer_name": "Binesh Realtors & Hoteliers Pvt Ltd"
+    "taxpayer_name": "Binesh Realtors & Hoteliers Pvt Ltd",
+    "closed": false
   },
   {
     "action": "update",
@@ -498,7 +604,8 @@
     "existing_record_id": "64/GST/2026-27",
     "db_id": "ac3cbe46-e6df-41ec-b5cd-c2499718028f",
     "digit_id": "DIGIT-20260610153203-946",
-    "taxpayer_name": "M/s Trisul Developers"
+    "taxpayer_name": "M/s Trisul Developers",
+    "closed": false
   },
   {
     "action": "update",
@@ -508,7 +615,8 @@
     "existing_record_id": "65/GST/2026-27",
     "db_id": "a2323be8-b5cb-45dc-ae63-aa70253c5188",
     "digit_id": "DIGIT-20260611173714-997",
-    "taxpayer_name": "M/s SAIRAMA REALITIES PRIVATE LIMITED"
+    "taxpayer_name": "M/s SAIRAMA REALITIES PRIVATE LIMITED",
+    "closed": false
   },
   {
     "action": "update",
@@ -518,15 +626,24 @@
     "existing_record_id": "31/GST/2026-27",
     "db_id": "389e2c42-3873-4d88-9839-29bae680516b",
     "digit_id": "DIGIT-20260511115128-598",
-    "taxpayer_name": "Tender Skin International, The Wedding Clinic"
+    "taxpayer_name": "Tender Skin International, The Wedding Clinic",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 55,
-    "new_record_id": "32/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "32/GST/2026-27",
+    "existing_record_id": "32/GST/2026-27",
+    "db_id": "1d812cd3-ca62-4146-9447-576492494d70",
     "digit_id": "DIGIT-20260512162921-645",
+    "taxpayer_name": "M/s Greenscape Realty LLP",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/021/26-27",
+    "source_record_id": "32/GST/2026-27",
     "taxpayer_name": "M/s Greenscape Realty LLP"
   },
   {
@@ -537,25 +654,30 @@
     "existing_record_id": "33/GST/2026-27",
     "db_id": "d0700c34-0e2e-4583-bc66-16caa96f08f8",
     "digit_id": "DIGIT-20260513135453-511",
-    "taxpayer_name": "BUSINESS PARK (POWAI) PRIVATE LIMITED"
+    "taxpayer_name": "BUSINESS PARK (POWAI) PRIVATE LIMITED",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 57,
-    "new_record_id": "84/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "84/GST/2026-27",
+    "existing_record_id": "84/GST/2026-27",
+    "db_id": "8a30894b-9af1-4786-bd2d-2588144853f1",
     "digit_id": "DIGIT-20260714133603-151",
-    "taxpayer_name": "M/s Fortune Construction Company"
+    "taxpayer_name": "M/s Fortune Construction Company",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 58,
-    "new_record_id": "83/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "83/GST/2026-27",
+    "existing_record_id": "83/GST/2026-27",
+    "db_id": "9519f2f6-6c3e-4bc5-9cb4-cc2d6d4f2cc6",
     "digit_id": "DIGIT-20260714132752-780",
-    "taxpayer_name": "M/s D S Developers"
+    "taxpayer_name": "M/s D S Developers",
+    "closed": false
   },
   {
     "action": "update",
@@ -565,7 +687,8 @@
     "existing_record_id": "34/GST/2026-27",
     "db_id": "84aa48c2-a0b1-4aff-9a4f-a327ebd15787",
     "digit_id": "DIGIT-20260514132543-160",
-    "taxpayer_name": "M/s Olympia Sportz & Events Private Limited"
+    "taxpayer_name": "M/s Olympia Sportz & Events Private Limited",
+    "closed": false
   },
   {
     "action": "update",
@@ -575,7 +698,8 @@
     "existing_record_id": "35/GST/2026-27",
     "db_id": "110cc37d-9e78-42df-b72e-cee48bb5e3fe",
     "digit_id": "DIGIT-20260514185000-264",
-    "taxpayer_name": "Pidilite Industries Limited"
+    "taxpayer_name": "Pidilite Industries Limited",
+    "closed": false
   },
   {
     "action": "update",
@@ -585,16 +709,19 @@
     "existing_record_id": "66/2026-27-GST",
     "db_id": "b99e520d-d185-4085-974e-245d8db3654a",
     "digit_id": "DIGIT-20260616125526-228",
-    "taxpayer_name": "M/S. EMINE REALTY PRIVATE LIMITED"
+    "taxpayer_name": "M/S. EMINE REALTY PRIVATE LIMITED",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 62,
-    "new_record_id": "82/GST/2025-26",
-    "db_id": null,
     "excel_ir_no": "82/GST/2025-26",
+    "existing_record_id": "82/GST/2025-26",
+    "db_id": "e8529714-0563-42b6-b24c-ff5f2fb386fe",
     "digit_id": "DIGIT-20260710181446-892",
-    "taxpayer_name": "M/s. NARCL TRUST-0001/2022-23"
+    "taxpayer_name": "M/s. NARCL TRUST-0001/2022-23",
+    "closed": false
   },
   {
     "action": "update",
@@ -604,7 +731,8 @@
     "existing_record_id": "37/GST/2026-27",
     "db_id": "ac5d7967-1185-4dbf-b399-758b3379f1db",
     "digit_id": "DIGIT-20260518152926-406",
-    "taxpayer_name": "M/s Ashjit Realties Private Limited"
+    "taxpayer_name": "M/s Ashjit Realties Private Limited",
+    "closed": false
   },
   {
     "action": "update",
@@ -614,7 +742,8 @@
     "existing_record_id": "67/GST/2026-27",
     "db_id": "40bbe23d-d379-444c-ac00-d5e36cbcd1ed",
     "digit_id": "DIGIT-20260619131514-402",
-    "taxpayer_name": "M/s Surya Industries (Prop Pandit Sambaji Surywansi)"
+    "taxpayer_name": "M/s Surya Industries (Prop Pandit Sambaji Surywansi)",
+    "closed": false
   },
   {
     "action": "update",
@@ -624,34 +753,53 @@
     "existing_record_id": "39/GST/2026-27",
     "db_id": "44acb8d0-e1ec-4049-b9df-6182d4df0901",
     "digit_id": "DIGIT-20260519191956-401",
-    "taxpayer_name": "Goswami Refineries Private Limited"
+    "taxpayer_name": "Goswami Refineries Private Limited",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 66,
-    "new_record_id": "36/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "36/GST/2026-27",
+    "existing_record_id": "36/GST/2026-27",
+    "db_id": "6201dd81-4b88-494c-a0a1-48870f0fe788",
     "digit_id": "DIGIT-20260519132236-339",
+    "taxpayer_name": "M/s Greenscape IT Park LLP",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/022/26-27",
+    "source_record_id": "36/GST/2026-27",
     "taxpayer_name": "M/s Greenscape IT Park LLP"
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 67,
-    "new_record_id": "38/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "38/GST/2026-27",
+    "existing_record_id": "38/GST/2026-27",
+    "db_id": "ce568e36-ea7a-4165-b1aa-d379c9e9e750",
     "digit_id": "DIGIT-20260519131241-303",
+    "taxpayer_name": "M/s KULINKUMAR HOLIDAYS PRIVATE LIMITED",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/023/26-27",
+    "source_record_id": "38/GST/2026-27",
     "taxpayer_name": "M/s KULINKUMAR HOLIDAYS PRIVATE LIMITED"
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 68,
-    "new_record_id": "22/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "22/GST/2026-27",
+    "existing_record_id": "22/GST/2026-27",
+    "db_id": "7dd77045-d38b-4225-9b37-a70096d1187a",
     "digit_id": "DIGIT-20260420140812-853",
-    "taxpayer_name": "Parimatch betting gambling application unregistered in India"
+    "taxpayer_name": "Parimatch betting gambling application unregistered in India",
+    "closed": false
   },
   {
     "action": "update",
@@ -661,7 +809,8 @@
     "existing_record_id": "23/GST/2026-27",
     "db_id": "20b46204-d82f-477a-886a-8b55cfcf9074",
     "digit_id": "DIGIT-20260420131222-875",
-    "taxpayer_name": "FORTIS HEALTHCARE LIMITED"
+    "taxpayer_name": "FORTIS HEALTHCARE LIMITED",
+    "closed": false
   },
   {
     "action": "update",
@@ -671,7 +820,8 @@
     "existing_record_id": "40/GST/2026-27",
     "db_id": "106cd6ec-c6a4-4d36-bc71-bf825a72cc12",
     "digit_id": "DIGIT-20260520145847-902",
-    "taxpayer_name": "VIRAJ PROFILES PVT LTD"
+    "taxpayer_name": "VIRAJ PROFILES PVT LTD",
+    "closed": false
   },
   {
     "action": "update",
@@ -681,15 +831,24 @@
     "existing_record_id": "41/GST/2026-27",
     "db_id": "2fce2ed0-ee83-409c-b2c5-4860aeff5615",
     "digit_id": "DIGIT-20260521163749-111",
-    "taxpayer_name": "M/s. Black Rock"
+    "taxpayer_name": "M/s. Black Rock",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 72,
-    "new_record_id": "24/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "24/GST/2026-27",
+    "existing_record_id": "24/GST/2026-27",
+    "db_id": "3fc1632a-9780-4388-a3f3-869bc19910d0",
     "digit_id": "DIGIT-20260422140738-429",
+    "taxpayer_name": "M/s RAPPTURE PROJECTS PRIVATE LIMITED",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/024/26-27",
+    "source_record_id": "24/GST/2026-27",
     "taxpayer_name": "M/s RAPPTURE PROJECTS PRIVATE LIMITED"
   },
   {
@@ -700,7 +859,8 @@
     "existing_record_id": "68/GST/2026-27",
     "db_id": "467f53b5-d25e-4cee-a176-4adc6622edb9",
     "digit_id": "DIGIT-20260622175312-103",
-    "taxpayer_name": "M/s LCDF IMPEX PRIVATE LIMITED"
+    "taxpayer_name": "M/s LCDF IMPEX PRIVATE LIMITED",
+    "closed": false
   },
   {
     "action": "update",
@@ -710,7 +870,8 @@
     "existing_record_id": "71/GST/2026-27",
     "db_id": "691deae2-1ee6-407c-b94f-c22380d1f94f",
     "digit_id": "DIGIT-20260624141806-283",
-    "taxpayer_name": "M/s FAHH Overseas Private Limited"
+    "taxpayer_name": "M/s FAHH Overseas Private Limited",
+    "closed": false
   },
   {
     "action": "update",
@@ -720,7 +881,8 @@
     "existing_record_id": "72/GST/2026-27",
     "db_id": "0553a964-c914-43df-b84a-91bfc38aae5e",
     "digit_id": "DIGIT-20260624141127-979",
-    "taxpayer_name": "M/s Rollmans Aluminium Pvt Ltd"
+    "taxpayer_name": "M/s Rollmans Aluminium Pvt Ltd",
+    "closed": false
   },
   {
     "action": "update",
@@ -730,7 +892,8 @@
     "existing_record_id": "70/GST/2026-27",
     "db_id": "0aba0cf3-354a-4c85-b50f-7e6cfbe08c75",
     "digit_id": "DIGIT-20260624140622-257",
-    "taxpayer_name": "M/s New Premier Metal Works"
+    "taxpayer_name": "M/s New Premier Metal Works",
+    "closed": false
   },
   {
     "action": "update",
@@ -740,7 +903,8 @@
     "existing_record_id": "69/GST/2026-27",
     "db_id": "f564f0cc-ebaa-4acf-9b1c-5387f146c1a7",
     "digit_id": "DIGIT-20260624131738-669",
-    "taxpayer_name": "Shri Nilkamal Singh (PAN-CGKPS8004C)"
+    "taxpayer_name": "Shri Nilkamal Singh (PAN-CGKPS8004C)",
+    "closed": false
   },
   {
     "action": "update",
@@ -750,6 +914,13 @@
     "existing_record_id": "42/GST/2026-27",
     "db_id": "c3333a86-cede-478f-b283-97d6009f4f8c",
     "digit_id": "DIGIT-20260525182823-837",
+    "taxpayer_name": "Business Park (Powai) Pvt Ltd",
+    "closed": true
+  },
+  {
+    "action": "closure_insert",
+    "cir_record_id": "CIR/025/26-27",
+    "source_record_id": "42/GST/2026-27",
     "taxpayer_name": "Business Park (Powai) Pvt Ltd"
   },
   {
@@ -760,7 +931,8 @@
     "existing_record_id": "73/GST/2026-27",
     "db_id": "6c015dd2-3652-42f3-a916-b372a5859187",
     "digit_id": "DIGIT-20260629145258-965",
-    "taxpayer_name": "M/s Schengen Consulting and Management Services LLP"
+    "taxpayer_name": "M/s Schengen Consulting and Management Services LLP",
+    "closed": false
   },
   {
     "action": "update",
@@ -770,24 +942,29 @@
     "existing_record_id": "42/GST/2026-27",
     "db_id": "c3333a86-cede-478f-b283-97d6009f4f8c",
     "digit_id": "DIGIT-20260505180013-321",
-    "taxpayer_name": "M/s NOPL Solar Projects Private Limited"
+    "taxpayer_name": "M/s NOPL Solar Projects Private Limited",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 81,
-    "new_record_id": "75/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "75/GST/2026-27",
+    "existing_record_id": "75/GST/2026-27",
+    "db_id": "d5e8f641-7fec-4045-adae-b8bba21d23eb",
     "digit_id": "DIGIT-20260630180017-583",
-    "taxpayer_name": "Valore Estate Ltd"
+    "taxpayer_name": "Valore Estate Ltd",
+    "closed": false
   },
   {
-    "action": "insert",
+    "action": "update",
+    "match_by": "ir_no",
     "sr_no": 82,
-    "new_record_id": "74/GST/2026-27",
-    "db_id": null,
     "excel_ir_no": "74/GST/2026-27",
+    "existing_record_id": "74/GST/2026-27",
+    "db_id": "dd9ce206-410f-47ab-95ff-bf6e63a9c0af",
     "digit_id": "DIGIT-20260630175504-757",
-    "taxpayer_name": "Goregaon Hotel and realty private ltd"
+    "taxpayer_name": "Goregaon Hotel and realty private ltd",
+    "closed": false
   }
 ]
