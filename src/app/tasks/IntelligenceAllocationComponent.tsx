@@ -33,6 +33,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
@@ -90,7 +91,6 @@ interface RapidRecord {
   sio: string;
   sio_name: string;
   pr_adg_comments?: string;
-  pr_adg_comments_updated_at?: string | null;
 }
 
 const RAPID_COLS: RegisterColumn[] = [
@@ -213,7 +213,6 @@ const EMPTY_RAPID: Omit<RapidRecord, "id"> = {
   sio: "",
   sio_name: "",
   pr_adg_comments: "",
-  pr_adg_comments_updated_at: null,
 };
 
 // ── Other Sources sub-register ────────────────────────────────────────────────
@@ -238,7 +237,6 @@ interface OtherSourceRecord {
   sio: string;
   sio_name: string;
   pr_adg_comments?: string;
-  pr_adg_comments_updated_at?: string | null;
 }
 
 const OTHER_COLS: RegisterColumn[] = [
@@ -355,7 +353,6 @@ const EMPTY_OTHER: Omit<OtherSourceRecord, "id"> = {
   sio: "",
   sio_name: "",
   pr_adg_comments: "",
-  pr_adg_comments_updated_at: null,
 };
 
 // ── STR sub-register ──────────────────────────────────────────────────────────
@@ -389,7 +386,6 @@ interface STRRecord {
   non_ir_no: string;
   non_ir_date: string;
   pr_adg_comments?: string;
-  pr_adg_comments_updated_at?: string | null;
 }
 
 const STR_COLS: RegisterColumn[] = [
@@ -564,7 +560,6 @@ const EMPTY_STR: Omit<STRRecord, "id"> = {
   non_ir_no: "",
   non_ir_date: "",
   pr_adg_comments: "",
-  pr_adg_comments_updated_at: null,
 };
 
 // ── Intel alarm logic ─────────────────────────────────────────────────────────
@@ -877,8 +872,17 @@ function SubTable<T extends { id: string; record_id: string }>({
 
 const IntelligenceAllocationComponent = () => {
   const supabase = clientConnectionWithSupabase();
+  const searchParams = useSearchParams();
   const [workspaceId, setWorkspaceId] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const highlightId = searchParams.get("highlight") ?? "";
+  const initialTab = highlightId.startsWith("STR")
+    ? "str"
+    : highlightId.startsWith("IOS")
+      ? "other"
+      : "rapid";
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const [rapidRecords, setRapidRecords] = useState<RapidRecord[]>([]);
   const [rapidSearch, setRapidSearch] = useState("");
@@ -1069,12 +1073,18 @@ const IntelligenceAllocationComponent = () => {
     onSave: async () => {
       if (!dialogDraft.id) return;
       setSaving(true);
+
+
       const rawDraft = Object.fromEntries(
         Object.entries(dialogDraft).map(([k, v]) => [k, v === "" ? null : v]),
       );
       rawDraft.sio_name =
         workspaceUsers.find((u) => u.id === ((dialogDraft as any).sio ?? ""))
           ?.name || null;
+      if (userRole !== "ADG") delete rawDraft.pr_adg_comments;
+      else if (rawDraft.pr_adg_comments !== undefined) {
+        rawDraft.pr_adg_comments = parseAdgComments(rawDraft.pr_adg_comments);
+      }
       const { error } = await supabase
         .from(table)
         .update(rawDraft as any)
@@ -1101,9 +1111,10 @@ const IntelligenceAllocationComponent = () => {
       rawDraft.sio_name =
         workspaceUsers.find((u) => u.id === ((dialogDraft as any).sio ?? ""))
           ?.name || null;
-      if (userRole !== "ADG") delete rawDraft.pr_adg_comments;
-      if (rawDraft.pr_adg_comments) {
-        rawDraft.pr_adg_comments_updated_at = new Date().toISOString();
+      if (userRole !== "ADG") {
+        delete rawDraft.pr_adg_comments;
+      } else if (rawDraft.pr_adg_comments) {
+        rawDraft.pr_adg_comments = parseAdgComments(rawDraft.pr_adg_comments);
       }
       const payload = {
         ...rawDraft,
@@ -1350,7 +1361,7 @@ const IntelligenceAllocationComponent = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="rapid" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between mb-4">
             <TabsList className="rounded-xl border border-[#EDEDEA] bg-white h-10 p-1">
               <TabsTrigger

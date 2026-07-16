@@ -37,7 +37,6 @@ import {
 import {
   RegisterRecordDialog,
   type RegisterColumn,
-  type WorkspaceUser,
 } from "./RegisterRecordDialog";
 import { parseAdgComments } from "./AdgCommentThread";
 
@@ -63,7 +62,6 @@ interface STRRecord {
   sio_name: string;
   group: string;
   pr_adg_comments?: string;
-  pr_adg_comments_updated_at?: string | null;
 }
 
 const COLUMNS: RegisterColumn[] = [
@@ -150,7 +148,6 @@ const EMPTY_RECORD: Omit<STRRecord, "id"> = {
   sio_name: "",
   group: "",
   pr_adg_comments: "",
-  pr_adg_comments_updated_at: null,
 };
 
 const fmt = (iso: string) => {
@@ -228,20 +225,16 @@ const STRRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const existingRecord = records.find((r) => r.id === dialogDraft.id);
-    const commentChanged =
-      userRole === "ADG" &&
-      (dialogDraft.pr_adg_comments ?? "") !== (existingRecord?.pr_adg_comments ?? "");
+
 
     const updatePayload = {
       ...dialogDraft,
       sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null,
     };
     if (userRole !== "ADG") delete updatePayload.pr_adg_comments;
-    if (commentChanged) {
-      updatePayload.pr_adg_comments_updated_at = new Date().toISOString();
+    else if (updatePayload.pr_adg_comments !== undefined) {
+      updatePayload.pr_adg_comments = parseAdgComments(updatePayload.pr_adg_comments) as any;
     }
-
     const { error } = await supabase
       .from(TABLE_NAME)
       .update(updatePayload)
@@ -252,7 +245,7 @@ const STRRegisterComponent = () => {
       setRecords((prev) =>
         prev.map((r) =>
           r.id === dialogDraft.id
-            ? { ...r, ...dialogDraft, ...(commentChanged ? { pr_adg_comments_updated_at: updatePayload.pr_adg_comments_updated_at } : {}) }
+            ? { ...r, ...dialogDraft }
             : r,
         ),
       );
@@ -286,9 +279,10 @@ const STRRegisterComponent = () => {
       workspace_id: workspaceId,
       sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null,
     };
-    if (userRole !== "ADG") delete payload.pr_adg_comments;
-    if (payload.pr_adg_comments) {
-      payload.pr_adg_comments_updated_at = new Date().toISOString();
+    if (userRole !== "ADG") {
+      delete payload.pr_adg_comments;
+    } else if (payload.pr_adg_comments) {
+      payload.pr_adg_comments = parseAdgComments(payload.pr_adg_comments) as any;
     }
 
     const { data, error } = await supabase

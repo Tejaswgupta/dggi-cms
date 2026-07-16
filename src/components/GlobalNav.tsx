@@ -46,6 +46,11 @@ const REGISTER_ITEMS: SidebarItem[] = [
     icon: AlertTriangle,
   },
   {
+    href: "/tasks/non-ir-view",
+    label: "NON-IR Register",
+    icon: AlertTriangle,
+  },
+  {
     href: "/tasks/arrest-register",
     label: "Arrest Register",
     icon: ClipboardList,

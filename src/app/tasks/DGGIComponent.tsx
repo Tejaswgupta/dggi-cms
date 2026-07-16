@@ -168,7 +168,7 @@ export interface DGGIRecord {
   bo_id: string;
   hsn_code: string;
   converted_from_non_ir: string;
-  pr_adg_comments_updated_at: string | null;
+
   created_by: string | null;
   created_by_name: string | null;
 }
@@ -254,7 +254,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   bo_id: "",
   hsn_code: "",
   converted_from_non_ir: "",
-  pr_adg_comments_updated_at: null,
+
   created_by: null,
   created_by_name: null,
 };
@@ -3203,9 +3203,11 @@ const DGGIComponent = () => {
     } catch {}
     const unseen = new Set<string>();
     for (const r of records) {
-      if (!r.pr_adg_comments || !r.pr_adg_comments_updated_at) continue;
+      const comments = parseAdgComments(r.pr_adg_comments);
+      if (comments.length === 0) continue;
+      const lastCommentTimestamp = comments[comments.length - 1].timestamp;
       const seenAt = seen[r.id];
-      if (!seenAt || seenAt < r.pr_adg_comments_updated_at) {
+      if (!seenAt || seenAt < lastCommentTimestamp) {
         unseen.add(r.id);
       }
     }
@@ -3379,18 +3381,20 @@ const DGGIComponent = () => {
     const hadClosureBefore = !!existingRecord?.closure_by;
     const isNowClosed = !!dialogDraft.closure_by;
     const shouldWriteClosureEntry = !hadClosureBefore && isNowClosed;
-    const commentChanged =
-      userRole === "ADG" &&
-      (dialogDraft.pr_adg_comments ?? "") !== (existingRecord?.pr_adg_comments ?? "");
+    const normNew = serializeAdgComments(parseAdgComments(dialogDraft.pr_adg_comments));
+    const normOld = serializeAdgComments(parseAdgComments(existingRecord?.pr_adg_comments));
+    const commentChanged = userRole === "ADG" && normNew !== normOld;
 
     const updatePayload: Record<string, any> = { ...dialogDraft };
     if (userRole !== "ADG") delete updatePayload.pr_adg_comments;
+    else if (updatePayload.pr_adg_comments !== undefined) {
+      updatePayload.pr_adg_comments = parseAdgComments(updatePayload.pr_adg_comments);
+    }
 
     const { error } = await supabase
       .from("dggi_records")
       .update({
         ...updatePayload,
-        ...(commentChanged ? { pr_adg_comments_updated_at: new Date().toISOString() } : {}),
         handling_io_sio: dialogDraft.handling_io_sio || null,
         handling_io_sio_name:
           workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
@@ -3410,7 +3414,6 @@ const DGGIComponent = () => {
       return;
     }
 
-    const commentUpdatedAt = commentChanged ? new Date().toISOString() : undefined;
     setRecords((prev) =>
       prev.map((r) =>
         r.id === dialogEditingId
@@ -3420,7 +3423,6 @@ const DGGIComponent = () => {
               handling_io_sio_name:
                 workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
                   ?.name || r.handling_io_sio_name,
-              ...(commentUpdatedAt ? { pr_adg_comments_updated_at: commentUpdatedAt } : {}),
             }
           : r,
       ),
@@ -3457,7 +3459,7 @@ const DGGIComponent = () => {
           handling_io_sio: dialogDraft.handling_io_sio || null,
           issue_involved: dialogDraft.issue_involved || null,
           latest_status: dialogDraft.latest_status || null,
-          pr_adg_comments: dialogDraft.pr_adg_comments || null,
+          pr_adg_comments: dialogDraft.pr_adg_comments ? parseAdgComments(dialogDraft.pr_adg_comments) : null,
           detection_amount: dialogDraft.detection_amount || null,
           recovery_itc: dialogDraft.recovery_itc || null,
           recovery_cash: dialogDraft.recovery_cash || null,
@@ -3525,7 +3527,6 @@ const DGGIComponent = () => {
     const record = records.find((r) => r.id === id);
     if (!record) return;
     setRecords((prev) => prev.filter((r) => r.id !== id));
-    let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
       const { error } = await supabase
         .from("dggi_records")
@@ -3536,7 +3537,7 @@ const DGGIComponent = () => {
         toast.error("Delete failed: " + error.message);
       }
     }, 5000);
-    toastId = toast.info(
+    const toastId = toast.info(
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id} deleted</span>
         <button
@@ -3633,6 +3634,7 @@ const DGGIComponent = () => {
     setSavingRow(true);
     const payload = {
       ...draft,
+      pr_adg_comments: userRole === "ADG" && draft.pr_adg_comments ? (parseAdgComments(draft.pr_adg_comments) as any) : null,
       record_id: await generateWorkspaceRecordId(
         supabase,
         "dggi_records",
@@ -3661,6 +3663,9 @@ const DGGIComponent = () => {
       created_by: currentUserId || null,
       created_by_name: workspaceUsers.find((u) => u.id === currentUserId)?.name || null,
     };
+    if (userRole !== "ADG") {
+      delete (payload as any).pr_adg_comments;
+    }
     const { data, error } = await supabase
       .from("dggi_records")
       .insert(payload)
@@ -3750,7 +3755,7 @@ const DGGIComponent = () => {
             handling_io_sio: sourceDraft.handling_io_sio || null,
             issue_involved: sourceDraft.issue_involved || null,
             latest_status: sourceDraft.latest_status || null,
-            pr_adg_comments: sourceDraft.pr_adg_comments || null,
+            pr_adg_comments: sourceDraft.pr_adg_comments ? parseAdgComments(sourceDraft.pr_adg_comments) : null,
             detection_amount: sourceDraft.detection_amount || null,
             recovery_itc: sourceDraft.recovery_itc || null,
             recovery_cash: sourceDraft.recovery_cash || null,
@@ -4249,7 +4254,6 @@ const DGGIComponent = () => {
         );
       return next;
     });
-    let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
       const { error } = await supabase
         .from("dggi_arrest_records")
@@ -4264,7 +4268,7 @@ const DGGIComponent = () => {
         toast.error("Delete failed: " + error.message);
       }
     }, 5000);
-    toastId = toast.info(
+    const toastId = toast.info(
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id ?? "Arrest record"} deleted</span>
         <button
@@ -4309,7 +4313,6 @@ const DGGIComponent = () => {
         );
       return next;
     });
-    let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
       const { error } = await supabase
         .from("dggi_provisional_attachment_records")
@@ -4324,7 +4327,7 @@ const DGGIComponent = () => {
         toast.error("Delete failed: " + error.message);
       }
     }, 5000);
-    toastId = toast.info(
+    const toastId = toast.info(
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id ?? "Provisional attachment"} deleted</span>
         <button
@@ -4369,7 +4372,6 @@ const DGGIComponent = () => {
         );
       return next;
     });
-    let toastId: ReturnType<typeof toast.info>;
     const timerId = setTimeout(async () => {
       const { error } = await supabase
         .from("dggi_scn_records")
@@ -4384,7 +4386,7 @@ const DGGIComponent = () => {
         toast.error("Delete failed: " + error.message);
       }
     }, 5000);
-    toastId = toast.info(
+    const toastId = toast.info(
       <div className="flex items-center justify-between gap-3 w-full">
         <span>{record.record_id ?? "SCN record"} deleted</span>
         <button

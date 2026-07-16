@@ -59,9 +59,9 @@ const TABLE_HREF: Record<string, string> = {
 };
 
 function notifHref(n: Notif): string {
-  if (n.kind === "adg_comment")
-    return `/tasks/investigation-cases?caseId=${encodeURIComponent(n.record_id)}`;
   const base = TABLE_HREF[n.source_table] ?? "/tasks/investigation-cases";
+  if (n.source_table === "dggi_records")
+    return `${base}?caseId=${encodeURIComponent(n.record_id)}`;
   return `${base}?highlight=${encodeURIComponent(n.record_id)}`;
 }
 
@@ -224,18 +224,25 @@ export default function NotificationsComponent() {
       // Deadline rows from dggi_computed_deadlines — single shared table, filter by recipient
       // A user sees a deadline if they are the SIO OR their group is the case's group.
       // We run both filters and union client-side to avoid an OR query.
-      const deadlineBase = supabase
-        .from("dggi_computed_deadlines")
-        .select("id,record_id,label,legal_reference,deadline_date,source_table")
-        .eq("workspace_id", wid)
-        .eq("skipped", false)
-        .lte("deadline_date", cutoffDate.toISOString().slice(0, 10));
+      const cutoffStr = cutoffDate.toISOString().slice(0, 10);
 
       const [commentRes, bySioRes, byGroupRes] = await Promise.all([
         commentQuery,
-        deadlineBase.eq("sio_user_id", uid),
+        supabase
+          .from("dggi_computed_deadlines")
+          .select("id,record_id,label,legal_reference,deadline_date,source_table")
+          .eq("workspace_id", wid)
+          .eq("skipped", false)
+          .lte("deadline_date", cutoffStr)
+          .eq("sio_user_id", uid),
         groups.length
-          ? deadlineBase.in("group_name", groups)
+          ? supabase
+              .from("dggi_computed_deadlines")
+              .select("id,record_id,label,legal_reference,deadline_date,source_table")
+              .eq("workspace_id", wid)
+              .eq("skipped", false)
+              .lte("deadline_date", cutoffStr)
+              .in("group_name", groups)
           : Promise.resolve({ data: [] as Record<string, string>[] | null }),
       ]);
 
