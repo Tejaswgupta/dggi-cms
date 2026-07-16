@@ -269,7 +269,6 @@ const fmt = (iso: string) => {
 };
 
 const groupKeyLabel = (field: GroupByField, raw: string) => {
-  if (field === "is_ir") return raw === "true" ? "IR" : "NON-IR";
   return raw || "—";
 };
 
