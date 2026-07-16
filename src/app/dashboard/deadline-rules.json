@@ -67,6 +67,7 @@
     },
     {
       "source_table": "dggi_provisional_attachment_records",
+      "dedup_field": "attachment_batch_id",
       "deadlines": [
         {
           "rule_id": "provisional_attachment_lapse",

@@ -30,6 +30,7 @@ export interface DeadlineRule {
 
 export interface TableDeadlineConfig {
   source_table: string;
+  dedup_field?: string;
   deadlines: DeadlineRule[];
 }
 
@@ -76,10 +77,25 @@ export function computeDeadlinesForRecords(
   const todayNorm = new Date(today);
   todayNorm.setHours(0, 0, 0, 0);
 
+  // Deduplicate records by a shared key (e.g. attachment_batch_id) so that
+  // batches with multiple property rows only produce one deadline per rule.
+  // Keep the first occurrence per key.
+  const dedupedRecords: AnyRecord[] = config.dedup_field
+    ? (() => {
+        const seen = new Set<string>();
+        return records.filter((r) => {
+          const key = String(r[config.dedup_field!] ?? r.id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      })()
+    : records;
+
   const results: ComputedDeadline[] = [];
 
   for (const rule of config.deadlines) {
-    for (const record of records) {
+    for (const record of dedupedRecords) {
       if (
         record.out_of_monitoring === "true" ||
         record.out_of_monitoring === true
