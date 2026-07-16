@@ -360,10 +360,9 @@ const ProsecutionRegisterComponent = () => {
                 </div>
               </div>
             </div>
-            <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-white">
                     <TableRow className="bg-white border-b border-[#EDEDEA]">
                       {ARREST_COLS.map((col) => (
                         <TableHead key={col.key} style={{ minWidth: col.width }} className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
@@ -402,7 +401,6 @@ const ProsecutionRegisterComponent = () => {
                     )}
                   </TableBody>
                 </Table>
-              </div>
             </div>
             {arrestTotalPages > 1 && (
               <div className="flex items-center justify-between px-1">
@@ -450,10 +448,9 @@ const ProsecutionRegisterComponent = () => {
                 </div>
               </div>
             </div>
-            <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
-              <div className="overflow-x-auto">
+            <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 z-10 bg-white">
                     <TableRow className="bg-white border-b border-[#EDEDEA]">
                       {NON_ARREST_COLS.map((col) => (
                         <TableHead key={col.key} style={{ minWidth: col.width }} className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
@@ -492,7 +489,6 @@ const ProsecutionRegisterComponent = () => {
                     )}
                   </TableBody>
                 </Table>
-              </div>
             </div>
             {nonArrestTotalPages > 1 && (
               <div className="flex items-center justify-between px-1">

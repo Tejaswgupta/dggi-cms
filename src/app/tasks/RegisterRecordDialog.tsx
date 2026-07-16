@@ -29,6 +29,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { DateInput } from "@/components/ui/date-input";
 import { useState } from "react";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
+import { AdgCommentThread } from "./AdgCommentThread";
 
 export interface WorkspaceUser {
   id: string;
@@ -61,7 +62,7 @@ export interface RegisterColumn {
   key: string;
   label: string;
   dialogLabel?: string;
-  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox" | "arrestlink" | "searchcombobox";
+  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox" | "arrestlink" | "searchcombobox" | "adgcomments";
   options?: string[];
   allowOther?: boolean;
   readOnly?: boolean;
@@ -91,6 +92,7 @@ interface RegisterRecordDialogProps {
   caseOptions?: DGGICaseOption[];
   scnOptions?: ScnOption[];
   arrestOptions?: ArrestOption[];
+  userRole?: string;
 }
 
 
@@ -383,6 +385,7 @@ export function RegisterRecordDialog({
   caseOptions = [],
   scnOptions = [],
   arrestOptions = [],
+  userRole = "",
 }: RegisterRecordDialogProps) {
   const editableColumns = columns.filter((col) => {
     if (col.readOnly) return false;
@@ -399,6 +402,16 @@ export function RegisterRecordDialog({
   const renderField = (col: RegisterColumn) => {
     const value = draft[col.key] ?? "";
     const onChange = (v: string) => onDraftChange(col.key, v);
+
+    if (col.type === "adgcomments") {
+      return (
+        <AdgCommentThread
+          value={value}
+          onChange={onChange}
+          canEdit={userRole === "ADG"}
+        />
+      );
+    }
 
     if (col.type === "scncombobox") {
       return (
@@ -486,10 +499,11 @@ export function RegisterRecordDialog({
     }
     if (col.type === "select") {
       const isOtherMode = col.allowOther && value && !col.options?.includes(value) && value !== "__other__";
-      const selectValue = isOtherMode ? "__other__" : value;
+      const selectValue = (isOtherMode || value === "__other__") ? "__other__" : value;
+      const showTextInput = selectValue === "__other__" || isOtherMode;
       return (
         <div className="flex flex-col gap-1.5">
-          <Select value={selectValue} onValueChange={(v) => { if (v === "__other__") onChange(""); else onChange(v); }}>
+          <Select value={selectValue} onValueChange={(v) => { if (v === "__other__") onChange("__other__"); else onChange(v); }}>
             <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
               <SelectValue placeholder="Select…" />
             </SelectTrigger>
@@ -502,10 +516,10 @@ export function RegisterRecordDialog({
               {col.allowOther && <SelectItem value="__other__">Others</SelectItem>}
             </SelectContent>
           </Select>
-          {(selectValue === "__other__" || isOtherMode) && (
+          {showTextInput && (
             <Input
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
+              value={value === "__other__" ? "" : value}
+              onChange={(e) => onChange(e.target.value || "__other__")}
               placeholder="Specify source…"
               className="h-9 border-[#EDEDEA] text-base rounded-lg w-full"
             />
@@ -554,7 +568,10 @@ export function RegisterRecordDialog({
                   <p className="text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">{group.label}</p>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                     {groupCols.map((col) => (
-                      <div key={col.key} className="flex flex-col gap-1.5">
+                      <div
+                        key={col.key}
+                        className={`flex flex-col gap-1.5 ${col.type === "adgcomments" ? "col-span-2" : ""}`}
+                      >
                         <label className="text-sm font-medium text-[#6b6b6b]">
                           {col.dialogLabel ?? col.label}
                         </label>
@@ -569,7 +586,10 @@ export function RegisterRecordDialog({
         ) : (
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-2">
             {editableColumns.map((col) => (
-              <div key={col.key} className="flex flex-col gap-1.5">
+              <div
+                key={col.key}
+                className={`flex flex-col gap-1.5 ${col.type === "adgcomments" ? "col-span-2" : ""}`}
+              >
                 <label className="text-sm font-medium text-[#6b6b6b]">
                   {col.dialogLabel ?? col.label}
                 </label>

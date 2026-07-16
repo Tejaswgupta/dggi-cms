@@ -253,16 +253,6 @@
           "reminder_days_before": [60, 30, 7, 1],
           "critical_days": 30,
           "warning_days": 60
-        },
-        {
-          "rule_id": "scn_noticee_reply",
-          "label": "Noticee reply deadline",
-          "legal_reference": "Sec 75(4) CGST",
-          "reference_field": "date_of_scn",
-          "offset_days": 30,
-          "reminder_days_before": [7, 3, 1],
-          "critical_days": 3,
-          "warning_days": 7
         }
       ]
     }

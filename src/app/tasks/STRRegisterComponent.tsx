@@ -39,6 +39,7 @@ import {
   type RegisterColumn,
   type WorkspaceUser,
 } from "./RegisterRecordDialog";
+import { parseAdgComments } from "./AdgCommentThread";
 
 const TABLE_NAME = "dggi_str_records";
 const RECORD_PREFIX = REGISTER_PREFIXES.STR;
@@ -61,6 +62,8 @@ interface STRRecord {
   sio: string;
   sio_name: string;
   group: string;
+  pr_adg_comments?: string;
+  pr_adg_comments_updated_at?: string | null;
 }
 
 const COLUMNS: RegisterColumn[] = [
@@ -70,6 +73,12 @@ const COLUMNS: RegisterColumn[] = [
     type: "text",
     width: "140px",
     readOnly: true,
+  },
+  {
+    key: "pr_adg_comments",
+    label: "Pr.ADG Comments",
+    type: "adgcomments",
+    width: "200px",
   },
   {
     key: "linked_case_id",
@@ -140,6 +149,8 @@ const EMPTY_RECORD: Omit<STRRecord, "id"> = {
   sio: "",
   sio_name: "",
   group: "",
+  pr_adg_comments: "",
+  pr_adg_comments_updated_at: null,
 };
 
 const fmt = (iso: string) => {
@@ -168,6 +179,7 @@ const STRRegisterComponent = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<STRRecord>>({});
+  const [userRole, setUserRole] = useState("");
 
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
@@ -175,12 +187,23 @@ const STRRegisterComponent = () => {
     const init = async () => {
       const wid = await getWorkspaceId();
       setWorkspaceId(wid);
-      const [{ data }, cases] = await Promise.all([
+      const [{ data }, cases, authUserRes] = await Promise.all([
         supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid),
         fetchCaseOptions(supabase, wid),
+        supabase.auth.getUser(),
       ]);
       setRecords(data ?? []);
       setCaseOptions(cases);
+      
+      const uid = authUserRes.data.user?.id;
+      if (uid) {
+        const { data: profile } = await supabase
+          .from("votum_users")
+          .select("dggi_role")
+          .eq("id", uid)
+          .single();
+        if (profile?.dggi_role) setUserRole(profile.dggi_role);
+      }
       setLoading(false);
     };
     init();
@@ -205,7 +228,20 @@ const STRRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const updatePayload = { ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
+    const existingRecord = records.find((r) => r.id === dialogDraft.id);
+    const commentChanged =
+      userRole === "ADG" &&
+      (dialogDraft.pr_adg_comments ?? "") !== (existingRecord?.pr_adg_comments ?? "");
+
+    const updatePayload = {
+      ...dialogDraft,
+      sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null,
+    };
+    if (userRole !== "ADG") delete updatePayload.pr_adg_comments;
+    if (commentChanged) {
+      updatePayload.pr_adg_comments_updated_at = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from(TABLE_NAME)
       .update(updatePayload)
@@ -215,7 +251,9 @@ const STRRegisterComponent = () => {
     } else {
       setRecords((prev) =>
         prev.map((r) =>
-          r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r,
+          r.id === dialogDraft.id
+            ? { ...r, ...dialogDraft, ...(commentChanged ? { pr_adg_comments_updated_at: updatePayload.pr_adg_comments_updated_at } : {}) }
+            : r,
         ),
       );
       toast.success("Record saved");
@@ -248,6 +286,11 @@ const STRRegisterComponent = () => {
       workspace_id: workspaceId,
       sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null,
     };
+    if (userRole !== "ADG") delete payload.pr_adg_comments;
+    if (payload.pr_adg_comments) {
+      payload.pr_adg_comments_updated_at = new Date().toISOString();
+    }
+
     const { data, error } = await supabase
       .from(TABLE_NAME)
       .insert(payload)
@@ -278,6 +321,19 @@ const STRRegisterComponent = () => {
   };
 
   const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
+    if (type === "adgcomments") {
+      const comments = parseAdgComments(value);
+      if (comments.length === 0) return <span className="text-[#9a9a96]">—</span>;
+      const last = comments[comments.length - 1];
+      return (
+        <div className="flex flex-col gap-0.5 max-w-[190px]">
+          <span className="text-base text-[#1a1a1a] truncate" title={last.text}>{last.text}</span>
+          {comments.length > 1 && (
+            <span className="text-xs text-[#9a9a96]">+{comments.length - 1} more</span>
+          )}
+        </div>
+      );
+    }
     if (type === "caselink")
       return (
         <CaseIdCombobox
@@ -471,6 +527,7 @@ const STRRegisterComponent = () => {
         saving={savingRow}
         users={sioUsers}
         caseOptions={caseOptions}
+        userRole={userRole}
       />
     </div>
   );

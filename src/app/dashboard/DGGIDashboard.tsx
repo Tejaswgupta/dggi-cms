@@ -81,7 +81,6 @@ const TABLE_RBAC_FIELDS: Record<
   dggi_provisional_attachment_records: { groupField: "group", sioField: "sio" },
   dggi_prosecution_arrest_records: { groupField: "group", sioField: "sio" },
   dggi_prosecution_non_arrest_records: { groupField: "group", sioField: "sio" },
-  dggi_seizure_records: { groupField: "group", sioField: "sio" },
   dggi_intel_rapid_records: {
     groupField: "assigned_group",
     sioField: "sio",
@@ -91,13 +90,12 @@ const TABLE_RBAC_FIELDS: Record<
   dggi_dfl_records: { groupField: "group", sioField: "sio" },
 };
 
-// Metric tables that need RBAC filtering (provisional attachments, seizures, arrests, investigations)
+// Metric tables that need RBAC filtering (provisional attachments, arrests, investigations)
 const METRIC_TABLE_RBAC: Record<
   string,
   { groupField: string; sioField: string }
 > = {
   dggi_provisional_attachment_records: { groupField: "group", sioField: "sio" },
-  dggi_seizure_records: { groupField: "group", sioField: "sio" },
   dggi_prosecution_arrest_records: { groupField: "group", sioField: "sio" },
   dggi_records: { groupField: "group", sioField: "handling_io_sio" },
 };
@@ -140,7 +138,6 @@ const TABLE_HREF: Record<string, string> = {
   dggi_provisional_attachment_records: "/tasks/provisional-attachment",
   dggi_prosecution_arrest_records: "/tasks/prosecution-register",
   dggi_prosecution_non_arrest_records: "/tasks/prosecution-register",
-  dggi_seizure_records: "/tasks/seizure-register",
   dggi_intel_rapid_records: "/tasks/intelligence-allocation",
   dggi_str_records: "/tasks/intelligence-allocation",
   dggi_dfl_records: "/tasks/dfl-register",
@@ -992,18 +989,15 @@ export default function DGGIDashboard() {
   >([]);
   const [investigationCount, setInvestigationCount] = useState(0);
   const [fyProvisionalAttachments, setFyProvisionalAttachments] = useState(0);
-  const [fySeizures, setFySeizures] = useState(0);
   const [fyArrests, setFyArrests] = useState(0);
   const [fyInvestigations, setFyInvestigations] = useState(0);
   const [prevMonthCounts, setPrevMonthCounts] = useState({
     provisionalAttachments: 0,
-    seizures: 0,
     arrests: 0,
     investigations: 0,
   });
   const [currMonthCounts, setCurrMonthCounts] = useState({
     provisionalAttachments: 0,
-    seizures: 0,
     arrests: 0,
     investigations: 0,
   });
@@ -1124,17 +1118,14 @@ export default function DGGIDashboard() {
         countResults,
         invRes,
         fyProvRes,
-        fySeizRes,
         fyArrRes,
         fyInvRes,
         irRecordsRes,
         caseRecordsRes,
         cmProvRes,
-        cmSeizRes,
         cmArrRes,
         cmInvRes,
         pmProvRes,
-        pmSeizRes,
         pmArrRes,
         pmInvRes,
       ] = await Promise.all([
@@ -1204,15 +1195,6 @@ export default function DGGIDashboard() {
         ),
         applyRbacFilter(
           supabase
-            .from("dggi_seizure_records")
-            .select("*", { count: "exact", head: true })
-            .eq("workspace_id", wid)
-            .gte("created_at", fyStart),
-          "dggi_seizure_records",
-          rbac,
-        ),
-        applyRbacFilter(
-          supabase
             .from("dggi_prosecution_arrest_records")
             .select("*", { count: "exact", head: true })
             .eq("workspace_id", wid)
@@ -1261,16 +1243,6 @@ export default function DGGIDashboard() {
         ),
         applyRbacFilter(
           supabase
-            .from("dggi_seizure_records")
-            .select("*", { count: "exact", head: true })
-            .eq("workspace_id", wid)
-            .gte("created_at", currMonth.start)
-            .lt("created_at", currMonth.end),
-          "dggi_seizure_records",
-          rbac,
-        ),
-        applyRbacFilter(
-          supabase
             .from("dggi_prosecution_arrest_records")
             .select("*", { count: "exact", head: true })
             .eq("workspace_id", wid)
@@ -1297,16 +1269,6 @@ export default function DGGIDashboard() {
             .gte("created_at", prevMonth.start)
             .lt("created_at", prevMonth.end),
           "dggi_provisional_attachment_records",
-          rbac,
-        ),
-        applyRbacFilter(
-          supabase
-            .from("dggi_seizure_records")
-            .select("*", { count: "exact", head: true })
-            .eq("workspace_id", wid)
-            .gte("created_at", prevMonth.start)
-            .lt("created_at", prevMonth.end),
-          "dggi_seizure_records",
           rbac,
         ),
         applyRbacFilter(
@@ -1340,18 +1302,15 @@ export default function DGGIDashboard() {
       setRegisterCounts(countsMap);
       setInvestigationCount(invRes.count ?? 0);
       setFyProvisionalAttachments(fyProvRes.count ?? 0);
-      setFySeizures(fySeizRes.count ?? 0);
       setFyArrests(fyArrRes.count ?? 0);
       setFyInvestigations(fyInvRes.count ?? 0);
       setCurrMonthCounts({
         provisionalAttachments: cmProvRes.count ?? 0,
-        seizures: cmSeizRes.count ?? 0,
         arrests: cmArrRes.count ?? 0,
         investigations: cmInvRes.count ?? 0,
       });
       setPrevMonthCounts({
         provisionalAttachments: pmProvRes.count ?? 0,
-        seizures: pmSeizRes.count ?? 0,
         arrests: pmArrRes.count ?? 0,
         investigations: pmInvRes.count ?? 0,
       });
@@ -1773,7 +1732,6 @@ export default function DGGIDashboard() {
   }
 
   // KPI stats
-  const seizureCount = registerCounts["dggi_seizure_records"] ?? 0;
   const totalRecordsAcrossRegisters =
     Object.values(registerCounts).reduce((s, c) => s + c, 0) +
     investigationCount;
@@ -2096,15 +2054,12 @@ export default function DGGIDashboard() {
               <div className="lg:col-span-3">
                 <ZoneIntelligencePanel
                   provisionalAttachments={fyProvisionalAttachments}
-                  seizures={fySeizures}
                   arrests={fyArrests}
                   investigations={fyInvestigations}
                   momDeltas={{
                     provisionalAttachments:
                       currMonthCounts.provisionalAttachments -
                       prevMonthCounts.provisionalAttachments,
-                    seizures:
-                      currMonthCounts.seizures - prevMonthCounts.seizures,
                     arrests: currMonthCounts.arrests - prevMonthCounts.arrests,
                     investigations:
                       currMonthCounts.investigations -

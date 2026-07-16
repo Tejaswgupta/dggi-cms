@@ -971,10 +971,9 @@ const SCNRegisterComponent = () => {
               </div>
 
               {/* ── Records table ───────────────────────────────────────────── */}
-              <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
-                <div className="overflow-x-auto">
+              <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
                   <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-white">
                       <TableRow className="bg-white border-b border-[#EDEDEA]">
                         {COLUMNS.map((col) => (
                           <TableHead
@@ -1102,7 +1101,6 @@ const SCNRegisterComponent = () => {
                       )}
                     </TableBody>
                   </Table>
-                </div>
               </div>
 
               {/* ── Pagination ────────────────────────────────────────────── */}

@@ -80,17 +80,6 @@ def main() -> None:
         "SET row_security = off;\n"
     )
 
-    # ── dggi_* functions ───────────────────────────────────────────────────────
-    fn_pattern = re.compile(
-        r'(CREATE OR REPLACE FUNCTION "public"\."dggi_[^"]*".*?'
-        r'ALTER FUNCTION "public"\."dggi_[^"]*".*?;)',
-        re.DOTALL,
-    )
-    fn_blocks = blocks_matching(raw, fn_pattern)
-    if fn_blocks:
-        sections.append("\n-- ── DGGI functions ──────────────────────────────────────────────────────")
-        sections.extend(fn_blocks)
-
     # ── CREATE TABLE ──────────────────────────────────────────────────────────
     sections.append("\n-- ── Table definitions ───────────────────────────────────────────────────")
     for table in all_tables:
@@ -101,16 +90,37 @@ def main() -> None:
         else:
             print(f"  WARNING: no CREATE TABLE found for {table}", file=sys.stderr)
 
-    # ── Constraints (PK, unique, FK) ─────────────────────────────────────────
-    sections.append("\n-- ── Constraints ─────────────────────────────────────────────────────────")
+    # ── PK / Unique constraints first (FKs need these to exist on the target) ──
+    sections.append("\n-- ── Primary key and unique constraints ──────────────────────────────────")
     for table in all_tables:
-        # ALTER TABLE "public"."<table>" ADD CONSTRAINT ...;
-        constraint_pattern = re.compile(
+        pk_pattern = re.compile(
             rf'(ALTER TABLE ONLY "public"\."{re.escape(table)}"'
-            rf'\s+ADD CONSTRAINT\s+.*?;)',
+            rf'\s+ADD CONSTRAINT\s+[^;]+(?:PRIMARY KEY|UNIQUE)[^;]*;)',
             re.DOTALL | re.IGNORECASE,
         )
-        for block in blocks_matching(raw, constraint_pattern):
+        for block in blocks_matching(raw, pk_pattern):
+            sections.append(block)
+
+    # ── FK constraints ────────────────────────────────────────────────────────
+    sections.append("\n-- ── Foreign key constraints ─────────────────────────────────────────────")
+    for table in all_tables:
+        fk_pattern = re.compile(
+            rf'(ALTER TABLE ONLY "public"\."{re.escape(table)}"'
+            rf'\s+ADD CONSTRAINT\s+[^;]+FOREIGN KEY[^;]*;)',
+            re.DOTALL | re.IGNORECASE,
+        )
+        for block in blocks_matching(raw, fk_pattern):
+            sections.append(block)
+
+    # ── Check / other constraints ─────────────────────────────────────────────
+    sections.append("\n-- ── Check constraints ───────────────────────────────────────────────────")
+    for table in all_tables:
+        check_pattern = re.compile(
+            rf'(ALTER TABLE ONLY "public"\."{re.escape(table)}"'
+            rf'\s+ADD CONSTRAINT\s+[^;]+CHECK[^;]*;)',
+            re.DOTALL | re.IGNORECASE,
+        )
+        for block in blocks_matching(raw, check_pattern):
             sections.append(block)
 
     # ── Indexes ───────────────────────────────────────────────────────────────
@@ -122,6 +132,29 @@ def main() -> None:
         )
         for block in blocks_matching(raw, idx_pattern):
             sections.append(block)
+
+    # ── Trigger functions (non-dggi_* functions referenced by triggers) ────────
+    trigger_fn_names: set[str] = set()
+    for table in all_tables:
+        trig_scan = re.compile(
+            rf'CREATE (?:OR REPLACE )?TRIGGER\s+"[^"]*"\s+[^;]+ON\s+"public"\."{re.escape(table)}"[^;]+EXECUTE FUNCTION\s+"public"\."([^"]+)"',
+            re.DOTALL | re.IGNORECASE,
+        )
+        for m in trig_scan.finditer(raw):
+            fn_name = m.group(1)
+            if not fn_name.startswith("dggi_"):
+                trigger_fn_names.add(fn_name)
+
+    if trigger_fn_names:
+        sections.append("\n-- ── Trigger support functions ───────────────────────────────────────────")
+        for fn_name in sorted(trigger_fn_names):
+            fn_block_pattern = re.compile(
+                rf'(CREATE OR REPLACE FUNCTION "public"\."{re.escape(fn_name)}".*?'
+                rf'ALTER FUNCTION "public"\."{re.escape(fn_name)}".*?;)',
+                re.DOTALL,
+            )
+            for block in blocks_matching(raw, fn_block_pattern):
+                sections.append(block)
 
     # ── Triggers ──────────────────────────────────────────────────────────────
     sections.append("\n-- ── Triggers ────────────────────────────────────────────────────────────")
@@ -149,6 +182,17 @@ def main() -> None:
         )
         for block in blocks_matching(raw, policy_pattern):
             sections.append(block)
+
+    # ── dggi_* functions ───────────────────────────────────────────────────────
+    fn_pattern = re.compile(
+        r'(CREATE OR REPLACE FUNCTION "public"\."dggi_[^"]*".*?'
+        r'ALTER FUNCTION "public"\."dggi_[^"]*".*?;)',
+        re.DOTALL,
+    )
+    fn_blocks = blocks_matching(raw, fn_pattern)
+    if fn_blocks:
+        sections.append("\n-- ── DGGI functions ──────────────────────────────────────────────────────")
+        sections.extend(fn_blocks)
 
     # ── Grants ────────────────────────────────────────────────────────────────
     sections.append("\n-- ── Grants ──────────────────────────────────────────────────────────────")

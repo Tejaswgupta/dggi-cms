@@ -538,21 +538,18 @@ export function DeadlineHeatmap({
 
 interface MoMDeltas {
   provisionalAttachments: number;
-  seizures: number;
   arrests: number;
   investigations: number;
 }
 
 export function ZoneIntelligencePanel({
   provisionalAttachments,
-  seizures,
   arrests,
   investigations,
   momDeltas,
   loading,
 }: {
   provisionalAttachments: number;
-  seizures: number;
   arrests: number;
   investigations: number;
   momDeltas?: MoMDeltas;
@@ -564,12 +561,6 @@ export function ZoneIntelligencePanel({
       value: provisionalAttachments,
       sub: "Current FY",
       delta: momDeltas?.provisionalAttachments,
-    },
-    {
-      label: "SEIZURES",
-      value: seizures,
-      sub: "Current FY",
-      delta: momDeltas?.seizures,
     },
     {
       label: "ARRESTS",

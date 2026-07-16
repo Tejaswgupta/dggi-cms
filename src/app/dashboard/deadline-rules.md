@@ -253,13 +253,4 @@
 | Critical window | ≤ 30 days |
 | Warning window | ≤ 60 days |
 
-#### scn_noticee_reply — Noticee reply deadline
 
-| Field | Value |
-|---|---|
-| Legal reference | Sec 75(4) CGST |
-| Reference field | `date_of_scn` |
-| Deadline | +30 days |
-| Reminders | 7d, 3d, 1d before |
-| Critical window | ≤ 3 days |
-| Warning window | ≤ 7 days |

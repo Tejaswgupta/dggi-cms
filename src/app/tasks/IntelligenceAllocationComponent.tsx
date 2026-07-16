@@ -41,6 +41,7 @@ import {
   EMPTY_RECORD,
   type DGGIRecord,
 } from "./DGGIComponent";
+import { parseAdgComments } from "./AdgCommentThread";
 import {
   REGISTER_PREFIXES,
   exportRegisterToExcel,
@@ -88,6 +89,8 @@ interface RapidRecord {
   non_ir_date: string;
   sio: string;
   sio_name: string;
+  pr_adg_comments?: string;
+  pr_adg_comments_updated_at?: string | null;
 }
 
 const RAPID_COLS: RegisterColumn[] = [
@@ -97,6 +100,12 @@ const RAPID_COLS: RegisterColumn[] = [
     type: "text",
     width: "140px",
     readOnly: true,
+  },
+  {
+    key: "pr_adg_comments",
+    label: "Pr.ADG Comments",
+    type: "adgcomments",
+    width: "200px",
   },
   { key: "rapid_id", label: "Rapid ID", type: "text", width: "140px" },
   {
@@ -203,6 +212,8 @@ const EMPTY_RAPID: Omit<RapidRecord, "id"> = {
   non_ir_date: "",
   sio: "",
   sio_name: "",
+  pr_adg_comments: "",
+  pr_adg_comments_updated_at: null,
 };
 
 // ── Other Sources sub-register ────────────────────────────────────────────────
@@ -226,6 +237,8 @@ interface OtherSourceRecord {
   non_ir_date: string;
   sio: string;
   sio_name: string;
+  pr_adg_comments?: string;
+  pr_adg_comments_updated_at?: string | null;
 }
 
 const OTHER_COLS: RegisterColumn[] = [
@@ -235,6 +248,12 @@ const OTHER_COLS: RegisterColumn[] = [
     type: "text",
     width: "140px",
     readOnly: true,
+  },
+  {
+    key: "pr_adg_comments",
+    label: "Pr.ADG Comments",
+    type: "adgcomments",
+    width: "200px",
   },
   // {
   //   key: "linked_case_id",
@@ -335,6 +354,8 @@ const EMPTY_OTHER: Omit<OtherSourceRecord, "id"> = {
   non_ir_date: "",
   sio: "",
   sio_name: "",
+  pr_adg_comments: "",
+  pr_adg_comments_updated_at: null,
 };
 
 // ── STR sub-register ──────────────────────────────────────────────────────────
@@ -367,6 +388,8 @@ interface STRRecord {
   group: string;
   non_ir_no: string;
   non_ir_date: string;
+  pr_adg_comments?: string;
+  pr_adg_comments_updated_at?: string | null;
 }
 
 const STR_COLS: RegisterColumn[] = [
@@ -376,6 +399,12 @@ const STR_COLS: RegisterColumn[] = [
     type: "text",
     width: "140px",
     readOnly: true,
+  },
+  {
+    key: "pr_adg_comments",
+    label: "Pr.ADG Comments",
+    type: "adgcomments",
+    width: "200px",
   },
   // {
   //   key: "linked_case_id",
@@ -534,6 +563,8 @@ const EMPTY_STR: Omit<STRRecord, "id"> = {
   group: "",
   non_ir_no: "",
   non_ir_date: "",
+  pr_adg_comments: "",
+  pr_adg_comments_updated_at: null,
 };
 
 // ── Intel alarm logic ─────────────────────────────────────────────────────────
@@ -656,6 +687,19 @@ function SubTable<T extends { id: string; record_id: string }>({
     type: RegisterColumn["type"],
     storedName?: string,
   ) => {
+    if (type === "adgcomments") {
+      const comments = parseAdgComments(value);
+      if (comments.length === 0) return <span className="text-[#9a9a96]">—</span>;
+      const last = comments[comments.length - 1];
+      return (
+        <div className="flex flex-col gap-0.5 max-w-[190px]">
+          <span className="text-base text-[#1a1a1a] truncate" title={last.text}>{last.text}</span>
+          {comments.length > 1 && (
+            <span className="text-xs text-[#9a9a96]">+{comments.length - 1} more</span>
+          )}
+        </div>
+      );
+    }
     if (type === "caselink")
       return (
         <CaseIdCombobox
@@ -729,10 +773,9 @@ function SubTable<T extends { id: string; record_id: string }>({
           </div>
         </div>
       </div>
-      <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-10 bg-white">
               <TableRow className="bg-white border-b border-[#EDEDEA]">
                 {columns.map((col) => (
                   <TableHead
@@ -825,7 +868,6 @@ function SubTable<T extends { id: string; record_id: string }>({
               )}
             </TableBody>
           </Table>
-        </div>
       </div>
     </div>
   );
@@ -996,6 +1038,7 @@ const IntelligenceAllocationComponent = () => {
   const makeCrud = <T extends { id: string }>(
     table: string,
     prefix: string,
+    records: T[],
     setRecords: React.Dispatch<React.SetStateAction<T[]>>,
     setSaving: React.Dispatch<React.SetStateAction<boolean>>,
     setDialogOpen: React.Dispatch<React.SetStateAction<boolean>>,
@@ -1058,6 +1101,10 @@ const IntelligenceAllocationComponent = () => {
       rawDraft.sio_name =
         workspaceUsers.find((u) => u.id === ((dialogDraft as any).sio ?? ""))
           ?.name || null;
+      if (userRole !== "ADG") delete rawDraft.pr_adg_comments;
+      if (rawDraft.pr_adg_comments) {
+        rawDraft.pr_adg_comments_updated_at = new Date().toISOString();
+      }
       const payload = {
         ...rawDraft,
         record_id: await generateWorkspaceRecordId(
@@ -1087,6 +1134,7 @@ const IntelligenceAllocationComponent = () => {
   const rapidCrud = makeCrud(
     "dggi_intel_rapid_records",
     REGISTER_PREFIXES.INTEL_RAPID,
+    rapidRecords,
     setRapidRecords,
     setRapidSaving,
     setRapidDialogOpen,
@@ -1098,6 +1146,7 @@ const IntelligenceAllocationComponent = () => {
   const otherCrud = makeCrud(
     "dggi_intel_other_source_records",
     REGISTER_PREFIXES.INTEL_OTHER,
+    otherRecords,
     setOtherRecords,
     setOtherSaving,
     setOtherDialogOpen,
@@ -1109,6 +1158,7 @@ const IntelligenceAllocationComponent = () => {
   const strCrud = makeCrud(
     "dggi_str_records",
     REGISTER_PREFIXES.STR,
+    strRecords,
     setStrRecords,
     setStrSaving,
     setStrDialogOpen,
@@ -1575,6 +1625,7 @@ const IntelligenceAllocationComponent = () => {
         saving={rapidSaving}
         users={sioUsers}
         caseOptions={caseOptions}
+        userRole={userRole}
       />
 
       {/* Other Sources dialog */}
@@ -1600,6 +1651,7 @@ const IntelligenceAllocationComponent = () => {
         saving={otherSaving}
         users={sioUsers}
         caseOptions={caseOptions}
+        userRole={userRole}
       />
 
       {/* STR dialog */}
@@ -1625,6 +1677,7 @@ const IntelligenceAllocationComponent = () => {
         saving={strSaving}
         users={sioUsers}
         caseOptions={caseOptions}
+        userRole={userRole}
       />
 
       {/* NON-IR generation dialog */}

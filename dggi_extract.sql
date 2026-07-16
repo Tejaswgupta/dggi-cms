@@ -13,183 +13,6 @@ SET row_security = off;
 
 
 
--- ── DGGI functions ──────────────────────────────────────────────────────
-
-CREATE OR REPLACE FUNCTION "public"."dggi_can_access_by_record_id"("p_workspace_id" "text", "p_record_id" "text") RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.dggi_records r
-    WHERE r.workspace_id = p_workspace_id
-      AND r.record_id    = p_record_id
-      AND public.dggi_can_access_record(r.workspace_id, r."group", r.handling_io_sio)
-  );
-$$;
-
-
-ALTER FUNCTION "public"."dggi_can_access_by_record_id"("p_workspace_id" "text", "p_record_id" "text") OWNER TO "postgres";
-
-CREATE OR REPLACE FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_handling_io_sio" "text") RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.votum_users u
-    WHERE u.id = auth.uid()
-      AND u.workspace_id::text = p_workspace_id
-      AND (
-        u.dggi_role IN ('ADG', 'DD_INT')
-        OR (
-          u.dggi_role IN ('ADC', 'JD', 'DD', 'AD')
-          AND EXISTS (
-            SELECT 1
-            FROM public.dggi_user_group_assignments g
-            WHERE g.user_id = u.id
-              AND g.workspace_id = u.workspace_id
-              AND g.group_name = p_group
-          )
-        )
-        OR (
-          u.dggi_role IN ('SIO', 'IO')
-          AND (
-            u.id::text = p_handling_io_sio
-            OR u.name = p_handling_io_sio
-          )
-        )
-      )
-  );
-$$;
-
-
-ALTER FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_handling_io_sio" "text") OWNER TO "postgres";
-
-CREATE OR REPLACE FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_assigned_user_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.votum_users u
-    WHERE u.id = auth.uid()
-      AND u.workspace_id::text = p_workspace_id
-      AND (
-        u.dggi_role IN ('ADG', 'DD_INT')
-        OR (
-          u.dggi_role IN ('ADC', 'JD', 'DD', 'AD')
-          AND EXISTS (
-            SELECT 1
-            FROM public.dggi_user_group_assignments g
-            WHERE g.user_id = u.id
-              AND g.workspace_id = u.workspace_id
-              AND g.group_name = p_group
-          )
-        )
-        OR (
-          u.dggi_role IN ('SIO', 'IO')
-          AND p_assigned_user_id = u.id
-        )
-      )
-  );
-$$;
-
-
-ALTER FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_assigned_user_id" "uuid") OWNER TO "postgres";
-
-CREATE OR REPLACE FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) RETURNS TABLE("batch_key" "text", "is_fallback" boolean, "date_of_attachment" "text", "date_of_scn_issuance" "text", "date_of_release" "text", "total_batches" bigint)
-    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
-    AS $_$
-DECLARE
-  v_sort_col text := COALESCE(NULLIF(p_sort_col, ''), 'created_at');
-BEGIN
-  RETURN QUERY EXECUTE format(
-    $sql$
-    WITH filtered AS (
-      SELECT
-        id,
-        COALESCE(NULLIF(attachment_batch_id, ''), id::text) AS batch_key,
-        (attachment_batch_id IS NULL OR attachment_batch_id = '')  AS is_fallback,
-        date_of_attachment::text,
-        date_of_scn_issuance::text,
-        date_of_release::text,
-        %1$I                                                       AS _sort_val,
-        created_at
-      FROM dggi_provisional_attachment_records
-      WHERE workspace_id = %2$L
-        AND (
-          %3$L IN ('ADG', 'DD_INT')
-          OR (
-            %3$L IN ('IO', 'SIO')
-            AND sio = %4$L::uuid
-          )
-          OR (
-            %3$L IN ('ADC', 'JD', 'DD', 'AD')
-            AND "group" = ANY(%5$L::text[])
-          )
-          OR (
-            %3$L NOT IN ('ADG','DD_INT','IO','SIO','ADC','JD','DD','AD')
-            AND "group" = '__none__'
-          )
-        )
-        AND (%6$L = '' OR (
-              person_name   ILIKE '%%' || %6$L || '%%'
-           OR gstin_pan     ILIKE '%%' || %6$L || '%%'
-           OR entity_gstin  ILIKE '%%' || %6$L || '%%'
-           OR issue_involved ILIKE '%%' || %6$L || '%%'
-           OR group_sio     ILIKE '%%' || %6$L || '%%'
-        ))
-        AND (%7$L = '' OR date_of_attachment::text >= %7$L)
-        AND (%8$L = '' OR date_of_attachment::text <= %8$L)
-    ),
-    first_per_batch AS (
-      SELECT DISTINCT ON (batch_key)
-        batch_key,
-        is_fallback,
-        date_of_attachment,
-        date_of_scn_issuance,
-        date_of_release,
-        _sort_val,
-        created_at
-      FROM filtered
-      ORDER BY batch_key, %9$s
-    ),
-    ordered AS (
-      SELECT *,
-             COUNT(*) OVER () AS total_batches,
-             ROW_NUMBER() OVER (ORDER BY %9$s) AS rn
-      FROM first_per_batch
-    )
-    SELECT
-      batch_key,
-      is_fallback,
-      date_of_attachment,
-      date_of_scn_issuance,
-      date_of_release,
-      total_batches
-    FROM ordered
-    WHERE rn > %10$s AND rn <= %10$s + %11$s
-    ORDER BY rn
-    $sql$,
-    v_sort_col,                                 -- %1$I  sort column (identifier)
-    p_workspace_id,                             -- %2$L
-    p_role,                                     -- %3$L
-    p_uid,                                      -- %4$L
-    p_groups,                                   -- %5$L
-    p_search,                                   -- %6$L
-    p_date_from,                                -- %7$L
-    p_date_to,                                  -- %8$L
-    CASE WHEN p_sort_asc
-         THEN format('%I ASC, created_at ASC', v_sort_col)
-         ELSE format('%I DESC, created_at DESC', v_sort_col)
-    END,                                        -- %9$s  (ORDER BY fragment)
-    p_offset,                                   -- %10$s
-    p_limit                                     -- %11$s
-  );
-END;
-$_$;
-
-
-ALTER FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) OWNER TO "postgres";
-
-
 -- ── Table definitions ───────────────────────────────────────────────────
 
 
@@ -904,40 +727,19 @@ CREATE TABLE IF NOT EXISTS "public"."votum_workspace" (
 );
 
 
--- ── Constraints ─────────────────────────────────────────────────────────
+-- ── Primary key and unique constraints ──────────────────────────────────
 
 ALTER TABLE ONLY "public"."designations"
     ADD CONSTRAINT "designations_pkey" PRIMARY KEY ("id");
 
-ALTER TABLE ONLY "public"."designations"
-    ADD CONSTRAINT "designations_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id") ON DELETE CASCADE;
-
 ALTER TABLE ONLY "public"."dggi_alert_circular_records"
     ADD CONSTRAINT "dggi_alert_circular_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_alert_circular_records"
-    ADD CONSTRAINT "dggi_alert_circular_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
-
-ALTER TABLE ONLY "public"."dggi_alert_circular_records"
-    ADD CONSTRAINT "dggi_alert_circular_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_arrest_records"
     ADD CONSTRAINT "dggi_arrest_records_pkey" PRIMARY KEY ("id");
 
-ALTER TABLE ONLY "public"."dggi_arrest_records"
-    ADD CONSTRAINT "dggi_arrest_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
-
-ALTER TABLE ONLY "public"."dggi_arrest_records"
-    ADD CONSTRAINT "dggi_arrest_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
 ALTER TABLE ONLY "public"."dggi_closure_records"
     ADD CONSTRAINT "dggi_closure_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_closure_records"
-    ADD CONSTRAINT "dggi_closure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
-
-ALTER TABLE ONLY "public"."dggi_closure_records"
-    ADD CONSTRAINT "dggi_closure_records_handling_io_sio_fkey" FOREIGN KEY ("handling_io_sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_computed_deadlines"
     ADD CONSTRAINT "dggi_computed_deadlines_pkey" PRIMARY KEY ("id");
@@ -954,6 +756,99 @@ ALTER TABLE ONLY "public"."dggi_deadline_alerts_sent"
 ALTER TABLE ONLY "public"."dggi_incident_report_records"
     ADD CONSTRAINT "dggi_incident_report_records_pkey" PRIMARY KEY ("id");
 
+ALTER TABLE ONLY "public"."dggi_intel_closure_records"
+    ADD CONSTRAINT "dggi_intel_closure_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_intel_other_source_records"
+    ADD CONSTRAINT "dggi_intel_other_source_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
+    ADD CONSTRAINT "dggi_intel_rapid_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_modus_operandi_records"
+    ADD CONSTRAINT "dggi_modus_operandi_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_mpr_records"
+    ADD CONSTRAINT "dggi_mpr_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_mpr_records"
+    ADD CONSTRAINT "dggi_mpr_records_workspace_id_year_month_report_type_key" UNIQUE ("workspace_id", "year", "month", "report_type");
+
+ALTER TABLE ONLY "public"."dggi_non_ir_case_records"
+    ADD CONSTRAINT "dggi_non_ir_case_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_notifications"
+    ADD CONSTRAINT "dggi_notifications_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_prosecution_arrest_records"
+    ADD CONSTRAINT "dggi_prosecution_arrest_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_prosecution_non_arrest_records"
+    ADD CONSTRAINT "dggi_prosecution_non_arrest_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_provisional_attachment_records"
+    ADD CONSTRAINT "dggi_provisional_attachment_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_records"
+    ADD CONSTRAINT "dggi_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_report_compliance_records"
+    ADD CONSTRAINT "dggi_report_compliance_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_scn_records"
+    ADD CONSTRAINT "dggi_scn_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_seizure_records"
+    ADD CONSTRAINT "dggi_seizure_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_str_records"
+    ADD CONSTRAINT "dggi_str_records_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_user_group_assignments"
+    ADD CONSTRAINT "dggi_user_group_assignments_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."dggi_user_group_assignments"
+    ADD CONSTRAINT "dggi_user_group_unique" UNIQUE ("user_id", "group_name");
+
+ALTER TABLE ONLY "public"."votum_users"
+    ADD CONSTRAINT "votum_users_invite_code_key" UNIQUE ("invite_code");
+
+ALTER TABLE ONLY "public"."votum_users"
+    ADD CONSTRAINT "votum_users_pkey" PRIMARY KEY ("id");
+
+ALTER TABLE ONLY "public"."votum_users"
+    ADD CONSTRAINT "votum_users_whatsapp_phone_key" UNIQUE ("phone");
+
+ALTER TABLE ONLY "public"."votum_workspace"
+    ADD CONSTRAINT "votum_workspace_email_key" UNIQUE ("email");
+
+ALTER TABLE ONLY "public"."votum_workspace"
+    ADD CONSTRAINT "votum_workspace_pkey" PRIMARY KEY ("id");
+
+
+-- ── Foreign key constraints ─────────────────────────────────────────────
+
+ALTER TABLE ONLY "public"."designations"
+    ADD CONSTRAINT "designations_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id") ON DELETE CASCADE;
+
+ALTER TABLE ONLY "public"."dggi_alert_circular_records"
+    ADD CONSTRAINT "dggi_alert_circular_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+ALTER TABLE ONLY "public"."dggi_alert_circular_records"
+    ADD CONSTRAINT "dggi_alert_circular_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+ALTER TABLE ONLY "public"."dggi_arrest_records"
+    ADD CONSTRAINT "dggi_arrest_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+ALTER TABLE ONLY "public"."dggi_arrest_records"
+    ADD CONSTRAINT "dggi_arrest_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+ALTER TABLE ONLY "public"."dggi_closure_records"
+    ADD CONSTRAINT "dggi_closure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
+
+ALTER TABLE ONLY "public"."dggi_closure_records"
+    ADD CONSTRAINT "dggi_closure_records_handling_io_sio_fkey" FOREIGN KEY ("handling_io_sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
 ALTER TABLE ONLY "public"."dggi_incident_report_records"
     ADD CONSTRAINT "dggi_incident_report_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
@@ -961,22 +856,13 @@ ALTER TABLE ONLY "public"."dggi_incident_report_records"
     ADD CONSTRAINT "dggi_incident_report_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_intel_closure_records"
-    ADD CONSTRAINT "dggi_intel_closure_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_intel_closure_records"
     ADD CONSTRAINT "dggi_intel_closure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
-
-ALTER TABLE ONLY "public"."dggi_intel_other_source_records"
-    ADD CONSTRAINT "dggi_intel_other_source_records_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "public"."dggi_intel_other_source_records"
     ADD CONSTRAINT "dggi_intel_other_source_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_intel_other_source_records"
     ADD CONSTRAINT "dggi_intel_other_source_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
-    ADD CONSTRAINT "dggi_intel_rapid_records_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
     ADD CONSTRAINT "dggi_intel_rapid_records_assigned_user_id_fkey" FOREIGN KEY ("assigned_user_id") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
@@ -988,34 +874,16 @@ ALTER TABLE ONLY "public"."dggi_intel_rapid_records"
     ADD CONSTRAINT "dggi_intel_rapid_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_modus_operandi_records"
-    ADD CONSTRAINT "dggi_modus_operandi_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_modus_operandi_records"
     ADD CONSTRAINT "dggi_modus_operandi_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_modus_operandi_records"
     ADD CONSTRAINT "dggi_modus_operandi_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-ALTER TABLE ONLY "public"."dggi_mpr_records"
-    ADD CONSTRAINT "dggi_mpr_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_mpr_records"
-    ADD CONSTRAINT "dggi_mpr_records_workspace_id_year_month_report_type_key" UNIQUE ("workspace_id", "year", "month", "report_type");
-
-ALTER TABLE ONLY "public"."dggi_non_ir_case_records"
-    ADD CONSTRAINT "dggi_non_ir_case_records_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "public"."dggi_non_ir_case_records"
     ADD CONSTRAINT "dggi_non_ir_case_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_non_ir_case_records"
     ADD CONSTRAINT "dggi_non_ir_case_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-ALTER TABLE ONLY "public"."dggi_notifications"
-    ADD CONSTRAINT "dggi_notifications_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_prosecution_arrest_records"
-    ADD CONSTRAINT "dggi_prosecution_arrest_records_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "public"."dggi_prosecution_arrest_records"
     ADD CONSTRAINT "dggi_prosecution_arrest_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
@@ -1027,25 +895,16 @@ ALTER TABLE ONLY "public"."dggi_prosecution_arrest_records"
     ADD CONSTRAINT "dggi_prosecution_arrest_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_prosecution_non_arrest_records"
-    ADD CONSTRAINT "dggi_prosecution_non_arrest_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_prosecution_non_arrest_records"
     ADD CONSTRAINT "dggi_prosecution_non_arrest_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_prosecution_non_arrest_records"
     ADD CONSTRAINT "dggi_prosecution_non_arrest_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_provisional_attachment_records"
-    ADD CONSTRAINT "dggi_provisional_attachment_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_provisional_attachment_records"
     ADD CONSTRAINT "dggi_provisional_attachment_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_provisional_attachment_records"
     ADD CONSTRAINT "dggi_provisional_attachment_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-ALTER TABLE ONLY "public"."dggi_records"
-    ADD CONSTRAINT "dggi_records_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "public"."dggi_records"
     ADD CONSTRAINT "dggi_records_assigned_user_id_fkey" FOREIGN KEY ("assigned_user_id") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
@@ -1057,25 +916,16 @@ ALTER TABLE ONLY "public"."dggi_records"
     ADD CONSTRAINT "dggi_records_handling_io_sio_fkey" FOREIGN KEY ("handling_io_sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_report_compliance_records"
-    ADD CONSTRAINT "dggi_report_compliance_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_report_compliance_records"
     ADD CONSTRAINT "dggi_report_compliance_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_report_compliance_records"
     ADD CONSTRAINT "dggi_report_compliance_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_scn_records"
-    ADD CONSTRAINT "dggi_scn_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_scn_records"
     ADD CONSTRAINT "dggi_scn_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_scn_records"
     ADD CONSTRAINT "dggi_scn_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "public"."dggi_seizure_records"
     ADD CONSTRAINT "dggi_seizure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
@@ -1087,31 +937,13 @@ ALTER TABLE ONLY "public"."dggi_seizure_records"
     ADD CONSTRAINT "dggi_seizure_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_str_records"
-    ADD CONSTRAINT "dggi_str_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_str_records"
     ADD CONSTRAINT "dggi_str_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
 ALTER TABLE ONLY "public"."dggi_str_records"
     ADD CONSTRAINT "dggi_str_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
 ALTER TABLE ONLY "public"."dggi_user_group_assignments"
-    ADD CONSTRAINT "dggi_user_group_assignments_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_user_group_assignments"
-    ADD CONSTRAINT "dggi_user_group_unique" UNIQUE ("user_id", "group_name");
-
-ALTER TABLE ONLY "public"."dggi_user_group_assignments"
     ADD CONSTRAINT "dggi_user_group_assignments_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."votum_users"("id") ON DELETE CASCADE;
-
-ALTER TABLE ONLY "public"."votum_users"
-    ADD CONSTRAINT "votum_users_invite_code_key" UNIQUE ("invite_code");
-
-ALTER TABLE ONLY "public"."votum_users"
-    ADD CONSTRAINT "votum_users_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."votum_users"
-    ADD CONSTRAINT "votum_users_whatsapp_phone_key" UNIQUE ("phone");
 
 ALTER TABLE ONLY "public"."votum_users"
     ADD CONSTRAINT "public_votum_users_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id");
@@ -1119,11 +951,8 @@ ALTER TABLE ONLY "public"."votum_users"
 ALTER TABLE ONLY "public"."votum_users"
     ADD CONSTRAINT "votum_users_cc_fkey" FOREIGN KEY ("cc") REFERENCES "public"."votum_users"("id") ON DELETE CASCADE;
 
-ALTER TABLE ONLY "public"."votum_workspace"
-    ADD CONSTRAINT "votum_workspace_email_key" UNIQUE ("email");
 
-ALTER TABLE ONLY "public"."votum_workspace"
-    ADD CONSTRAINT "votum_workspace_pkey" PRIMARY KEY ("id");
+-- ── Check constraints ───────────────────────────────────────────────────
 
 
 -- ── Indexes ─────────────────────────────────────────────────────────────
@@ -1207,6 +1036,101 @@ CREATE INDEX "idx_votum_users_whatsapp_verified" ON "public"."votum_users" USING
 CREATE UNIQUE INDEX "votum_users_pno_idx" ON "public"."votum_users" USING "btree" ("pno") WHERE ("pno" IS NOT NULL);
 
 
+-- ── Trigger support functions ───────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION "public"."audit_users_changes"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        PERFORM log_audit_change(
+            'votum_users',
+            NEW.id,
+            'INSERT',
+            NULL,
+            NULL,
+            to_jsonb(NEW),
+            'important',
+            'User created: ' || NEW.name || ' (' || COALESCE(NEW.email, 'no email') || ')',
+            NEW.id, -- User creating themselves
+            NEW.workspace_id
+        );
+    ELSIF TG_OP = 'UPDATE' THEN
+        -- Role change (CRITICAL)
+        IF OLD.role IS DISTINCT FROM NEW.role THEN
+            PERFORM log_audit_change(
+                'votum_users',
+                NEW.id,
+                'UPDATE',
+                'role',
+                to_jsonb(OLD.role),
+                to_jsonb(NEW.role),
+                'critical',
+                'User role changed from ' || COALESCE(OLD.role, 'none') || ' to ' || COALESCE(NEW.role, 'none') || ' for ' || NEW.name,
+                auth.uid(),
+                NEW.workspace_id,
+                jsonb_build_object(
+                    'user_name', NEW.name,
+                    'user_email', NEW.email
+                )
+            );
+        END IF;
+        
+        -- Workspace change (CRITICAL)
+        IF OLD.workspace_id IS DISTINCT FROM NEW.workspace_id THEN
+            PERFORM log_audit_change(
+                'votum_users',
+                NEW.id,
+                'UPDATE',
+                'workspace_id',
+                to_jsonb(OLD.workspace_id),
+                to_jsonb(NEW.workspace_id),
+                'critical',
+                'User workspace changed for ' || NEW.name,
+                auth.uid(),
+                NEW.workspace_id
+            );
+        END IF;
+        
+        -- Skills change
+        IF OLD.skills IS DISTINCT FROM NEW.skills THEN
+            PERFORM log_audit_change(
+                'votum_users',
+                NEW.id,
+                'UPDATE',
+                'skills',
+                to_jsonb(OLD.skills),
+                to_jsonb(NEW.skills),
+                'minor',
+                'User skills updated for ' || NEW.name,
+                auth.uid(),
+                NEW.workspace_id
+            );
+        END IF;
+        
+    ELSIF TG_OP = 'DELETE' THEN
+        PERFORM log_audit_change(
+            'votum_users',
+            OLD.id,
+            'DELETE',
+            NULL,
+            to_jsonb(OLD),
+            NULL,
+            'critical',
+            'User deleted: ' || OLD.name || ' (' || COALESCE(OLD.email, 'no email') || ')',
+            auth.uid(),
+            OLD.workspace_id
+        );
+    END IF;
+    
+    RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."audit_users_changes"() OWNER TO "postgres";
+
+
 -- ── Triggers ────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE TRIGGER "audit_users_trigger" AFTER INSERT OR DELETE OR UPDATE ON "public"."votum_users" FOR EACH ROW EXECUTE FUNCTION "public"."audit_users_changes"();
@@ -1253,6 +1177,183 @@ CREATE POLICY "workspace_update_admin" ON "public"."votum_workspace" FOR UPDATE 
   WHERE ("votum_users"."id" = "auth"."uid"()))) AND (EXISTS ( SELECT 1
    FROM "public"."votum_users"
   WHERE (("votum_users"."id" = "auth"."uid"()) AND ("votum_users"."role" = ANY (ARRAY['admin'::"text", 'superadmin'::"text"])))))));
+
+
+-- ── DGGI functions ──────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION "public"."dggi_can_access_by_record_id"("p_workspace_id" "text", "p_record_id" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.dggi_records r
+    WHERE r.workspace_id = p_workspace_id
+      AND r.record_id    = p_record_id
+      AND public.dggi_can_access_record(r.workspace_id, r."group", r.handling_io_sio)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."dggi_can_access_by_record_id"("p_workspace_id" "text", "p_record_id" "text") OWNER TO "postgres";
+
+CREATE OR REPLACE FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_handling_io_sio" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.votum_users u
+    WHERE u.id = auth.uid()
+      AND u.workspace_id::text = p_workspace_id
+      AND (
+        u.dggi_role IN ('ADG', 'DD_INT')
+        OR (
+          u.dggi_role IN ('ADC', 'JD', 'DD', 'AD')
+          AND EXISTS (
+            SELECT 1
+            FROM public.dggi_user_group_assignments g
+            WHERE g.user_id = u.id
+              AND g.workspace_id = u.workspace_id
+              AND g.group_name = p_group
+          )
+        )
+        OR (
+          u.dggi_role IN ('SIO', 'IO')
+          AND (
+            u.id::text = p_handling_io_sio
+            OR u.name = p_handling_io_sio
+          )
+        )
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_handling_io_sio" "text") OWNER TO "postgres";
+
+CREATE OR REPLACE FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_assigned_user_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.votum_users u
+    WHERE u.id = auth.uid()
+      AND u.workspace_id::text = p_workspace_id
+      AND (
+        u.dggi_role IN ('ADG', 'DD_INT')
+        OR (
+          u.dggi_role IN ('ADC', 'JD', 'DD', 'AD')
+          AND EXISTS (
+            SELECT 1
+            FROM public.dggi_user_group_assignments g
+            WHERE g.user_id = u.id
+              AND g.workspace_id = u.workspace_id
+              AND g.group_name = p_group
+          )
+        )
+        OR (
+          u.dggi_role IN ('SIO', 'IO')
+          AND p_assigned_user_id = u.id
+        )
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."dggi_can_access_record"("p_workspace_id" "text", "p_group" "text", "p_assigned_user_id" "uuid") OWNER TO "postgres";
+
+CREATE OR REPLACE FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) RETURNS TABLE("batch_key" "text", "is_fallback" boolean, "date_of_attachment" "text", "date_of_scn_issuance" "text", "date_of_release" "text", "total_batches" bigint)
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    AS $_$
+DECLARE
+  v_sort_col text := COALESCE(NULLIF(p_sort_col, ''), 'created_at');
+BEGIN
+  RETURN QUERY EXECUTE format(
+    $sql$
+    WITH filtered AS (
+      SELECT
+        id,
+        COALESCE(NULLIF(attachment_batch_id, ''), id::text) AS batch_key,
+        (attachment_batch_id IS NULL OR attachment_batch_id = '')  AS is_fallback,
+        date_of_attachment::text,
+        date_of_scn_issuance::text,
+        date_of_release::text,
+        %1$I                                                       AS _sort_val,
+        created_at
+      FROM dggi_provisional_attachment_records
+      WHERE workspace_id = %2$L
+        AND (
+          %3$L IN ('ADG', 'DD_INT')
+          OR (
+            %3$L IN ('IO', 'SIO')
+            AND sio = %4$L::uuid
+          )
+          OR (
+            %3$L IN ('ADC', 'JD', 'DD', 'AD')
+            AND "group" = ANY(%5$L::text[])
+          )
+          OR (
+            %3$L NOT IN ('ADG','DD_INT','IO','SIO','ADC','JD','DD','AD')
+            AND "group" = '__none__'
+          )
+        )
+        AND (%6$L = '' OR (
+              person_name   ILIKE '%%' || %6$L || '%%'
+           OR gstin_pan     ILIKE '%%' || %6$L || '%%'
+           OR entity_gstin  ILIKE '%%' || %6$L || '%%'
+           OR issue_involved ILIKE '%%' || %6$L || '%%'
+           OR group_sio     ILIKE '%%' || %6$L || '%%'
+        ))
+        AND (%7$L = '' OR date_of_attachment::text >= %7$L)
+        AND (%8$L = '' OR date_of_attachment::text <= %8$L)
+    ),
+    first_per_batch AS (
+      SELECT DISTINCT ON (batch_key)
+        batch_key,
+        is_fallback,
+        date_of_attachment,
+        date_of_scn_issuance,
+        date_of_release,
+        _sort_val,
+        created_at
+      FROM filtered
+      ORDER BY batch_key, %9$s
+    ),
+    ordered AS (
+      SELECT *,
+             COUNT(*) OVER () AS total_batches,
+             ROW_NUMBER() OVER (ORDER BY %9$s) AS rn
+      FROM first_per_batch
+    )
+    SELECT
+      batch_key,
+      is_fallback,
+      date_of_attachment,
+      date_of_scn_issuance,
+      date_of_release,
+      total_batches
+    FROM ordered
+    WHERE rn > %10$s AND rn <= %10$s + %11$s
+    ORDER BY rn
+    $sql$,
+    v_sort_col,                                 -- %1$I  sort column (identifier)
+    p_workspace_id,                             -- %2$L
+    p_role,                                     -- %3$L
+    p_uid,                                      -- %4$L
+    p_groups,                                   -- %5$L
+    p_search,                                   -- %6$L
+    p_date_from,                                -- %7$L
+    p_date_to,                                  -- %8$L
+    CASE WHEN p_sort_asc
+         THEN format('%I ASC, created_at ASC', v_sort_col)
+         ELSE format('%I DESC, created_at DESC', v_sort_col)
+    END,                                        -- %9$s  (ORDER BY fragment)
+    p_offset,                                   -- %10$s
+    p_limit                                     -- %11$s
+  );
+END;
+$_$;
+
+
+ALTER FUNCTION "public"."dggi_provisional_attachment_batch_page"("p_workspace_id" "text", "p_role" "text", "p_groups" "text"[], "p_uid" "uuid", "p_search" "text", "p_date_from" "text", "p_date_to" "text", "p_sort_col" "text", "p_sort_asc" boolean, "p_limit" integer, "p_offset" integer) OWNER TO "postgres";
 
 
 -- ── Grants ──────────────────────────────────────────────────────────────

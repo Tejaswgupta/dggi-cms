@@ -523,10 +523,9 @@ const IncidentReportComponent = () => {
         </div>
 
         {/* ── Records table ────────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+        <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
+          <Table>
+              <TableHeader className="sticky top-0 z-10 bg-white">
                 <TableRow className="bg-white border-b border-[#EDEDEA]">
                   {visibleColumns.map((col) => (
                     <TableHead
@@ -617,7 +616,6 @@ const IncidentReportComponent = () => {
                 )}
               </TableBody>
             </Table>
-          </div>
         </div>
       </div>
     </div>
