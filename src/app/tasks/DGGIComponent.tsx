@@ -3611,7 +3611,7 @@ const DGGIComponent = () => {
     );
     const affectedRecordIds = affectedCases.map((r) => r.record_id);
 
-    const [caseRes, scnRes, arrestRes, provRes] = await Promise.all([
+    const [caseRes, scnRes, arrestRes, provRes, prosArrestRes, prosNonArrestRes] = await Promise.all([
       supabase
         .from("dggi_records")
         .update({
@@ -3642,6 +3642,20 @@ const DGGIComponent = () => {
             .eq("sio", fromUserId)
             .in("linked_case_id", affectedRecordIds)
         : Promise.resolve({ error: null }),
+      affectedRecordIds.length > 0
+        ? supabase
+            .from("dggi_prosecution_arrest_records")
+            .update({ sio: toUserId, sio_name: newUser.name })
+            .eq("sio", fromUserId)
+            .in("linked_case_id", affectedRecordIds)
+        : Promise.resolve({ error: null }),
+      affectedRecordIds.length > 0
+        ? supabase
+            .from("dggi_prosecution_non_arrest_records")
+            .update({ sio: toUserId, sio_name: newUser.name })
+            .eq("sio", fromUserId)
+            .in("linked_case_id", affectedRecordIds)
+        : Promise.resolve({ error: null }),
     ]);
 
     const errors = [
@@ -3649,6 +3663,8 @@ const DGGIComponent = () => {
       scnRes.error && "SCN records: " + scnRes.error.message,
       arrestRes.error && "arrest records: " + arrestRes.error.message,
       provRes.error && "provisional attachments: " + provRes.error.message,
+      prosArrestRes.error && "prosecution arrest records: " + prosArrestRes.error.message,
+      prosNonArrestRes.error && "prosecution non-arrest records: " + prosNonArrestRes.error.message,
     ].filter(Boolean);
 
     if (errors.length > 0) {
