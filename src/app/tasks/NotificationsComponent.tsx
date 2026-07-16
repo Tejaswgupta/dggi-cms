@@ -54,6 +54,7 @@ const TABLE_HREF: Record<string, string> = {
   dggi_prosecution_non_arrest_records: "/tasks/prosecution-register",
   dggi_seizure_records: "/tasks/seizure-register",
   dggi_intel_rapid_records: "/tasks/intelligence-allocation",
+  dggi_intel_other_source_records: "/tasks/intelligence-allocation",
   dggi_str_records: "/tasks/intelligence-allocation",
   dggi_dfl_records: "/tasks/dfl-register",
 };

@@ -1097,6 +1097,13 @@ const IntelligenceAllocationComponent = () => {
             r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r,
           ),
         );
+        if ((dialogDraft as any).action_taken === "Allocated") {
+          await sendAllocationNotifications(
+            (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
+            (dialogDraft as any).record_id ?? "",
+            table,
+          );
+        }
         toast.success("Record saved");
         setDialogOpen(false);
       }
@@ -1135,12 +1142,47 @@ const IntelligenceAllocationComponent = () => {
         toast.error("Failed to add: " + error.message);
       } else {
         setRecords((prev) => [...prev, data as T]);
+        if ((dialogDraft as any).action_taken === "Allocated") {
+          await sendAllocationNotifications(
+            (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
+            (data as any).record_id ?? "",
+            table,
+          );
+        }
         setDialogOpen(false);
         toast.success("Record added");
       }
       setSaving(false);
     },
   });
+
+  const sendAllocationNotifications = async (
+    group: string,
+    recordId: string,
+    sourceTable: string,
+  ) => {
+    if (!group || !recordId || !workspaceId) return;
+    const { data: groupUsers } = await supabase
+      .from("dggi_user_group_assignments")
+      .select("user_id")
+      .eq("group_name", group);
+    if (!groupUsers?.length) return;
+    const recipients = (groupUsers as { user_id: string }[])
+      .map((g) => g.user_id)
+      .filter((uid) => uid !== currentUserId);
+    if (!recipients.length) return;
+    await supabase.from("dggi_notifications").insert(
+      recipients.map((uid) => ({
+        user_id: uid,
+        workspace_id: workspaceId,
+        record_id: recordId,
+        label: `${recordId} allocated to ${group}`,
+        rule_id: "allocation",
+        source_table: sourceTable,
+        read: false,
+      })),
+    );
+  };
 
   const rapidCrud = makeCrud(
     "dggi_intel_rapid_records",
