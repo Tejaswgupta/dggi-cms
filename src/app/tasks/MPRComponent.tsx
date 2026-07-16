@@ -2,7 +2,13 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { Check, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
@@ -27,8 +33,18 @@ const REPORT_TYPES = [
 ];
 
 const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 interface MprRecord {
@@ -59,7 +75,10 @@ const MPRComponent = () => {
 
   const [statusMap, setStatusMap] = useState<StatusMap>({});
 
-  const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => today.getFullYear() - 2 + i);
+  const YEAR_OPTIONS = Array.from(
+    { length: 5 },
+    (_, i) => today.getFullYear() - 2 + i,
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -149,26 +168,32 @@ const MPRComponent = () => {
   };
 
   const prevMonth = () => {
-    if (month === 1) { setMonth(12); setYear((y) => y - 1); }
-    else setMonth((m) => m - 1);
+    if (month === 1) {
+      setMonth(12);
+      setYear((y) => y - 1);
+    } else setMonth((m) => m - 1);
   };
 
   const nextMonth = () => {
-    if (month === 12) { setMonth(1); setYear((y) => y + 1); }
-    else setMonth((m) => m + 1);
+    if (month === 12) {
+      setMonth(1);
+      setYear((y) => y + 1);
+    } else setMonth((m) => m + 1);
   };
 
-  const filedCount = REPORT_TYPES.filter((r) => statusMap[rowKey(r)]?.filed).length;
+  const filedCount = REPORT_TYPES.filter(
+    (r) => statusMap[rowKey(r)]?.filed,
+  ).length;
 
   const handleExport = () => {
     const rows = REPORT_TYPES.map((r) => {
       const rec = statusMap[rowKey(r)];
       return {
-        "Report": r,
-        "Filed": rec?.filed ? "YES" : "NO",
+        Report: r,
+        Filed: rec?.filed ? "YES" : "NO",
         "Filed Date": rec?.filed_date ?? "",
         "Filed By": rec?.filed_by ?? "",
-        "Remarks": rec?.remarks ?? "",
+        Remarks: rec?.remarks ?? "",
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -181,14 +206,16 @@ const MPRComponent = () => {
   return (
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
       <div className="px-3 sm:px-6 space-y-5">
-
         {/* Header */}
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-medium text-[#1a1a1a]">Monthly Performance Report</h1>
+              <h1 className="text-xl font-medium text-[#1a1a1a]">
+                Monthly Performance Report
+              </h1>
               <p className="text-base text-[#9a9a96]">
-                {filedCount} of {REPORT_TYPES.length} reports filed for {MONTH_NAMES[month - 1]} {year}
+                {filedCount} of {REPORT_TYPES.length} reports filed for{" "}
+                {MONTH_NAMES[month - 1]} {year}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -198,7 +225,8 @@ const MPRComponent = () => {
                 className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
                 onClick={handleExport}
               >
-                <Download size={15} className="mr-1" />Export
+                <Download size={15} className="mr-1" />
+                Export
               </Button>
             </div>
           </div>
@@ -217,23 +245,33 @@ const MPRComponent = () => {
               >
                 <ChevronLeft size={14} />
               </Button>
-              <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+              <Select
+                value={String(month)}
+                onValueChange={(v) => setMonth(Number(v))}
+              >
                 <SelectTrigger className="h-9 w-[130px] rounded-lg border-[#EDEDEA] text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {MONTH_NAMES.map((name, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                    <SelectItem key={i + 1} value={String(i + 1)}>
+                      {name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+              <Select
+                value={String(year)}
+                onValueChange={(v) => setYear(Number(v))}
+              >
                 <SelectTrigger className="h-9 w-[100px] rounded-lg border-[#EDEDEA] text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {YEAR_OPTIONS.map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -249,11 +287,15 @@ const MPRComponent = () => {
 
             {/* Progress bar */}
             <div className="flex items-center gap-2 ml-auto">
-              <span className="text-base text-[#9a9a96]">{filedCount}/{REPORT_TYPES.length}</span>
+              <span className="text-base text-[#9a9a96]">
+                {filedCount}/{REPORT_TYPES.length}
+              </span>
               <div className="w-32 h-2 rounded-full bg-[#EDEDEA] overflow-hidden">
                 <div
                   className="h-full rounded-full bg-[#4A5FD4] transition-all duration-300"
-                  style={{ width: `${(filedCount / REPORT_TYPES.length) * 100}%` }}
+                  style={{
+                    width: `${(filedCount / REPORT_TYPES.length) * 100}%`,
+                  }}
                 />
               </div>
             </div>
@@ -270,11 +312,21 @@ const MPRComponent = () => {
             <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-[#EDEDEA] bg-white">
-                  <th className="text-left px-5 py-3 font-semibold text-[#6b6b6b] w-8">#</th>
-                  <th className="text-left px-3 py-3 font-semibold text-[#6b6b6b]">Report</th>
-                  <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[110px]">Status</th>
-                  <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[140px]">Filed Date</th>
-                  <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[100px]">Action</th>
+                  <th className="text-left px-5 py-3 font-semibold text-[#6b6b6b] w-8">
+                    #
+                  </th>
+                  <th className="text-left px-3 py-3 font-semibold text-[#6b6b6b]">
+                    Report
+                  </th>
+                  <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[110px]">
+                    Status
+                  </th>
+                  <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[140px]">
+                    Filed Date
+                  </th>
+                  <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[100px]">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -289,22 +341,33 @@ const MPRComponent = () => {
                       key={reportType}
                       className={`border-b border-[#EDEDEA] transition-colors ${filed ? "bg-[#F0FDF4]" : "hover:bg-[#FAFAFA]"}`}
                     >
-                      <td className="px-5 py-3 text-[#9a9a96] text-sm">{idx + 1}</td>
+                      <td className="px-5 py-3 text-[#9a9a96] text-sm">
+                        {idx + 1}
+                      </td>
                       <td className="px-3 py-3 text-[#1a1a1a]">{reportType}</td>
                       <td className="px-3 py-3 text-center">
                         {filed ? (
                           <Badge className="bg-[#DCFCE7] text-[#15803D] border-0 font-medium px-3 py-1 text-sm">
-                            <Check size={12} className="mr-1" />YES
+                            <Check size={12} className="mr-1" />
+                            YES
                           </Badge>
                         ) : (
                           <Badge className="bg-[#FEF2F2] text-[#DC2626] border-0 font-medium px-3 py-1 text-sm">
-                            <X size={12} className="mr-1" />NO
+                            <X size={12} className="mr-1" />
+                            NO
                           </Badge>
                         )}
                       </td>
                       <td className="px-3 py-3 text-center text-[#6b6b6b]">
                         {rec?.filed_date
-                          ? new Date(rec.filed_date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
+                          ? new Date(rec.filed_date).toLocaleDateString(
+                              "en-IN",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              },
+                            )
                           : "—"}
                       </td>
                       <td className="px-3 py-3 text-center">
@@ -322,9 +385,9 @@ const MPRComponent = () => {
                           {isSaving ? (
                             <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent inline-block" />
                           ) : filed ? (
-                            "Mark Unfiled"
+                            "Mark Unsubmitted"
                           ) : (
-                            "Mark Filed"
+                            "Mark Submitted"
                           )}
                         </Button>
                       </td>
