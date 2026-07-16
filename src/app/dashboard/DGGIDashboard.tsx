@@ -66,6 +66,7 @@ interface ComputedDeadlineRow {
   sio_user_id: string | null;
   group_name: string | null;
   entity_name: string | null;
+  linked_case_id: string | null;
   officer_name: string | null;
   critical_days: number | null;
   warning_days: number | null;
@@ -317,6 +318,7 @@ interface DeadlineItem {
   // db row id — used for out-of-monitoring updates
   rowId: string;
   entityName: string;
+  linkedCaseId: string;
   officer: string;
   group: string;
   deadlineDate: Date;
@@ -415,6 +417,7 @@ function dbRowToDeadlineItem(row: ComputedDeadlineRow, usersMap: Map<string, str
     recordId: row.record_id || "—",
     rowId: row.row_id,
     entityName: row.entity_name ?? "—",
+    linkedCaseId: row.linked_case_id ?? "",
     officer: (row.sio_user_id ? usersMap.get(row.sio_user_id) : null) ?? row.officer_name ?? "",
     group: row.group_name ?? "",
     deadlineDate,
@@ -669,6 +672,7 @@ function DeadlineTable({
             <tr>
               <th className={TH_CLS}>Register</th>
               <th className={TH_CLS}>Record ID</th>
+              <th className={TH_CLS}>Linked Case</th>
               <th className={TH_CLS}>Entity</th>
               <th className={TH_CLS}>Deadline</th>
               <th className={TH_CLS}>Due Date</th>
@@ -703,6 +707,15 @@ function DeadlineTable({
                   >
                     {item.recordId}
                   </Link>
+                </td>
+                <td className="px-4 py-2.5 whitespace-nowrap">
+                  {item.linkedCaseId ? (
+                    <span className="font-mono text-[11px] text-[#4A5FD4]">
+                      {item.linkedCaseId}
+                    </span>
+                  ) : (
+                    <span className="text-[#C4C3BE]">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-2.5 max-w-[150px]">
                   <span className="block truncate font-medium text-[#1a1a1a]">
@@ -1139,7 +1152,7 @@ export default function DGGIDashboard() {
             let q: any = supabase
               .from("dggi_computed_deadlines")
               .select(
-                "id,rule_id,source_table,record_id,row_id,deadline_date,label,legal_reference,skipped,sio_user_id,group_name,entity_name,officer_name,critical_days,warning_days,max_reminder_days",
+                "id,rule_id,source_table,record_id,row_id,deadline_date,label,legal_reference,skipped,sio_user_id,group_name,entity_name,linked_case_id,officer_name,critical_days,warning_days,max_reminder_days",
               )
               .eq("workspace_id", wid)
               .eq("skipped", false)

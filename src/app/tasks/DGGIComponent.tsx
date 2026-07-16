@@ -2175,9 +2175,16 @@ function RegisterSummaryTile({
               key={rec.id ?? i}
               className="flex items-center justify-between px-4 py-2"
             >
-              <span className="text-sm font-medium text-[#4A5FD4]">
-                {rec.record_id || `Record ${i + 1}`}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-[#4A5FD4]">
+                  {rec.record_id || `Record ${i + 1}`}
+                </span>
+                {rec.linked_case_id && (
+                  <span className="text-xs text-[#9a9a96]">
+                    {rec.linked_case_id}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-1">
                 {onEdit && (
                   <button

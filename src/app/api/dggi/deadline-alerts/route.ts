@@ -58,7 +58,7 @@ const TABLE_RECIPIENTS: Record<string, { sioField: string; groupField: string; o
 
 const ENTITY_FIELDS: string[] = [
   "noticee_name", "entity_name", "person_name", "taxpayer_name",
-  "arrested_person_name", "received_against_entity", "record_id",
+  "arrested_person_name", "received_against_entity", "linked_case_id", "record_id",
 ];
 
 function getEntityName(rec: Record<string, unknown>): string {
@@ -154,6 +154,7 @@ export async function POST(req: NextRequest) {
         sio_user_id:      (rec && rf ? (rec[rf.sioField] ?? null) : null) as string | null,
         group_name:       (rec && rf ? (rec[rf.groupField] ?? null) : null) as string | null,
         entity_name:      rec ? getEntityName(rec) : null,
+        linked_case_id:   (rec?.linked_case_id as string | undefined) ?? null,
         officer_name:     officerName,
         critical_days:    d.critical_days,
         warning_days:     d.warning_days,
@@ -161,6 +162,17 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       };
     });
+
+    // For deduped tables, wipe all existing rows before inserting the clean set.
+    if (config.dedup_field) {
+      const { error: delErr } = await supabase
+        .from("dggi_computed_deadlines")
+        .delete()
+        .eq("source_table", config.source_table);
+      if (delErr) {
+        console.error(`[deadline-alerts] cleanup error ${config.source_table}:`, delErr.message);
+      }
+    }
 
     const { error: upsertErr } = await supabase
       .from("dggi_computed_deadlines")

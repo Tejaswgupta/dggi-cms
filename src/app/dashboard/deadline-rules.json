@@ -1,7 +1,7 @@
 {
   "tableColumns": {
     "dggi_scn_records": "id,record_id,workspace_id,last_date_oio,date_of_scn,noticee_name,adjudication_formation:votum_users(name),group,sio",
-    "dggi_provisional_attachment_records": "id,record_id,workspace_id,date_of_attachment,person_name,group_sio:votum_users(name),scn_issued,date_of_scn_issuance,date_of_release,out_of_monitoring,group,sio",
+    "dggi_provisional_attachment_records": "id,record_id,workspace_id,attachment_batch_id,linked_case_id,date_of_attachment,person_name,group_sio:votum_users(name),scn_issued,date_of_scn_issuance,date_of_release,out_of_monitoring,group,sio",
     "dggi_prosecution_arrest_records": "id,record_id,workspace_id,date_of_arrest,arrested_person_name,entity_name,prosecution_complaint_status,bail_status,date_of_filing,group,sio",
     "dggi_prosecution_non_arrest_records": "id,record_id,workspace_id,date_of_order,remarks,group,sio",
     "dggi_seizure_records": "id,record_id,workspace_id,date_of_seizure,entity_name,seized_by:votum_users(name),scn_issued,scn_issue_date,extended_by_commissioner,group,sio",
