@@ -1162,14 +1162,22 @@ const IntelligenceAllocationComponent = () => {
     sourceTable: string,
   ) => {
     if (!group || !recordId || !workspaceId) return;
-    const { data: groupUsers } = await supabase
-      .from("dggi_user_group_assignments")
-      .select("user_id")
-      .eq("group_name", group);
-    if (!groupUsers?.length) return;
-    const recipients = (groupUsers as { user_id: string }[])
-      .map((g) => g.user_id)
-      .filter((uid) => uid !== currentUserId);
+    const [{ data: groupUsers }, { data: ddAssignments }] = await Promise.all([
+      supabase
+        .from("dggi_user_group_assignments")
+        .select("user_id")
+        .eq("group_name", group),
+      supabase
+        .from("dggi_user_group_assignments")
+        .select("user_id, votum_users!inner(dggi_role)")
+        .eq("group_name", group)
+        .eq("votum_users.dggi_role", "DD"),
+    ]);
+    const groupIds = (groupUsers ?? []).map((g: { user_id: string }) => g.user_id);
+    const ddIds = (ddAssignments ?? []).map((g: { user_id: string }) => g.user_id);
+    const recipients = Array.from(new Set([...groupIds, ...ddIds])).filter(
+      (uid) => uid !== currentUserId,
+    );
     if (!recipients.length) return;
     await supabase.from("dggi_notifications").insert(
       recipients.map((uid) => ({

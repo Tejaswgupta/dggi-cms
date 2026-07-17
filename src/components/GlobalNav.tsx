@@ -128,6 +128,8 @@ export default function GlobalNav() {
           (g: { group_name: string }) => g.group_name,
         );
 
+        const isSIO = (data?.dggi_role ?? "") === "SIO";
+
         const [{ count: commentCount }, bySio, byGroup] = await Promise.all([
           supabase
             .from("dggi_notifications")
@@ -143,7 +145,7 @@ export default function GlobalNav() {
             .eq("sio_user_id", user.id)
             .eq("skipped", false)
             .lte("deadline_date", cutoffStr),
-          groups.length
+          !isSIO && groups.length
             ? supabase
                 .from("dggi_computed_deadlines")
                 .select("id")

@@ -2301,7 +2301,8 @@ export function DGGIRecordDialog({
   onDeleteSCN,
   userRole = "",
 }: DGGIRecordDialogProps) {
-  const FROZEN_ON_EDIT = new Set<keyof DGGIRecord>([
+  // temporarily all fields editable post-creation
+  const FROZEN_ON_EDIT = new Set<keyof DGGIRecord>(/* [
     "group",
     "intel_source",
     "taxpayer_name",
@@ -2309,7 +2310,7 @@ export function DGGIRecordDialog({
     "file_no",
     "handling_io_sio",
     "issue_involved",
-  ]);
+  ] */);
 
   const isIr = draft.is_ir ?? true;
   const formColumns = isIr ? COLUMNS : NON_IR_COLUMNS;

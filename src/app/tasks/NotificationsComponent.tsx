@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { differenceInCalendarDays, format, formatDistanceToNow, parseISO } from "date-fns";
-import { Bell, CalendarClock, Check, CheckCheck, ExternalLink, MessageSquare } from "lucide-react";
+import { Bell, CalendarClock, Check, CheckCheck, ExternalLink, MessageSquare, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -14,6 +14,17 @@ type Urgency = "expired" | "critical" | "warning";
 
 interface CommentNotif {
   kind: "adg_comment";
+  id: string;
+  record_id: string;
+  label: string;
+  legal_reference: string | null;
+  created_at: string;
+  read: boolean;
+  source_table: string;
+}
+
+interface AllocationNotif {
+  kind: "allocation";
   id: string;
   record_id: string;
   label: string;
@@ -33,15 +44,16 @@ interface DeadlineNotif {
   source_table: string;
 }
 
-type Notif = CommentNotif | DeadlineNotif;
+type Notif = CommentNotif | DeadlineNotif | AllocationNotif;
 
-type TabFilter = "all" | "unread" | "adg_comment" | "deadline";
+type TabFilter = "all" | "unread" | "adg_comment" | "deadline" | "allocation";
 
 const TAB_OPTIONS: { value: TabFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "unread", label: "Unread" },
   { value: "adg_comment", label: "ADG Comments" },
   { value: "deadline", label: "Deadlines" },
+  { value: "allocation", label: "Allocations" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -105,7 +117,8 @@ function NotificationRow({
   onMarkRead: (id: string) => void;
 }) {
   const isComment = n.kind === "adg_comment";
-  const isUnread = isComment ? !(n as CommentNotif).read : true;
+  const isAllocation = n.kind === "allocation";
+  const isUnread = n.kind === "deadline" ? false : !(n as CommentNotif | AllocationNotif).read;
   const href = notifHref(n);
 
   return (
@@ -120,11 +133,13 @@ function NotificationRow({
 
       <div
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          isComment ? "bg-[#EEF2FF]" : "bg-[#FFF7ED]"
+          isComment ? "bg-[#EEF2FF]" : isAllocation ? "bg-[#F0FDF4]" : "bg-[#FFF7ED]"
         }`}
       >
         {isComment ? (
           <MessageSquare size={16} className="text-[#4A5FD4]" />
+        ) : isAllocation ? (
+          <Share2 size={16} className="text-[#16A34A]" />
         ) : (
           <CalendarClock size={16} className="text-[#D97706]" />
         )}
@@ -140,22 +155,20 @@ function NotificationRow({
               {n.record_id}
             </span>
           )}
-          {!isComment && (
-            <>
-              <DeadlineTag deadline_date={(n as DeadlineNotif).deadline_date} />
-            </>
+          {n.kind === "deadline" && (
+            <DeadlineTag deadline_date={(n as DeadlineNotif).deadline_date} />
           )}
           <span
             className="text-xs text-[#9a9a96]"
             title={
-              isComment
-                ? format(parseISO((n as CommentNotif).created_at), "dd MMM yyyy, HH:mm")
-                : format(parseISO((n as DeadlineNotif).deadline_date), "dd MMM yyyy")
+              n.kind === "deadline"
+                ? format(parseISO((n as DeadlineNotif).deadline_date), "dd MMM yyyy")
+                : format(parseISO((n as CommentNotif | AllocationNotif).created_at), "dd MMM yyyy, HH:mm")
             }
           >
-            {isComment
-              ? formatDistanceToNow(parseISO((n as CommentNotif).created_at), { addSuffix: true })
-              : `Due ${format(parseISO((n as DeadlineNotif).deadline_date), "dd MMM yyyy")}`}
+            {n.kind === "deadline"
+              ? `Due ${format(parseISO((n as DeadlineNotif).deadline_date), "dd MMM yyyy")}`
+              : formatDistanceToNow(parseISO((n as CommentNotif | AllocationNotif).created_at), { addSuffix: true })}
           </span>
         </div>
       </div>
@@ -163,13 +176,13 @@ function NotificationRow({
       <div className="flex items-center gap-1 shrink-0 mt-1">
         <Link
           href={href}
-          onClick={() => isComment && isUnread && onMarkRead(n.id)}
+          onClick={() => (isComment || isAllocation) && isUnread && onMarkRead(n.id)}
           className="flex h-7 w-7 items-center justify-center rounded-lg text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
           title="Open"
         >
           <ExternalLink size={13} />
         </Link>
-        {isComment && isUnread && (
+        {(isComment || isAllocation) && isUnread && (
           <button
             onClick={() => onMarkRead(n.id)}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
@@ -188,6 +201,7 @@ function NotificationRow({
 export default function NotificationsComponent() {
   const supabase = clientConnectionWithSupabase();
   const [comments, setComments] = useState<CommentNotif[]>([]);
+  const [allocations, setAllocations] = useState<AllocationNotif[]>([]);
   const [deadlines, setDeadlines] = useState<DeadlineNotif[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabFilter>("all");
@@ -199,11 +213,12 @@ export default function NotificationsComponent() {
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id ?? "";
 
-      // Fetch user's group memberships for DD-scoped deadline lookup
-      const { data: groupRows } = await supabase
-        .from("dggi_user_group_assignments")
-        .select("group_name")
-        .eq("user_id", uid);
+      // Fetch user's role and group memberships
+      const [{ data: profileRow }, { data: groupRows }] = await Promise.all([
+        supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
+        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
+      ]);
+      const role = (profileRow as { dggi_role: string } | null)?.dggi_role ?? "";
       const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
 
       const today = new Date();
@@ -222,13 +237,23 @@ export default function NotificationsComponent() {
         .order("created_at", { ascending: false })
         .limit(200);
 
-      // Deadline rows from dggi_computed_deadlines — single shared table, filter by recipient
-      // A user sees a deadline if they are the SIO OR their group is the case's group.
-      // We run both filters and union client-side to avoid an OR query.
-      const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+      const allocationQuery = supabase
+        .from("dggi_notifications")
+        .select("id,record_id,label,legal_reference,created_at,read,source_table")
+        .eq("workspace_id", wid)
+        .eq("user_id", uid)
+        .eq("rule_id", "allocation")
+        .order("created_at", { ascending: false })
+        .limit(200);
 
-      const [commentRes, bySioRes, byGroupRes] = await Promise.all([
+      // Deadline rows from dggi_computed_deadlines — single shared table, filter by recipient.
+      // SIOs only see their own cases (sio_user_id). Other roles also see group-level deadlines.
+      const cutoffStr = cutoffDate.toISOString().slice(0, 10);
+      const isSIO = role === "SIO";
+
+      const [commentRes, allocationRes, bySioRes, byGroupRes] = await Promise.all([
         commentQuery,
+        allocationQuery,
         supabase
           .from("dggi_computed_deadlines")
           .select("id,record_id,label,legal_reference,deadline_date,source_table")
@@ -236,7 +261,7 @@ export default function NotificationsComponent() {
           .eq("skipped", false)
           .lte("deadline_date", cutoffStr)
           .eq("sio_user_id", uid),
-        groups.length
+        !isSIO && groups.length
           ? supabase
               .from("dggi_computed_deadlines")
               .select("id,record_id,label,legal_reference,deadline_date,source_table")
@@ -247,11 +272,12 @@ export default function NotificationsComponent() {
           : Promise.resolve({ data: [] as Record<string, string>[] | null }),
       ]);
 
+      type NotifRow = { id: string; record_id: string; label: string; legal_reference: string | null; created_at: string; read: boolean; source_table: string };
       setComments(
-        ((commentRes.data ?? []) as Array<{
-          id: string; record_id: string; label: string; legal_reference: string | null;
-          created_at: string; read: boolean; source_table: string;
-        }>).map((r) => ({ kind: "adg_comment" as const, ...r })),
+        ((commentRes.data ?? []) as NotifRow[]).map((r) => ({ kind: "adg_comment" as const, ...r })),
+      );
+      setAllocations(
+        ((allocationRes.data ?? []) as NotifRow[]).map((r) => ({ kind: "allocation" as const, ...r })),
       );
 
       // Merge SIO + group deadline rows, dedup by id
@@ -279,35 +305,51 @@ export default function NotificationsComponent() {
 
   const markRead = async (id: string) => {
     setComments((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    setAllocations((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     await supabase.from("dggi_notifications").update({ read: true }).eq("id", id);
   };
 
   const markAllRead = async () => {
-    const unreadIds = comments.filter((n) => !n.read).map((n) => n.id);
+    const unreadIds = [
+      ...comments.filter((n) => !n.read).map((n) => n.id),
+      ...allocations.filter((n) => !n.read).map((n) => n.id),
+    ];
     if (!unreadIds.length) return;
     setMarkingAll(true);
     setComments((prev) => prev.map((n) => ({ ...n, read: true })));
+    setAllocations((prev) => prev.map((n) => ({ ...n, read: true })));
     await supabase.from("dggi_notifications").update({ read: true }).in("id", unreadIds);
     setMarkingAll(false);
   };
 
   const unreadComments = comments.filter((n) => !n.read).length;
-  const unreadDeadlines = deadlines.length; // deadlines are always "active"
-  const unreadTotal = unreadComments + unreadDeadlines;
+  const unreadAllocations = allocations.filter((n) => !n.read).length;
+  const unreadDeadlines = deadlines.length;
+  const unreadTotal = unreadComments + unreadAllocations;
 
   const tabCounts: Record<TabFilter, number> = {
-    all: unreadTotal,
+    all: unreadTotal + unreadDeadlines,
     unread: unreadTotal,
     adg_comment: unreadComments,
     deadline: unreadDeadlines,
+    allocation: unreadAllocations,
   };
 
-  const allNotifs: Notif[] = [...comments, ...deadlines];
+  const allNotifs: Notif[] = [
+    ...comments,
+    ...allocations,
+    ...deadlines,
+  ].sort((a, b) => {
+    const getTs = (n: Notif) =>
+      n.kind === "deadline" ? n.deadline_date : n.created_at;
+    return getTs(b).localeCompare(getTs(a));
+  });
 
   const filtered = allNotifs.filter((n) => {
-    if (tab === "unread") return n.kind === "deadline" || !(n as CommentNotif).read;
+    if (tab === "unread") return n.kind !== "deadline" && !(n as CommentNotif | AllocationNotif).read;
     if (tab === "adg_comment") return n.kind === "adg_comment";
     if (tab === "deadline") return n.kind === "deadline";
+    if (tab === "allocation") return n.kind === "allocation";
     return true;
   });
 
@@ -330,10 +372,10 @@ export default function NotificationsComponent() {
                 Notifications
               </h1>
               <p className="text-base text-[#9a9a96] mt-0.5">
-                {unreadTotal > 0 ? `${unreadTotal} requiring attention` : "All caught up"}
+                {(unreadTotal + unreadDeadlines) > 0 ? `${unreadTotal + unreadDeadlines} requiring attention` : "All caught up"}
               </p>
             </div>
-            {unreadComments > 0 && (
+            {(unreadComments > 0 || unreadAllocations > 0) && (
               <Button
                 size="sm"
                 variant="outline"
@@ -342,7 +384,7 @@ export default function NotificationsComponent() {
                 className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
               >
                 <CheckCheck size={14} className="mr-1.5" />
-                Mark comments read
+                Mark all read
               </Button>
             )}
           </div>
