@@ -186,7 +186,7 @@ const REGISTERS: RegisterMeta[] = [
   },
   {
     href: "/tasks/incident-report",
-    label: "Incident Report",
+    label: "IR Register",
     shortLabel: "Incident",
     icon: AlertTriangle,
     table: "dggi_incident_report_records",
@@ -389,7 +389,10 @@ const URGENCY_CFG: Record<
 
 // Maps a dggi_computed_deadlines row to the DeadlineItem shape the UI uses.
 // days_until is recomputed live so the display is never stale.
-function dbRowToDeadlineItem(row: ComputedDeadlineRow, usersMap: Map<string, string>): DeadlineItem | null {
+function dbRowToDeadlineItem(
+  row: ComputedDeadlineRow,
+  usersMap: Map<string, string>,
+): DeadlineItem | null {
   const deadlineDate = parseISO(row.deadline_date);
   if (!isValid(deadlineDate)) return null;
   const today = new Date();
@@ -418,7 +421,10 @@ function dbRowToDeadlineItem(row: ComputedDeadlineRow, usersMap: Map<string, str
     rowId: row.row_id,
     entityName: row.entity_name ?? "—",
     linkedCaseId: row.linked_case_id ?? "",
-    officer: (row.sio_user_id ? usersMap.get(row.sio_user_id) : null) ?? row.officer_name ?? "",
+    officer:
+      (row.sio_user_id ? usersMap.get(row.sio_user_id) : null) ??
+      row.officer_name ??
+      "",
     group: row.group_name ?? "",
     deadlineDate,
     daysUntil,
@@ -1001,9 +1007,15 @@ export default function DGGIDashboard() {
     ComputedDeadlineRow[]
   >([]);
   const [investigationCount, setInvestigationCount] = useState(0);
-  const [fyProvRecordsRaw, setFyProvRecordsRaw] = useState<{ created_at: string; group: string | null }[]>([]);
-  const [fyArrRecordsRaw, setFyArrRecordsRaw] = useState<{ created_at: string; group: string | null }[]>([]);
-  const [fyInvRecordsRaw, setFyInvRecordsRaw] = useState<{ created_at: string; group: string | null }[]>([]);
+  const [fyProvRecordsRaw, setFyProvRecordsRaw] = useState<
+    { created_at: string; group: string | null }[]
+  >([]);
+  const [fyArrRecordsRaw, setFyArrRecordsRaw] = useState<
+    { created_at: string; group: string | null }[]
+  >([]);
+  const [fyInvRecordsRaw, setFyInvRecordsRaw] = useState<
+    { created_at: string; group: string | null }[]
+  >([]);
   const [detectionRecoveryData, setDetectionRecoveryData] = useState<
     DetectionRecoveryRow[]
   >([]);
@@ -1063,21 +1075,22 @@ export default function DGGIDashboard() {
       const supabase = clientConnectionWithSupabase();
 
       // ── Fetch RBAC role + group assignments + all users ──────────────────────
-      const [{ data: userRow }, { data: groupRows }, { data: allUsers }] = await Promise.all([
-        supabase
-          .from("votum_users")
-          .select("dggi_role")
-          .eq("id", userId)
-          .single(),
-        supabase
-          .from("dggi_user_group_assignments")
-          .select("group_name")
-          .eq("user_id", userId),
-        supabase
-          .from("votum_users")
-          .select("id,name")
-          .eq("workspace_id", wid),
-      ]);
+      const [{ data: userRow }, { data: groupRows }, { data: allUsers }] =
+        await Promise.all([
+          supabase
+            .from("votum_users")
+            .select("dggi_role")
+            .eq("id", userId)
+            .single(),
+          supabase
+            .from("dggi_user_group_assignments")
+            .select("group_name")
+            .eq("user_id", userId),
+          supabase
+            .from("votum_users")
+            .select("id,name")
+            .eq("workspace_id", wid),
+        ]);
       const map = new Map<string, string>();
       for (const u of allUsers ?? []) if (u.id && u.name) map.set(u.id, u.name);
       setUsersMap(map);
@@ -1416,9 +1429,9 @@ export default function DGGIDashboard() {
 
   // ─── Zone Intelligence counts (group-filter-aware) ────────────────────────
 
-  function filterByGroup<T extends { created_at: string; group: string | null }>(
-    rows: T[],
-  ): T[] {
+  function filterByGroup<
+    T extends { created_at: string; group: string | null },
+  >(rows: T[]): T[] {
     if (groupFilter === "all") return rows;
     return rows.filter((r) => r.group === groupFilter);
   }
@@ -1958,7 +1971,9 @@ export default function DGGIDashboard() {
             <div className="flex items-center gap-2">
               <Activity size={13} className="text-[#4A5FD4]" />
               <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-                {groupFilter !== "all" ? `${groupFilter} Deadline Health` : "Zone Deadline Health"}
+                {groupFilter !== "all"
+                  ? `${groupFilter} Deadline Health`
+                  : "Zone Deadline Health"}
               </h3>
               {healthFilter && (
                 <span className="ml-1 text-[11px] text-[#9a9a96]">
