@@ -1102,6 +1102,7 @@ const IntelligenceAllocationComponent = () => {
             (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
             (dialogDraft as any).record_id ?? "",
             table,
+            (dialogDraft as any).sio ?? "",
           );
         }
         toast.success("Record saved");
@@ -1147,6 +1148,7 @@ const IntelligenceAllocationComponent = () => {
             (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
             (data as any).record_id ?? "",
             table,
+            (dialogDraft as any).sio ?? "",
           );
         }
         setDialogOpen(false);
@@ -1160,6 +1162,7 @@ const IntelligenceAllocationComponent = () => {
     group: string,
     recordId: string,
     sourceTable: string,
+    sioId: string = "",
   ) => {
     if (!group || !recordId || !workspaceId) return;
     const [{ data: groupUsers }, { data: ddAssignments }] = await Promise.all([
@@ -1175,9 +1178,9 @@ const IntelligenceAllocationComponent = () => {
     ]);
     const groupIds = (groupUsers ?? []).map((g: { user_id: string }) => g.user_id);
     const ddIds = (ddAssignments ?? []).map((g: { user_id: string }) => g.user_id);
-    const recipients = Array.from(new Set([...groupIds, ...ddIds])).filter(
-      (uid) => uid !== currentUserId,
-    );
+    const recipients = Array.from(
+      new Set([...groupIds, ...ddIds, ...(sioId ? [sioId] : [])]),
+    ).filter((uid) => uid !== currentUserId);
     if (!recipients.length) return;
     await supabase.from("dggi_notifications").insert(
       recipients.map((uid) => ({
