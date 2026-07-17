@@ -12,7 +12,6 @@ Usage:
 """
 
 import csv
-import hashlib
 import os
 import sys
 from datetime import date, datetime
@@ -122,9 +121,7 @@ def normalize_group(val) -> str | None:
 def generate_batch_id(ir_no: str) -> str | None:
     if not ir_no:
         return None
-    key = ir_no.strip().lower()
-    hash_val = hashlib.sha256(key.encode()).hexdigest()[:8]
-    return f"PA-BATCH-{hash_val}"
+    return ir_no.strip()
 
 
 def lookup_linked_case_id(sb, workspace_id: str, ir_no: str) -> str | None:

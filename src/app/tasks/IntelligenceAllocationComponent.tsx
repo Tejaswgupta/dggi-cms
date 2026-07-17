@@ -1074,6 +1074,10 @@ const IntelligenceAllocationComponent = () => {
       if (!dialogDraft.id) return;
       setSaving(true);
 
+      const existingRecord = records.find((r) => r.id === dialogDraft.id);
+      const normNew = JSON.stringify(parseAdgComments((dialogDraft as any).pr_adg_comments ?? ""));
+      const normOld = JSON.stringify(parseAdgComments((existingRecord as any)?.pr_adg_comments ?? ""));
+      const commentChanged = userRole === "ADG" && normNew !== normOld;
 
       const rawDraft = Object.fromEntries(
         Object.entries(dialogDraft).map(([k, v]) => [k, v === "" ? null : v]),
@@ -1103,6 +1107,15 @@ const IntelligenceAllocationComponent = () => {
             (dialogDraft as any).record_id ?? "",
             table,
             (dialogDraft as any).sio ?? "",
+          );
+        }
+        if (commentChanged) {
+          await sendAdgCommentNotifications(
+            (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
+            (dialogDraft as any).sio ?? "",
+            (dialogDraft as any).record_id ?? "",
+            table,
+            (dialogDraft as any).pr_adg_comments ?? "",
           );
         }
         toast.success("Record saved");
@@ -1182,6 +1195,39 @@ const IntelligenceAllocationComponent = () => {
         record_id: recordId,
         label: `${recordId} allocated to ${group}`,
         rule_id: "allocation",
+        source_table: sourceTable,
+        read: false,
+      })),
+    );
+  };
+
+  const sendAdgCommentNotifications = async (
+    group: string,
+    sioId: string,
+    recordId: string,
+    sourceTable: string,
+    rawComments: string,
+  ) => {
+    if (!recordId || !workspaceId) return;
+    const { data: ddAssignments } = await supabase
+      .from("dggi_user_group_assignments")
+      .select("user_id, votum_users!inner(dggi_role)")
+      .eq("group_name", group)
+      .eq("votum_users.dggi_role", "DD");
+    const ddIds = (ddAssignments ?? []).map((g: { user_id: string }) => g.user_id);
+    const recipients = Array.from(
+      new Set([...ddIds, ...(sioId ? [sioId] : [])]),
+    ).filter((uid) => uid !== currentUserId);
+    if (!recipients.length) return;
+    const comments = parseAdgComments(rawComments);
+    const lastComment = comments.length ? comments[comments.length - 1].text.slice(0, 80) : "";
+    await supabase.from("dggi_notifications").insert(
+      recipients.map((uid) => ({
+        user_id: uid,
+        workspace_id: workspaceId,
+        record_id: recordId,
+        label: `ADG comment on ${recordId}${lastComment ? `: ${lastComment}` : ""}`,
+        rule_id: "adg_comment",
         source_table: sourceTable,
         read: false,
       })),
