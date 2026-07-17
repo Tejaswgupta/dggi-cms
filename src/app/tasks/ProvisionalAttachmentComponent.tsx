@@ -120,6 +120,7 @@ interface ProvisionalAttachmentRecord {
   value_shares: string;
   value_bank: string;
   bank_name: string;
+  bank_account_no: string;
   bank_ifsc: string;
   value_third_party: string;
   value_others: string;
@@ -171,6 +172,7 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
   value_shares: "",
   value_bank: "",
   bank_name: "",
+  bank_account_no: "",
   bank_ifsc: "",
   value_third_party: "",
   value_others: "",
@@ -220,6 +222,7 @@ const PROPERTY_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
   "value_shares",
   "value_bank",
   "bank_name",
+  "bank_account_no",
   "bank_ifsc",
   "value_third_party",
   "value_others",
@@ -316,6 +319,13 @@ const COLUMNS: RegisterColumn[] = [
     label: "Bank Name",
     type: "text",
     width: "160px",
+    showWhenNonEmpty: "value_bank",
+  },
+  {
+    key: "bank_account_no",
+    label: "Bank A/c No.",
+    type: "text",
+    width: "180px",
     showWhenNonEmpty: "value_bank",
   },
   {
@@ -699,6 +709,7 @@ const EMPTY_PROPERTY = (): Record<string, string> => ({
   value_shares: "",
   value_bank: "",
   bank_name: "",
+  bank_account_no: "",
   bank_ifsc: "",
   value_third_party: "",
   value_others: "",

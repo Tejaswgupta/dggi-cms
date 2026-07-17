@@ -191,7 +191,7 @@ def process_row(
         "linked_case_id": linked_case_id,
         "attachment_batch_id": batch_id,
         "issue_involved": clean(row[COL_TYPOLOGY]),
-        "brief_description": bank_acct,
+        "bank_account_no": bank_acct,
         "bank_name": clean(row[COL_BANK_NAME]),
         "bank_ifsc": clean(row[COL_BANK_IFSC]),
         "date_of_attachment": date_of_attachment,
