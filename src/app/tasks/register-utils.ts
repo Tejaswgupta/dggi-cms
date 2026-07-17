@@ -95,6 +95,32 @@ export const generateWorkspaceRecordId = async (
 };
 
 /**
+ * Generates N sequential record IDs in a single DB round-trip.
+ * Returns IDs like ["ARR/050/26-27", "ARR/051/26-27"] for a batch of 2.
+ */
+export const generateWorkspaceRecordIds = async (
+  supabase: SupabaseClient,
+  table: string,
+  prefix: string,
+  workspaceId: string,
+  n: number,
+  options?: { separator?: string },
+): Promise<string[]> => {
+  const sep = options?.separator ?? "/";
+  const { count, error } = await supabase
+    .from(table)
+    .select("*", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId);
+  if (error) throw new Error(`Failed to fetch record count: ${error.message}`);
+  const start = (count ?? 0) + 1;
+  const fy = currentFY();
+  return Array.from(
+    { length: n },
+    (_, i) => `${prefix}${sep}${String(start + i).padStart(3, "0")}${sep}${fy}`,
+  );
+};
+
+/**
  * Generates an IR case record ID matching the DGGI Excel convention:
  * IR cases  → "{seq}/GST/{YYYY-YY}"   e.g. "001/GST/2026-27"
  * NON-IR cases → "NIR-{seq}-{YY-YY}"  e.g. "NIR-001-26-27"  (unchanged)

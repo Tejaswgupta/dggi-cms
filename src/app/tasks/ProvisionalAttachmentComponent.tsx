@@ -83,7 +83,7 @@ import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
   fetchCaseOptions,
-  generateWorkspaceRecordId,
+  generateWorkspaceRecordIds,
   nullifyEmpty,
 } from "./register-utils";
 import {
@@ -545,6 +545,28 @@ function DateComputedCell({
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const formatBatchDisplayId = (
+  properties: ProvisionalAttachmentRecord[],
+): string => {
+  if (properties.length === 0) return "—";
+  if (properties.length === 1) return properties[0].record_id || "—";
+  const first = properties[0].record_id;
+  const match = first?.match(/^([A-Z]+)\/(\d+)\/([\d-]+)$/);
+  if (!match) return `${first} (+${properties.length - 1})`;
+  const prefix = match[1];
+  const fy = match[3];
+  const nums = properties
+    .map((p) => {
+      const m = p.record_id?.match(/^[A-Z]+\/(\d+)\/[\d-]+$/);
+      return m ? parseInt(m[1], 10) : null;
+    })
+    .filter((n): n is number => n !== null)
+    .sort((a, b) => a - b);
+  const lo = String(nums[0]).padStart(3, "0");
+  const hi = String(nums[nums.length - 1]).padStart(3, "0");
+  return `${prefix}/${lo}-${hi}/${fy}`;
+};
 
 const fmt = (iso: string) => {
   if (!iso) return "—";
@@ -1289,13 +1311,15 @@ const ProvisionalAttachmentComponent = () => {
   ) => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const attachment_batch_id = await generateWorkspaceRecordId(
+    const recordIds = await generateWorkspaceRecordIds(
       supabase,
       "dggi_provisional_attachment_records",
       "PAR",
       workspaceId,
+      properties.length,
       { separator: "/" },
     );
+    const attachment_batch_id = recordIds[0];
     const createdByName =
       workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const payloads = properties.map((prop, idx) => {
@@ -1304,7 +1328,7 @@ const ProvisionalAttachmentComponent = () => {
           ...batch,
           ...prop,
           attachment_batch_id,
-          record_id: `${attachment_batch_id}-${idx + 1}`,
+          record_id: recordIds[idx],
           workspace_id: workspaceId,
         },
         COLUMNS,
@@ -1336,10 +1360,14 @@ const ProvisionalAttachmentComponent = () => {
   const saveNewProperty = async () => {
     if (!workspaceId || !dialogDraft.attachment_batch_id) return;
     setSavingRow(true);
-    const batchProps = records.filter(
-      (r) => r.attachment_batch_id === dialogDraft.attachment_batch_id,
+    const [record_id] = await generateWorkspaceRecordIds(
+      supabase,
+      "dggi_provisional_attachment_records",
+      "PAR",
+      workspaceId,
+      1,
+      { separator: "/" },
     );
-    const record_id = `${dialogDraft.attachment_batch_id}-${batchProps.length + 1}`;
     const newPropPayload = nullifyEmpty(
       { ...dialogDraft, record_id, workspace_id: workspaceId },
       COLUMNS,
@@ -1685,7 +1713,7 @@ const ProvisionalAttachmentComponent = () => {
                   ) : (
                     <ChevronDown size={13} className="text-[#6b6b6b]" />
                   )}
-                  {batchId}
+                  {formatBatchDisplayId(properties)}
                   <span className="inline-flex items-center justify-center rounded-full bg-[#4A5FD4]/10 text-[#4A5FD4] text-[10px] font-semibold px-1.5 py-0.5 min-w-[18px]">
                     {properties.length}
                   </span>

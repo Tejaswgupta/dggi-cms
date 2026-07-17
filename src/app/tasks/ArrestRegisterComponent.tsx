@@ -66,6 +66,7 @@ import {
   exportRegisterToExcel,
   fetchCaseOptions,
   generateWorkspaceRecordId,
+  generateWorkspaceRecordIds,
   nullifyEmpty,
 } from "./register-utils";
 import {
@@ -296,6 +297,26 @@ const COLUMNS: {
 const TOTAL_COLS = COLUMNS.length + 1; // +1 for Actions
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const formatBatchDisplayId = (persons: ArrestRecord[]): string => {
+  if (persons.length === 0) return "—";
+  if (persons.length === 1) return persons[0].record_id || "—";
+  const first = persons[0].record_id;
+  const match = first?.match(/^([A-Z]+)\/(\d+)\/([\d-]+)$/);
+  if (!match) return `${first} (+${persons.length - 1})`;
+  const prefix = match[1];
+  const fy = match[3];
+  const nums = persons
+    .map((p) => {
+      const m = p.record_id?.match(/^[A-Z]+\/(\d+)\/[\d-]+$/);
+      return m ? parseInt(m[1], 10) : null;
+    })
+    .filter((n): n is number => n !== null)
+    .sort((a, b) => a - b);
+  const lo = String(nums[0]).padStart(3, "0");
+  const hi = String(nums[nums.length - 1]).padStart(3, "0");
+  return `${prefix}/${lo}-${hi}/${fy}`;
+};
 
 const fmt = (iso: string) => {
   if (!iso) return "—";
@@ -980,13 +1001,16 @@ const ArrestRegisterComponent = () => {
   ) => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const arrest_batch_id = await generateWorkspaceRecordId(
+    const recordIds = await generateWorkspaceRecordIds(
       supabase,
       "dggi_arrest_records",
       "ARR",
       workspaceId,
+      persons.length,
       { separator: "/" },
     );
+    // The batch is identified by the first person's record_id
+    const arrest_batch_id = recordIds[0];
     const sio_name =
       workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
     const createdByName = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
@@ -996,7 +1020,7 @@ const ArrestRegisterComponent = () => {
           ...batch,
           ...person,
           arrest_batch_id,
-          record_id: `${arrest_batch_id}-${idx + 1}`,
+          record_id: recordIds[idx],
           workspace_id: workspaceId,
         },
         COLUMNS,
@@ -1027,10 +1051,14 @@ const ArrestRegisterComponent = () => {
   const saveNewPerson = async () => {
     if (!workspaceId || !dialogDraft.arrest_batch_id) return;
     setSavingRow(true);
-    const batchPersons = records.filter(
-      (r) => r.arrest_batch_id === dialogDraft.arrest_batch_id,
+    const [record_id] = await generateWorkspaceRecordIds(
+      supabase,
+      "dggi_arrest_records",
+      "ARR",
+      workspaceId,
+      1,
+      { separator: "/" },
     );
-    const record_id = `${dialogDraft.arrest_batch_id}-${batchPersons.length + 1}`;
     const payload = nullifyEmpty(
       {
         ...dialogDraft,
@@ -1252,7 +1280,7 @@ const ArrestRegisterComponent = () => {
                   ) : (
                     <ChevronDown size={13} className="text-[#6b6b6b]" />
                   )}
-                  {batchId}
+                  {formatBatchDisplayId(persons)}
                 </span>
               ) : col.key === "arrested_name" ? (
                 <span className="text-[#6b6b6b] text-sm">

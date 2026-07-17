@@ -3044,6 +3044,115 @@ function BulkTransferDialog({
   );
 }
 
+// ─── Single Case Transfer Dialog ─────────────────────────────────────────────
+
+function SingleCaseTransferDialog({
+  open,
+  onOpenChange,
+  users,
+  record,
+  onTransfer,
+  transferring,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  users: WorkspaceUser[];
+  record: DGGIRecord | null;
+  onTransfer: (record: DGGIRecord, toUserId: string) => void;
+  transferring: boolean;
+}) {
+  const [toUserId, setToUserId] = useState("");
+
+  const handleOpenChange = (v: boolean) => {
+    if (!v) setToUserId("");
+    onOpenChange(v);
+  };
+
+  const currentSioName =
+    users.find((u) => u.id === record?.handling_io_sio)?.name ||
+    record?.handling_io_sio_name ||
+    "—";
+  const toUser = users.find((u) => u.id === toUserId);
+  const canTransfer =
+    toUserId && record?.handling_io_sio !== toUserId;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-lg rounded-2xl border border-[#EDEDEA] shadow-none font-['DM_Sans']">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-medium text-[#1a1a1a] flex items-center gap-2">
+            <ArrowLeftRight size={17} className="text-[#4A5FD4]" />
+            Transfer Case
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* Case info */}
+          <div className="rounded-xl border border-[#EDEDEA] px-4 py-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#9a9a96]">Case</span>
+              <span className="text-base font-medium text-[#4A5FD4]">
+                {record?.record_id}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#9a9a96]">Taxpayer</span>
+              <span className="text-base text-[#1a1a1a] truncate max-w-[220px]">
+                {record?.taxpayer_name || "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#9a9a96]">Current SIO</span>
+              <span className="text-base text-[#1a1a1a]">{currentSioName}</span>
+            </div>
+          </div>
+
+          {/* To */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#6b6b6b]">
+              Transfer to
+            </label>
+            <UserCombobox
+              value={toUserId}
+              onChange={setToUserId}
+              users={users.filter((u) => u.id !== record?.handling_io_sio)}
+              className="w-full h-9"
+              filterRole="SIO"
+            />
+          </div>
+
+          {/* Confirmation summary */}
+          {canTransfer && toUser && (
+            <div className="rounded-xl border border-[#4A5FD4]/20 bg-[#EEF2FF] px-4 py-3 text-sm text-[#4A5FD4]">
+              Case{" "}
+              <span className="font-medium">{record?.record_id}</span>
+              {" and its linked SCN, Arrest, and Provisional Attachment records will be reassigned to "}
+              <span className="font-medium">{toUser.name}</span>.
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2 pt-2">
+          <Button
+            variant="outline"
+            className="rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF]"
+            onClick={() => handleOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none"
+            onClick={() => record && onTransfer(record, toUserId)}
+            disabled={!canTransfer || transferring}
+          >
+            {transferring ? "Transferring…" : "Transfer Case"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 const DGGIComponent = () => {
@@ -3105,6 +3214,10 @@ const DGGIComponent = () => {
   );
   const [bulkTransferOpen, setBulkTransferOpen] = useState(false);
   const [transferring, setTransferring] = useState(false);
+  const [singleTransferOpen, setSingleTransferOpen] = useState(false);
+  const [singleTransferRecord, setSingleTransferRecord] =
+    useState<DGGIRecord | null>(null);
+  const [singleTransferring, setSingleTransferring] = useState(false);
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -3699,6 +3812,81 @@ const DGGIComponent = () => {
     }
 
     setTransferring(false);
+  };
+
+  const singleTransfer = async (record: DGGIRecord, toUserId: string) => {
+    const newUser = workspaceUsers.find((u) => u.id === toUserId);
+    if (!newUser) return;
+    setSingleTransferring(true);
+
+    const caseRecordId = record.record_id;
+
+    const [caseRes, scnRes, arrestRes, provRes, prosArrestRes, prosNonArrestRes] =
+      await Promise.all([
+        supabase
+          .from("dggi_records")
+          .update({
+            handling_io_sio: toUserId,
+            handling_io_sio_name: newUser.name,
+          })
+          .eq("id", record.id),
+        supabase
+          .from("dggi_scn_records")
+          .update({ sio: toUserId, sio_name: newUser.name })
+          .eq("linked_case_id", caseRecordId),
+        supabase
+          .from("dggi_arrest_records")
+          .update({ sio: toUserId, sio_name: newUser.name })
+          .eq("linked_case_id", caseRecordId),
+        supabase
+          .from("dggi_provisional_attachment_records")
+          .update({ sio: toUserId })
+          .eq("linked_case_id", caseRecordId),
+        supabase
+          .from("dggi_prosecution_arrest_records")
+          .update({ sio: toUserId, sio_name: newUser.name })
+          .eq("linked_case_id", caseRecordId),
+        supabase
+          .from("dggi_prosecution_non_arrest_records")
+          .update({ sio: toUserId, sio_name: newUser.name })
+          .eq("linked_case_id", caseRecordId),
+      ]);
+
+    const errors = [
+      caseRes.error && "case: " + caseRes.error.message,
+      scnRes.error && "SCN records: " + scnRes.error.message,
+      arrestRes.error && "arrest records: " + arrestRes.error.message,
+      provRes.error && "provisional attachments: " + provRes.error.message,
+      prosArrestRes.error &&
+        "prosecution arrest records: " + prosArrestRes.error.message,
+      prosNonArrestRes.error &&
+        "prosecution non-arrest records: " + prosNonArrestRes.error.message,
+    ].filter(Boolean);
+
+    if (errors.length > 0) {
+      toast.error("Transfer partially failed — " + errors.join("; "));
+    }
+
+    if (!caseRes.error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === record.id
+            ? {
+                ...r,
+                handling_io_sio: toUserId,
+                handling_io_sio_name: newUser.name,
+              }
+            : r,
+        ),
+      );
+      toast.success(
+        `${caseRecordId} transferred to ${newUser.name}`,
+      );
+      setSingleTransferOpen(false);
+      setSingleTransferRecord(null);
+    }
+
+    setSingleTransferring(false);
   };
 
   const saveNew = async () => {
@@ -4613,6 +4801,20 @@ const DGGIComponent = () => {
             >
               <Pencil size={13} />
             </Button>
+            {(userRole === "ADG" || userRole === "DD_INT") && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 rounded-lg text-[#4A5FD4] hover:bg-[#EEF2FF]"
+                title="Transfer case"
+                onClick={() => {
+                  setSingleTransferRecord(record);
+                  setSingleTransferOpen(true);
+                }}
+              >
+                <ArrowLeftRight size={13} />
+              </Button>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -4667,6 +4869,17 @@ const DGGIComponent = () => {
         records={records}
         onTransfer={bulkTransfer}
         transferring={transferring}
+      />
+      <SingleCaseTransferDialog
+        open={singleTransferOpen}
+        onOpenChange={(v) => {
+          setSingleTransferOpen(v);
+          if (!v) setSingleTransferRecord(null);
+        }}
+        users={workspaceUsers}
+        record={singleTransferRecord}
+        onTransfer={singleTransfer}
+        transferring={singleTransferring}
       />
       <CreateFromIntelDialog
         open={intelDialogOpen}
