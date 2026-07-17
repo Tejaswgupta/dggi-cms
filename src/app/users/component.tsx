@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { Users, ChevronDown, X, Search, Trash2, UserPlus } from "lucide-react";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
-const DGGI_ROLES = ["ADG", "DD_INT", "DD", "AD", "ADC", "JD", "SIO", "IO"] as const;
+const DGGI_ROLES = ["ADG", "DD_INT", "DD", "AD", "ADC", "JD", "SIO", "SIO_INT", "IO"] as const;
 type DggiRole = (typeof DGGI_ROLES)[number];
 
 const ROLE_LABELS: Record<DggiRole, string> = {
@@ -18,6 +18,7 @@ const ROLE_LABELS: Record<DggiRole, string> = {
   ADC: "Assistant Deputy Commissioner",
   JD: "Joint Director",
   SIO: "Senior Intelligence Officer",
+  SIO_INT: "Senior Intelligence Officer (Intelligence)",
   IO: "Intelligence Officer",
 };
 

@@ -55,15 +55,20 @@ load_env(str(SCRIPT_DIR / ".env"))
 SUPABASE_URL     = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_ROLE_KEY = os.environ["SERVICE_ROLE_KEY"]
 
-VALID_ROLES  = {"SIO", "DD", "ADD", "ADG"}
+VALID_ROLES  = {"SIO", "DD", "ADD", "ADG", "DD_INT", "SIO_INT", "AD", "ADC", "JD", "IO"}
 VALID_GROUPS = {"Group A", "Group B", "Group C", "Group D", "Group E", "Group F"}
 
-# Role normalization: the sheet uses "ADD" but the DB constraint uses "ADD" — confirm mapping
 ROLE_MAP = {
-    "ADG": "ADG",
-    "ADD": "ADD",   # Assistant Deputy Director → maps to ADD in dggi_role CHECK
-    "DD":  "DD",
-    "SIO": "SIO",
+    "ADG":     "ADG",
+    "ADD":     "ADD",
+    "DD":      "DD",
+    "DD_INT":  "DD_INT",
+    "SIO":     "SIO",
+    "SIO_INT": "SIO_INT",
+    "AD":      "AD",
+    "ADC":     "ADC",
+    "JD":      "JD",
+    "IO":      "IO",
 }
 
 HEADERS = {
