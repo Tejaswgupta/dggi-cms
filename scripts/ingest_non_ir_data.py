@@ -132,7 +132,8 @@ def next_non_ir_seq(sb, workspace_id: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Upsert: file_no column match → insert with NON-IR-NNN record_id
+# Upsert: file_no column match → update; no match → insert
+# record_id is pre-assigned by the caller (date-sorted sequence)
 # ---------------------------------------------------------------------------
 
 def upsert_non_ir_record(
@@ -141,13 +142,13 @@ def upsert_non_ir_record(
     sr_no: int,
     file_no: str | None,
     payload: dict,
-    seq_counter: list,
     skipped: list,
     log: list,
     dry_run: bool = False,
 ) -> str:
+    new_record_id = payload["record_id"]
     try:
-        # 1. Match on file_no column
+        # 1. Match on file_no column → update in place with new record_id
         if file_no:
             res = (
                 sb.table("dggi_records")
@@ -158,20 +159,15 @@ def upsert_non_ir_record(
             )
             if res.data:
                 row = res.data[0]
-                new_record_id = f"NIR-{seq_counter[0]:03d}-{seq_counter[1]}"
-                seq_counter[0] += 1
-                update_payload = {**payload, "record_id": new_record_id}
                 if dry_run:
                     print(f"    → UPDATE (file_no)  existing record_id={row['record_id']!r} → {new_record_id!r}  db_id={row['id']}")
                 else:
-                    sb.table("dggi_records").update(update_payload).eq("id", row["id"]).execute()
+                    sb.table("dggi_records").update(payload).eq("id", row["id"]).execute()
                 log.append({"action": "update", "match_by": "file_no", "sr_no": sr_no, "file_no": file_no, "old_record_id": row["record_id"], "new_record_id": new_record_id, "db_id": row["id"]})
                 return "updated"
 
-        # 2. Insert with sequential NIR-NNN-YY-YY record_id
-        new_record_id = f"NIR-{seq_counter[0]:03d}-{seq_counter[1]}"
-        seq_counter[0] += 1
-        insert_payload = {**payload, "workspace_id": workspace_id, "record_id": new_record_id}
+        # 2. Insert with pre-assigned record_id
+        insert_payload = {**payload, "workspace_id": workspace_id}
         if dry_run:
             print(f"    → INSERT  new record_id={new_record_id!r}")
             inserted_id = None
@@ -187,61 +183,71 @@ def upsert_non_ir_record(
 
 
 # ---------------------------------------------------------------------------
-# Sheet processor
+# Sheet processor — sorts all rows by date first, assigns record_ids in order
 # ---------------------------------------------------------------------------
 
 def process_sheet(ws, sb, workspace_id: str, user_cache: dict, start_seq: int, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
-    inserted = updated = skipped_count = 0
-    unmatched_emails = set()
     fy = fy_short(None)  # current FY e.g. "26-27"
-    seq_counter = [start_seq, fy]  # [current_seq, fy_string]
 
-    for row in rows[1:]:  # row 0 = headers
+    # First pass: collect all valid rows
+    records = []
+    for row in rows[1:]:
         if row[0] is None:
             continue
         try:
             sr_no = int(row[0])
         except (ValueError, TypeError):
             continue
+        records.append({
+            "sr_no": sr_no,
+            "file_no": clean(row[1]),
+            "ir_date": parse_date(row[2]),
+            "officer_name": clean(row[3]),
+            "group_val": f"Group {clean(row[4])}" if clean(row[4]) else None,
+            "officer_email": clean(row[5]),
+        })
 
-        file_no = clean(row[1])
-        ir_date = parse_date(row[2])
-        officer_name = clean(row[3])
-        group_raw = clean(row[4])
-        group_val = f"Group {group_raw}" if group_raw else None
-        officer_email = clean(row[5])
+    # Sort by date ascending so earlier cases get lower sequence numbers
+    records.sort(key=lambda r: r["ir_date"] or "9999-99-99")
 
-        # Resolve officer email → UUID
+    inserted = updated = skipped_count = 0
+    unmatched_emails = set()
+
+    for idx, rec in enumerate(records):
+        new_record_id = f"NIR-{idx + 1:03d}-{fy}"
+        sr_no = rec["sr_no"]
+        file_no = rec["file_no"]
+
         handling_io_sio_id = None
-        if officer_email:
-            handling_io_sio_id = user_cache.get(officer_email.lower())
+        if rec["officer_email"]:
+            handling_io_sio_id = user_cache.get(rec["officer_email"].lower())
             if not handling_io_sio_id:
-                unmatched_emails.add(officer_email)
+                unmatched_emails.add(rec["officer_email"])
 
         payload = {
+            "record_id": new_record_id,
             "file_no": file_no,
-            "date_of_non_ir": ir_date,
-            "group": group_val,
-            "handling_io_sio_name": officer_name,
+            "date_of_non_ir": rec["ir_date"],
+            "group": rec["group_val"],
+            "handling_io_sio_name": rec["officer_name"],
             "handling_io_sio": handling_io_sio_id,
             "is_ir": False,
+            "date_of_ir": None,
+            "date_of_initiation": None,
         }
-        payload = {k: v for k, v in payload.items() if v is not None}
-        # Explicitly blank IR-only date fields for NON-IR records
-        payload["date_of_ir"] = None
-        payload["date_of_initiation"] = None
+        payload = {k: v for k, v in payload.items() if v is not None or k in ("date_of_ir", "date_of_initiation", "record_id")}
 
         if dry_run:
             matched = f"→ {handling_io_sio_id}" if handling_io_sio_id else "NO MATCH"
             print(
                 f"  [#{sr_no:03d}] file_no={file_no!r}"
-                f" | date={ir_date} | group={group_val!r} | officer={officer_name!r}"
-                f" | email={officer_email!r} ({matched})"
+                f" | date={rec['ir_date']} | group={rec['group_val']!r} | officer={rec['officer_name']!r}"
+                f" | email={rec['officer_email']!r} ({matched}) → {new_record_id}"
             )
 
         result = upsert_non_ir_record(
-            sb, workspace_id, sr_no, file_no, payload, seq_counter, skipped, log, dry_run
+            sb, workspace_id, sr_no, file_no, payload, skipped, log, dry_run
         )
         if result == "inserted":
             inserted += 1

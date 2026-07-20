@@ -1,0 +1,737 @@
+[
+  {
+    "action": "insert",
+    "sr_no": 3,
+    "record_id": "PA-003",
+    "db_id": null,
+    "taxpayer_name": "Dharaniya R Bhikabhai (M/s Vivah Enterprises)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 1,
+    "record_id": "PA-001",
+    "db_id": null,
+    "taxpayer_name": "M/s Denron Rea-IT Trade Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 2,
+    "record_id": "PA-002",
+    "db_id": null,
+    "taxpayer_name": "YAAR Entertainment Pvt Ltd/PARIMATCH"
+  },
+  {
+    "action": "insert",
+    "sr_no": 4,
+    "record_id": "PA-004",
+    "db_id": null,
+    "taxpayer_name": "MESH TRADING & others"
+  },
+  {
+    "action": "insert",
+    "sr_no": 5,
+    "record_id": "PA-005",
+    "db_id": null,
+    "taxpayer_name": "M/s. Altro Nex IT Solutions Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 6,
+    "record_id": "PA-006",
+    "db_id": null,
+    "taxpayer_name": "SNQ Solution Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 7,
+    "record_id": "PA-007",
+    "db_id": null,
+    "taxpayer_name": "First Source Fintech Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 8,
+    "record_id": "PA-008",
+    "db_id": null,
+    "taxpayer_name": "M/S S N trading"
+  },
+  {
+    "action": "insert",
+    "sr_no": 9,
+    "record_id": "PA-009",
+    "db_id": null,
+    "taxpayer_name": "ATUL TRADERS"
+  },
+  {
+    "action": "insert",
+    "sr_no": 10,
+    "record_id": "PA-010",
+    "db_id": null,
+    "taxpayer_name": "ELITE ENTERPRISE"
+  },
+  {
+    "action": "insert",
+    "sr_no": 11,
+    "record_id": "PA-011",
+    "db_id": null,
+    "taxpayer_name": "M/s. Suresh Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 12,
+    "record_id": "PA-012",
+    "db_id": null,
+    "taxpayer_name": "M/s. Shree Kuldevi Industries Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 13,
+    "record_id": "PA-013",
+    "db_id": null,
+    "taxpayer_name": "M/s. Shree Kuldevi Industries Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 14,
+    "record_id": "PA-014",
+    "db_id": null,
+    "taxpayer_name": "M/s Chamunda Traders"
+  },
+  {
+    "action": "insert",
+    "sr_no": 15,
+    "record_id": "PA-015",
+    "db_id": null,
+    "taxpayer_name": "M/s Tangent International"
+  },
+  {
+    "action": "insert",
+    "sr_no": 16,
+    "record_id": "PA-016",
+    "db_id": null,
+    "taxpayer_name": "M/s Solitare Multiventures Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 17,
+    "record_id": "PA-017",
+    "db_id": null,
+    "taxpayer_name": "M/s Om Sai Traders"
+  },
+  {
+    "action": "insert",
+    "sr_no": 18,
+    "record_id": "PA-018",
+    "db_id": null,
+    "taxpayer_name": "M/s Shelar Traders"
+  },
+  {
+    "action": "insert",
+    "sr_no": 19,
+    "record_id": "PA-019",
+    "db_id": null,
+    "taxpayer_name": "M/s. Ativeer Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 20,
+    "record_id": "PA-020",
+    "db_id": null,
+    "taxpayer_name": "M/s. Sujeet Kumar Nagar (Trade Name- Kaya Enterprises)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 21,
+    "record_id": "PA-021",
+    "db_id": null,
+    "taxpayer_name": "M/s. Unicorn Integrated Services Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 22,
+    "record_id": "PA-022",
+    "db_id": null,
+    "taxpayer_name": "M/s. Alphaneon Studioz Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 23,
+    "record_id": "PA-023",
+    "db_id": null,
+    "taxpayer_name": "M/s. Alphaneon It Media Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 24,
+    "record_id": "PA-024",
+    "db_id": null,
+    "taxpayer_name": "M/s. Fennec Learning Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 25,
+    "record_id": "PA-025",
+    "db_id": null,
+    "taxpayer_name": "M/s. Mapletwist Blockchain Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 26,
+    "record_id": "PA-026",
+    "db_id": null,
+    "taxpayer_name": "M/s. Mapletwist Ontime Logistics Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 27,
+    "record_id": "PA-027",
+    "db_id": null,
+    "taxpayer_name": "M/s. Electio Trading Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 28,
+    "record_id": "PA-028",
+    "db_id": null,
+    "taxpayer_name": "M/s. KHANTUM TRADE PRIVATE LIMITED"
+  },
+  {
+    "action": "insert",
+    "sr_no": 29,
+    "record_id": "PA-029",
+    "db_id": null,
+    "taxpayer_name": "M/s. Zeeland Logistics Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 30,
+    "record_id": "PA-030",
+    "db_id": null,
+    "taxpayer_name": "M/s. Pindflix Entertainment Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 31,
+    "record_id": "PA-031",
+    "db_id": null,
+    "taxpayer_name": "M/s. Smart Infotech Ltd. (Prop. Ravindra Ramesh Gaikwad)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 32,
+    "record_id": "PA-032",
+    "db_id": null,
+    "taxpayer_name": "M/s. FUDX"
+  },
+  {
+    "action": "insert",
+    "sr_no": 33,
+    "record_id": "PA-033",
+    "db_id": null,
+    "taxpayer_name": "M/s. Alkaser Trading (Prop. Rasheed Arathikuniyil)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 34,
+    "record_id": "PA-034",
+    "db_id": null,
+    "taxpayer_name": "M/s. Goswami Refineries Private Limited (Catholic Syrian Bank Ltd)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 35,
+    "record_id": "PA-035",
+    "db_id": null,
+    "taxpayer_name": "M/s. Goswami Refineries Private Limited (ICICI Bank Ltd)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 36,
+    "record_id": "PA-036",
+    "db_id": null,
+    "taxpayer_name": "M/s. Goswami Refineries Private Limited (Central Bank OF India)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 37,
+    "record_id": "PA-037",
+    "db_id": null,
+    "taxpayer_name": "Dhruv Trading"
+  },
+  {
+    "action": "insert",
+    "sr_no": 38,
+    "record_id": "PA-038",
+    "db_id": null,
+    "taxpayer_name": "Rahul Traders"
+  },
+  {
+    "action": "insert",
+    "sr_no": 39,
+    "record_id": "PA-039",
+    "db_id": null,
+    "taxpayer_name": "Lyron Biotech Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 40,
+    "record_id": "PA-040",
+    "db_id": null,
+    "taxpayer_name": "Daybreakpass Hospitality Technology Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 41,
+    "record_id": "PA-041",
+    "db_id": null,
+    "taxpayer_name": "Uday Foods and Beverages Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 42,
+    "record_id": "PA-042",
+    "db_id": null,
+    "taxpayer_name": "Star Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 43,
+    "record_id": "PA-043",
+    "db_id": null,
+    "taxpayer_name": "Spicemate India Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 44,
+    "record_id": "PA-044",
+    "db_id": null,
+    "taxpayer_name": "Salve Scrap Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 45,
+    "record_id": "PA-045",
+    "db_id": null,
+    "taxpayer_name": "AK Trading"
+  },
+  {
+    "action": "insert",
+    "sr_no": 46,
+    "record_id": "PA-046",
+    "db_id": null,
+    "taxpayer_name": "AB Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 47,
+    "record_id": "PA-047",
+    "db_id": null,
+    "taxpayer_name": "Deep International"
+  },
+  {
+    "action": "insert",
+    "sr_no": 48,
+    "record_id": "PA-048",
+    "db_id": null,
+    "taxpayer_name": "Pragati Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 49,
+    "record_id": "PA-049",
+    "db_id": null,
+    "taxpayer_name": "Pioneer Traders"
+  },
+  {
+    "action": "insert",
+    "sr_no": 50,
+    "record_id": "PA-050",
+    "db_id": null,
+    "taxpayer_name": "Khushal Traders"
+  },
+  {
+    "action": "insert",
+    "sr_no": 51,
+    "record_id": "PA-051",
+    "db_id": null,
+    "taxpayer_name": "SS Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 52,
+    "record_id": "PA-052",
+    "db_id": null,
+    "taxpayer_name": "Shiv Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 53,
+    "record_id": "PA-053",
+    "db_id": null,
+    "taxpayer_name": "Aashapura Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 54,
+    "record_id": "PA-054",
+    "db_id": null,
+    "taxpayer_name": "Epic Scope Imports"
+  },
+  {
+    "action": "insert",
+    "sr_no": 55,
+    "record_id": "PA-055",
+    "db_id": null,
+    "taxpayer_name": "I M Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 56,
+    "record_id": "PA-056",
+    "db_id": null,
+    "taxpayer_name": "Maa Durga Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 57,
+    "record_id": "PA-057",
+    "db_id": null,
+    "taxpayer_name": "Dharti Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 58,
+    "record_id": "PA-058",
+    "db_id": null,
+    "taxpayer_name": "Raja Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 59,
+    "record_id": "PA-059",
+    "db_id": null,
+    "taxpayer_name": "Screepy Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 60,
+    "record_id": "PA-060",
+    "db_id": null,
+    "taxpayer_name": "Shufi Services LLP"
+  },
+  {
+    "action": "insert",
+    "sr_no": 61,
+    "record_id": "PA-061",
+    "db_id": null,
+    "taxpayer_name": "Rahul Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 62,
+    "record_id": "PA-062",
+    "db_id": null,
+    "taxpayer_name": "Royal Enterprises (ISHA)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 63,
+    "record_id": "PA-063",
+    "db_id": null,
+    "taxpayer_name": "Mikwild Enterprises Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 64,
+    "record_id": "PA-064",
+    "db_id": null,
+    "taxpayer_name": "Surya Deep Energies Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 65,
+    "record_id": "PA-065",
+    "db_id": null,
+    "taxpayer_name": "D S Daim"
+  },
+  {
+    "action": "insert",
+    "sr_no": 66,
+    "record_id": "PA-066",
+    "db_id": null,
+    "taxpayer_name": "RAHUL ENTERPRISES"
+  },
+  {
+    "action": "insert",
+    "sr_no": 67,
+    "record_id": "PA-067",
+    "db_id": null,
+    "taxpayer_name": "AUTO-KRAFT MOTO CARE PRIVATE LIMITED"
+  },
+  {
+    "action": "insert",
+    "sr_no": 68,
+    "record_id": "PA-068",
+    "db_id": null,
+    "taxpayer_name": "GREENTEX INTERNATIONAL PRIVATE LIMITED"
+  },
+  {
+    "action": "insert",
+    "sr_no": 69,
+    "record_id": "PA-069",
+    "db_id": null,
+    "taxpayer_name": "D S Diam"
+  },
+  {
+    "action": "insert",
+    "sr_no": 70,
+    "record_id": "PA-070",
+    "db_id": null,
+    "taxpayer_name": "MHK Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 71,
+    "record_id": "PA-071",
+    "db_id": null,
+    "taxpayer_name": "As Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 72,
+    "record_id": "PA-072",
+    "db_id": null,
+    "taxpayer_name": "Royal Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 73,
+    "record_id": "PA-073",
+    "db_id": null,
+    "taxpayer_name": "J S Trading Co."
+  },
+  {
+    "action": "insert",
+    "sr_no": 74,
+    "record_id": "PA-074",
+    "db_id": null,
+    "taxpayer_name": "RAGHAV ENTERPRISES"
+  },
+  {
+    "action": "insert",
+    "sr_no": 75,
+    "record_id": "PA-075",
+    "db_id": null,
+    "taxpayer_name": "FEEHA CONSTRUCTION"
+  },
+  {
+    "action": "insert",
+    "sr_no": 76,
+    "record_id": "PA-076",
+    "db_id": null,
+    "taxpayer_name": "SALMA RICE MILL"
+  },
+  {
+    "action": "insert",
+    "sr_no": 77,
+    "record_id": "PA-077",
+    "db_id": null,
+    "taxpayer_name": "MK ENTERPRISES"
+  },
+  {
+    "action": "insert",
+    "sr_no": 78,
+    "record_id": "PA-078",
+    "db_id": null,
+    "taxpayer_name": "S K TRADERS"
+  },
+  {
+    "action": "insert",
+    "sr_no": 79,
+    "record_id": "PA-079",
+    "db_id": null,
+    "taxpayer_name": "EKVIRA ENTERPRISES"
+  },
+  {
+    "action": "insert",
+    "sr_no": 80,
+    "record_id": "PA-080",
+    "db_id": null,
+    "taxpayer_name": "ZOLE ENTERPRISE"
+  },
+  {
+    "action": "insert",
+    "sr_no": 81,
+    "record_id": "PA-081",
+    "db_id": null,
+    "taxpayer_name": "M/s FAST TRACK COURIER SERVICE"
+  },
+  {
+    "action": "insert",
+    "sr_no": 82,
+    "record_id": "PA-082",
+    "db_id": null,
+    "taxpayer_name": "SIDDHARTH ENTERPRISE"
+  },
+  {
+    "action": "insert",
+    "sr_no": 83,
+    "record_id": "PA-083",
+    "db_id": null,
+    "taxpayer_name": "MERCY ENTERPRISES"
+  },
+  {
+    "action": "insert",
+    "sr_no": 84,
+    "record_id": "PA-084",
+    "db_id": null,
+    "taxpayer_name": "SHRI ENTERPRISE"
+  },
+  {
+    "action": "insert",
+    "sr_no": 85,
+    "record_id": "PA-085",
+    "db_id": null,
+    "taxpayer_name": "J S Trading"
+  },
+  {
+    "action": "insert",
+    "sr_no": 86,
+    "record_id": "PA-086",
+    "db_id": null,
+    "taxpayer_name": "Shufi Services LLP"
+  },
+  {
+    "action": "insert",
+    "sr_no": 87,
+    "record_id": "PA-087",
+    "db_id": null,
+    "taxpayer_name": "Maa Durga Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 88,
+    "record_id": "PA-088",
+    "db_id": null,
+    "taxpayer_name": "Ram Bahadur"
+  },
+  {
+    "action": "insert",
+    "sr_no": 89,
+    "record_id": "PA-089",
+    "db_id": null,
+    "taxpayer_name": "Screepy Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 90,
+    "record_id": "PA-090",
+    "db_id": null,
+    "taxpayer_name": "Suraj Bansilal Maurya"
+  },
+  {
+    "action": "insert",
+    "sr_no": 91,
+    "record_id": "PA-091",
+    "db_id": null,
+    "taxpayer_name": "Suryadeep Energies Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 92,
+    "record_id": "PA-092",
+    "db_id": null,
+    "taxpayer_name": "Navin Tiwari"
+  },
+  {
+    "action": "insert",
+    "sr_no": 93,
+    "record_id": "PA-093",
+    "db_id": null,
+    "taxpayer_name": "MHK Enterprises"
+  },
+  {
+    "action": "insert",
+    "sr_no": 94,
+    "record_id": "PA-094",
+    "db_id": null,
+    "taxpayer_name": "Suryadeep Energies Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 95,
+    "record_id": "PA-095",
+    "db_id": null,
+    "taxpayer_name": "Innovine Aspire Infratech Solutions Pvt Ltd"
+  },
+  {
+    "action": "insert",
+    "sr_no": 96,
+    "record_id": "PA-096",
+    "db_id": null,
+    "taxpayer_name": "Saurabh Jain"
+  },
+  {
+    "action": "insert",
+    "sr_no": 97,
+    "record_id": "PA-097",
+    "db_id": null,
+    "taxpayer_name": "M/s. Shree Kuldevi Industries Private Limited"
+  },
+  {
+    "action": "insert",
+    "sr_no": 98,
+    "record_id": "PA-098",
+    "db_id": null,
+    "taxpayer_name": "M/s AAROHI ENTERPRISES (Legal name:- VISHAL DEEPAK BHIDE)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 99,
+    "record_id": "PA-099",
+    "db_id": null,
+    "taxpayer_name": "M/s Bhosale Enterprises(Legal Name: KUNAL VIJAY BHOSALE)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 100,
+    "record_id": "PA-100",
+    "db_id": null,
+    "taxpayer_name": "M/s CHEMTECH MARKETING INDIA PRIVATE LIMITED"
+  },
+  {
+    "action": "insert",
+    "sr_no": 101,
+    "record_id": "PA-101",
+    "db_id": null,
+    "taxpayer_name": "M/s MAHAKAL ENTERPRISES(Legal Name:-ROHIT CHANDRASHEKHAR KAMBLE)"
+  },
+  {
+    "action": "insert",
+    "sr_no": 102,
+    "record_id": "PA-102",
+    "db_id": null,
+    "taxpayer_name": "SAURABH STEEL CORPORATION (Legal Name:- KRISHNKUMAR NATHURAM MOHITE"
+  },
+  {
+    "action": "insert",
+    "sr_no": 103,
+    "record_id": "PA-103",
+    "db_id": null,
+    "taxpayer_name": "Maharashtra Industries (Legal Name:- MOHD ARBAJ SHAIKH"
+  },
+  {
+    "action": "insert",
+    "sr_no": 104,
+    "record_id": "PA-104",
+    "db_id": null,
+    "taxpayer_name": "SHIV SHAKTI ENTERPRISES (Legal Name:- SANDESH SADANAND PATADE"
+  },
+  {
+    "action": "insert",
+    "sr_no": 105,
+    "record_id": "PA-105",
+    "db_id": null,
+    "taxpayer_name": "ROJAVA TRADING PRIVATE LIMITED (Legal Name:- ROJAVA TRADING PRIVATE LIMITED"
+  }
+]

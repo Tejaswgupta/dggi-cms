@@ -52,7 +52,7 @@ USERS_TO_CREATE = [
 # Helpers (same logic as create_users_from_xlsx.py)
 # ---------------------------------------------------------------------------
 
-def get_workspace_id(client: httpx.Client, admin_email: str = "ajinkya@gov.in") -> str:
+def get_workspace_id(client: httpx.Client, admin_email: str = "k.engineer@gov.in") -> str:
     resp = client.get(
         f"{SUPABASE_URL}/rest/v1/votum_users",
         params={"select": "workspace_id", "email": f"eq.{admin_email}", "limit": "1"},

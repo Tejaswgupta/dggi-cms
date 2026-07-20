@@ -1,17 +1,55 @@
 """
-Ingest Provisional Attachment Excel data into Supabase.
+Ingest Provisional Attachment Register data into Supabase dggi_provisional_attachment_records.
 
-Source: 'MZU_ PROVISIONAL ATTACHMENT (4).xlsx'
-  - Sheet 'Sheet1', rows 1-5 are headers/sub-headers, data starts row 6
-  - Each row → one dggi_provisional_attachment_records insert
+Source: 'Provisional Attachment Register 24.02.2026 (5).xlsx'  (Sheet1, 105 data rows)
 
-Insert strategy: ALWAYS INSERT (no upsert). Re-running creates duplicates.
+Row layout:
+  Row 0-3  Title / blank rows
+  Row 4    Main header labels
+  Row 5    Sub-headers (breakdown of value columns 11-17, status cols 22-26)
+  Row 6    Column numbers  — data begins at row 7
+
+Column mapping:
+  Col 0   Sr. No.                                              → upsert key; record_id = "PA-{sr_no:03d}"
+  Col 1   DGGI Formation                                       → formation
+  Col 2   Name of person (Section 83 invoked)                 → taxpayer_name
+  Col 3   GSTIN/PAN of person involved                        → gstins
+  Col 4   Status of person (Proprietor/Partner/Director …)    → person_status
+  Col 5   Expected Liability (Rupees in Crores)               → expected_liability (stored as text)
+  Col 6   GSTIN of entity involved                            → entity_gstin
+  Col 7   Issue Involved                                       → issue_involved
+  Col 8   Brief description of person involvement             → brief_description
+  Col 9   Arrest, if any (Yes/No)                             → arrest_status
+  Col 10  Dossier prepared and completed (Yes/No)             → dossier_prepared
+  Col 11  Value of Immovable Property                         → value_immovable
+  Col 12  Value of Movable Property                           → value_movable
+  Col 13  Share/Insurance/FD etc.                             → value_shares_fd
+  Col 14  Bank A/c                                            → value_bank
+  Col 15  Third Party                                         → value_third_party
+  Col 16  Others                                              → value_others
+  Col 17  Total Value (Rupees in Crores)                      → value_total
+  Col 18  Balance Period 0-3 Months                           → balance_period_0_3
+  Col 19  Balance Period 3-6 Months                           → balance_period_3_6
+  Col 20  Balance Period 6-9 Months                           → balance_period_6_9
+  Col 21  Balance Period 9-12 Months                          → balance_period_9_12
+  Col 22  Whether investigation completed                     → investigation_completed
+  Col 23  Whether SCN issued                                  → scn_issued
+  Col 24  Letter to Commissionerate issued                    → letter_issued
+  Col 25  Whether OIO issued                                  → oio_issued
+  Col 26  Converted to permanent (Section 79)                 → converted_to_permanent
+  Col 27  Group/SIO                                           → group_sio
+  Col 28  Date of Attachment (DD/MM/YYYY)                     → date_of_attachment
+
+Dedup strategy (checked in order):
+  1. record_id match — exact match of "PA-{sr_no:03d}" vs record_id in DB  (primary)
+  2. No match → insert; record_id = "PA-{sr_no:03d}"
 
 Usage:
     python3 scripts/ingest_provisional_attachment_data.py [/path/to/file.xlsx] [--dry-run]
 """
 
 import csv
+import json
 import os
 import sys
 from datetime import date, datetime
@@ -20,8 +58,6 @@ import openpyxl
 from dotenv import load_dotenv
 from supabase import create_client
 
-# ─── Constants ────────────────────────────────────────────────────────────────
-
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SERVICE_ROLE_KEY = os.environ["SERVICE_ROLE_KEY"]
@@ -29,54 +65,19 @@ SERVICE_ROLE_KEY = os.environ["SERVICE_ROLE_KEY"]
 WORKSPACE_OWNER_EMAIL = "ajinkya.k1@gov.in"
 
 DEFAULT_EXCEL_PATH = os.path.join(
-    os.path.expanduser("~"),
-    "Downloads",
-    "MZU_ PROVISIONAL ATTACHMENT (4).xlsx",
-)
-
-SKIPPED_CSV = os.path.join(
     os.path.dirname(__file__),
-    "ingest_provisional_attachment_skipped.csv",
+    "..",
+    "data",
+    "Provisional Attachment Register 24.02.2026 (5).xlsx",
 )
 
-# Column indices (0-based)
-COL_IR_NO = 2           # Incident Report No.
-COL_TYPOLOGY = 3        # Typology of the case
-COL_BANK_ACCT = 8       # Bank Account No.
-COL_BANK_NAME = 9       # Bank Name
-COL_BANK_IFSC = 10      # Branch / IFSC
-COL_DATE_ATTACHMENT = 11  # Date of Attachment
-COL_VALUE_IMMOVABLE = 12  # Value of Immovable Property
-COL_VALUE_MOVABLE = 13    # Value of Movable Property
-COL_VALUE_TOTAL = 14      # Total Value
-COL_NOTICE_ISSUED = 15    # Notice issued (Yes/No)
-COL_SCN_DATE = 16         # Date of SCN issuance
-COL_GROUP = 17            # Group
-COL_SIO_NAME = 18         # SIO/IO name
+SKIPPED_CSV = os.path.join(os.path.dirname(__file__), "ingest_provisional_attachment_skipped.csv")
+LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_provisional_attachment_log.json")
 
 
-# ─── Helper Functions ─────────────────────────────────────────────────────────
-
-def current_fy() -> str:
-    """Returns FY in YY-YY format (e.g., '26-27')."""
-    now = datetime.now()
-    yr = now.year
-    start = yr if now.month >= 4 else yr - 1
-    return f"{str(start)[2:]}-{str(start + 1)[2:]}"
-
-
-def generate_record_id(sb, workspace_id: str) -> str:
-    """Generate sequential PA/###/YY-YY record ID."""
-    res = (
-        sb.table("dggi_provisional_attachment_records")
-        .select("*", count="exact", head=True)
-        .eq("workspace_id", workspace_id)
-        .execute()
-    )
-    count = res.count or 0
-    seq = str(count + 1).zfill(3)
-    return f"PA/{seq}/{current_fy()}"
-
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def parse_date(val) -> str | None:
     if val is None:
@@ -86,9 +87,9 @@ def parse_date(val) -> str | None:
     if isinstance(val, date):
         return val.isoformat()
     s = str(val).strip()
-    if not s or s.upper() in ("NA", "-"):
+    if not s:
         return None
-    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:
@@ -99,179 +100,189 @@ def parse_date(val) -> str | None:
 def clean(val) -> str | None:
     if val is None:
         return None
-    s = str(val).strip()
-    if s in ("-", "") or s.upper() == "NA":
-        return None
-    return s
+    s = str(val).strip().strip("-").strip()
+    return s if s else None
 
 
-def normalize_group(val) -> str | None:
+def balance_parens(s: str) -> str:
+    """Append a closing ')' for every unmatched '(' in the string."""
+    diff = s.count("(") - s.count(")")
+    return s + ")" * diff if diff > 0 else s
+
+
+def clean_amount(val) -> str | None:
+    """Store amount as text; strips whitespace/dashes but keeps numeric strings intact."""
     if val is None:
         return None
+    if isinstance(val, (int, float)):
+        return str(val)
     s = str(val).strip()
-    if not s:
+    if not s or s in ("-", "--", "na", "NA", "N/A"):
         return None
-    if s.startswith("Group "):
-        return s
-    if len(s) == 1 and s.upper() in "ABCDEF":
-        return f"Group {s.upper()}"
     return s
 
 
-def generate_batch_id(ir_no: str) -> str | None:
-    if not ir_no:
-        return None
-    return ir_no.strip()
+# ---------------------------------------------------------------------------
+# Upsert: record_id match → update; else insert
+# ---------------------------------------------------------------------------
 
-
-def lookup_linked_case_id(sb, workspace_id: str, ir_no: str) -> str | None:
-    if not ir_no:
-        return None
-    res = (
-        sb.table("dggi_records")
-        .select("record_id")
-        .eq("workspace_id", workspace_id)
-        .eq("record_id", ir_no)
-        .limit(1)
-        .execute()
-    )
-    if res.data:
-        return res.data[0]["record_id"]
-    return None
-
-
-def lookup_sio_uuid(sb, workspace_id: str, name: str) -> str | None:
-    if not name:
-        return None
-    res = (
-        sb.table("votum_users")
-        .select("id")
-        .eq("workspace_id", workspace_id)
-        .ilike("name", name.strip())
-        .limit(1)
-        .execute()
-    )
-    if res.data:
-        return res.data[0]["id"]
-    return None
-
-
-# ─── Processor ────────────────────────────────────────────────────────────────
-
-def process_row(
-    row: tuple,
+def upsert_record(
     sb,
     workspace_id: str,
+    sr_no: int,
+    payload: dict,
     skipped: list,
-    dry_run: bool,
+    log: list,
+    dry_run: bool = False,
 ) -> str:
-    """
-    Process one Excel row → insert into dggi_provisional_attachment_records.
-    Returns "inserted" | "skipped".
-    """
-    date_of_attachment = parse_date(row[COL_DATE_ATTACHMENT])
-    if not date_of_attachment:
-        return "skipped"
-
-    ir_no = clean(row[COL_IR_NO])
-    sio_name = clean(row[COL_SIO_NAME])
-    bank_acct = clean(row[COL_BANK_ACCT])
-
-    linked_case_id = lookup_linked_case_id(sb, workspace_id, ir_no) if not dry_run else None
-    sio_uuid = lookup_sio_uuid(sb, workspace_id, sio_name) if sio_name and not dry_run else None
-    batch_id = generate_batch_id(ir_no) if ir_no else None
-
-    payload = {
-        "workspace_id": workspace_id,
-        "record_id": generate_record_id(sb, workspace_id) if not dry_run else "PA/DRY/00-00",
-        "linked_scn_no": None,
-        "linked_case_id": linked_case_id,
-        "attachment_batch_id": batch_id,
-        "issue_involved": clean(row[COL_TYPOLOGY]),
-        "bank_account_no": bank_acct,
-        "bank_name": clean(row[COL_BANK_NAME]),
-        "bank_ifsc": clean(row[COL_BANK_IFSC]),
-        "date_of_attachment": date_of_attachment,
-        "value_immovable": clean(row[COL_VALUE_IMMOVABLE]),
-        "value_movable": clean(row[COL_VALUE_MOVABLE]),
-        "value_bank": clean(row[COL_VALUE_TOTAL]),
-        "value_total": str(round(sum(
-            float(v) for v in [
-                clean(row[COL_VALUE_IMMOVABLE]),
-                clean(row[COL_VALUE_MOVABLE]),
-                clean(row[COL_VALUE_TOTAL]),  # bank
-            ] if v is not None
-        ), 4)) if any(clean(row[c]) for c in [COL_VALUE_IMMOVABLE, COL_VALUE_MOVABLE, COL_VALUE_TOTAL]) else None,
-        "letter_issued": clean(row[COL_NOTICE_ISSUED]),
-        "date_of_scn_issuance": parse_date(row[COL_SCN_DATE]),
-        "scn_issued": "Yes" if parse_date(row[COL_SCN_DATE]) else None,
-        "group": normalize_group(row[COL_GROUP]),
-        "group_sio": sio_name,
-        "sio_name": sio_name,
-        "sio": sio_uuid,
-    }
-
-    # Drop None values
-    payload = {k: v for k, v in payload.items() if v is not None}
-
+    record_id = f"PA-{sr_no:03d}"
     try:
-        if not dry_run:
-            sb.table("dggi_provisional_attachment_records").insert(payload).execute()
+        res = (
+            sb.table("dggi_provisional_attachment_records")
+            .select("id,record_id")
+            .eq("workspace_id", workspace_id)
+            .eq("record_id", record_id)
+            .execute()
+        )
+        if res.data:
+            row = res.data[0]
+            if dry_run:
+                print(f"    → UPDATE  existing record_id={record_id!r}  db_id={row['id']}")
+            else:
+                sb.table("dggi_provisional_attachment_records").update(payload).eq("id", row["id"]).execute()
+            log.append({"action": "update", "sr_no": sr_no, "record_id": record_id, "db_id": row["id"], "taxpayer_name": payload.get("taxpayer_name")})
+            return "updated"
+
+        insert_payload = {**payload, "workspace_id": workspace_id, "record_id": record_id}
+        if dry_run:
+            print(f"    → INSERT  new record_id={record_id!r}")
+            inserted_id = None
+        else:
+            insert_res = sb.table("dggi_provisional_attachment_records").insert(insert_payload).execute()
+            inserted_id = insert_res.data[0]["id"] if insert_res.data else None
+        log.append({"action": "insert", "sr_no": sr_no, "record_id": record_id, "db_id": inserted_id, "taxpayer_name": payload.get("taxpayer_name")})
         return "inserted"
+
     except Exception as e:
-        skipped.append({
-            "ir_no": ir_no or "",
-            "date_of_attachment": date_of_attachment,
-            "reason": str(e),
-        })
+        skipped.append({"sr_no": sr_no, "record_id": record_id, "reason": str(e)})
         return "skipped"
 
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Sheet processor
+# ---------------------------------------------------------------------------
+
+def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
+    rows = list(ws.iter_rows(values_only=True))
+    inserted = updated = skipped_count = 0
+
+    for row in rows[7:]:  # rows 0-6 are title/headers/sub-headers/col-numbers
+        if row[0] is None:
+            continue
+        try:
+            sr_no = int(row[0])
+        except (ValueError, TypeError):
+            continue
+
+        taxpayer_name = balance_parens(clean(row[2])) if clean(row[2]) else None
+        if not taxpayer_name:
+            continue
+
+        if dry_run:
+            print(
+                f"  [#{sr_no:03d}] {taxpayer_name[:50]!r}"
+                f" | gstin={clean(row[3])}"
+                f" | date={parse_date(row[28])}"
+            )
+
+        payload = {
+            "taxpayer_name": taxpayer_name,
+            "formation": clean(row[1]),
+            "gstins": clean(row[3]),
+            "person_status": clean(row[4]),
+            "expected_liability": clean_amount(row[5]),
+            "entity_gstin": clean(row[6]),
+            "issue_involved": clean(row[7]),
+            "brief_description": clean(row[8]),
+            "arrest_status": clean(row[9]),
+            "dossier_prepared": clean(row[10]),
+            "value_immovable": clean_amount(row[11]),
+            "value_movable": clean_amount(row[12]),
+            "value_shares_fd": clean_amount(row[13]),
+            "value_bank": clean_amount(row[14]),
+            "value_third_party": clean_amount(row[15]),
+            "value_others": clean_amount(row[16]),
+            "value_total": clean_amount(row[17]),
+            "balance_period_0_3": clean(row[18]),
+            "balance_period_3_6": clean(row[19]),
+            "balance_period_6_9": parse_date(row[20]),
+            "balance_period_9_12": parse_date(row[21]),
+            "investigation_completed": clean(row[22]),
+            "scn_issued": clean(row[23]),
+            "letter_issued": clean(row[24]),
+            "oio_issued": clean(row[25]),
+            "converted_to_permanent": clean(row[26]),
+            "group_sio": clean(row[27]),
+            "date_of_attachment": parse_date(row[28]),
+        }
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        result = upsert_record(sb, workspace_id, sr_no, payload, skipped, log, dry_run)
+        if result == "inserted":
+            inserted += 1
+        elif result == "updated":
+            updated += 1
+        else:
+            skipped_count += 1
+
+    print(
+        f"\n[Provisional Attachments]  {'Would insert' if dry_run else 'Inserted'}: {inserted}"
+        f" | {'Would update' if dry_run else 'Updated'}: {updated}"
+        f" | Skipped: {skipped_count}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
     args = sys.argv[1:]
     dry_run = "--dry-run" in args
     positional = [a for a in args if not a.startswith("--")]
-    excel_path = positional[0] if positional else DEFAULT_EXCEL_PATH
+    excel_path = os.path.abspath(positional[0] if positional else DEFAULT_EXCEL_PATH)
 
     if not os.path.exists(excel_path):
         raise SystemExit(f"Excel file not found: {excel_path}")
 
     if dry_run:
-        print("*** DRY RUN — no changes will be written ***\n")
+        print("*** DRY RUN — no changes will be written to the database ***\n")
 
     print(f"Loading: {excel_path}")
     wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
-    ws = wb["Sheet1"]
 
     sb = create_client(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-    res = sb.table("votum_users").select("workspace_id, id").eq("email", WORKSPACE_OWNER_EMAIL).limit(1).execute()
+    res = (
+        sb.table("votum_users")
+        .select("workspace_id")
+        .eq("email", WORKSPACE_OWNER_EMAIL)
+        .limit(1)
+        .execute()
+    )
     if not res.data:
         raise SystemExit(f"No user found for {WORKSPACE_OWNER_EMAIL}")
-
     workspace_id = res.data[0]["workspace_id"]
     print(f"Workspace: {workspace_id}\n")
 
     skipped = []
-    inserted = 0
-    skipped_count = 0
+    log = []
+    process_sheet(wb["Sheet1"], sb, workspace_id, skipped, log, dry_run)
 
-    rows = list(ws.iter_rows(values_only=True))
-
-    for row_idx, row in enumerate(rows[5:], start=6):  # rows 1-5 are headers
-        if not any(row):
-            continue
-        status = process_row(row, sb, workspace_id, skipped, dry_run)
-        if status == "inserted":
-            inserted += 1
-        else:
-            skipped_count += 1
-
-    print(f"\n{'=' * 60}")
-    print(f"[Provisional Attachments] {'Would insert' if dry_run else 'Inserted'}: {inserted} | Skipped: {skipped_count}")
-    print(f"{'=' * 60}")
+    if log:
+        with open(LOG_JSON, "w") as f:
+            json.dump(log, f, indent=2)
+        print(f"\nLog written to {LOG_JSON}  ({len([e for e in log if e['action']=='insert'])} inserts, {len([e for e in log if e['action']=='update'])} updates)")
 
     if skipped:
         if not dry_run:
@@ -281,7 +292,7 @@ def main():
                 writer.writerows(skipped)
             print(f"\nSkipped {len(skipped)} rows — see {SKIPPED_CSV}")
         else:
-            print(f"\nWould skip {len(skipped)} error rows.")
+            print(f"\nWould skip {len(skipped)} rows (errors during DB lookup).")
     else:
         print("\nNo rows skipped.")
 

@@ -91,11 +91,12 @@ def clean(val) -> str | None:
 
 
 def str_amount(val) -> str | None:
+    """Convert a value stored in lakhs to absolute rupees (× 1,00,000)."""
     if val is None:
         return None
     try:
         f = float(val)
-        return str(f) if f != 0 else None
+        return str(f * 100_000) if f != 0 else None
     except (ValueError, TypeError):
         s = str(val).strip()
         return s if s else None
