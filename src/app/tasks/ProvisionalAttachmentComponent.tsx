@@ -319,21 +319,20 @@ const COLUMNS: RegisterColumn[] = [
     label: "Bank Name",
     type: "text",
     width: "160px",
-    showWhenNonEmpty: "value_bank",
+    showWhenNonEmpty: "bank_account_no",
   },
   {
     key: "bank_account_no",
     label: "Bank A/c No.",
     type: "text",
     width: "180px",
-    showWhenNonEmpty: "value_bank",
   },
   {
     key: "bank_ifsc",
     label: "Bank IFSC",
     type: "text",
     width: "160px",
-    showWhenNonEmpty: "value_bank",
+    showWhenNonEmpty: "bank_account_no",
   },
   {
     key: "value_third_party",

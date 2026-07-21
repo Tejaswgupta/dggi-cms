@@ -43,8 +43,10 @@ Usage:
 import csv
 import json
 import os
+import re
 import sys
 from datetime import date, datetime
+from difflib import get_close_matches
 
 import openpyxl
 from dotenv import load_dotenv
@@ -69,9 +71,9 @@ LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_adjudication_scn_log.
 SHEET_NAMES = ["DD & AD", "SIO", "ADD & JD "]
 
 SHEET_COMPETENCY = {
-    "DD & AD": "DD/AD",
-    "SIO": "SIO",
-    "ADD & JD ": "ADD/JD",
+    "DD & AD": "AD/DD Competency",
+    "SIO": "SIO Competency",
+    "ADD & JD ": "JC/ADC Competency",
 }
 
 
@@ -104,6 +106,50 @@ def clean(val) -> str | None:
     if s in ("0", "-", "None"):
         return None
     return s if s else None
+
+
+def normalize_scn_no(val: str | None) -> str | None:
+    if not val:
+        return val
+    s = re.sub(r'\s*/\s*', '/', val.strip())
+    m = re.match(r'^(\d+)-(\d{4}-\d{2})$', s)
+    if m: return f'{m.group(1)}/{m.group(2)}'
+    m = re.match(r'^(\d+)/(1[5-9]|2[0-9])-(\d{2})$', s)
+    if m: return f'{m.group(1)}/20{m.group(2)}-{m.group(3)}'
+    m = re.match(r'^(\d+)/(\d{4})-(\d{4})$', s)
+    if m: return f'{m.group(1)}/{m.group(2)}-{m.group(3)[2:]}'
+    m = re.match(r'^(\d+/\d{4}-\d{2})(/.*)?$', s)
+    if m and m.group(2): return m.group(1)
+    m = re.match(r'^(\d+)/[A-Z./]+?(\d{4}-\d{2})$', s, re.IGNORECASE)
+    if m: return f'{m.group(1)}/{m.group(2)}'
+    return s
+
+
+def normalize_period(val: str | None) -> str | None:
+    if not val:
+        return val
+    month_map = {'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12}
+    def mfy(m, y):
+        mn, y = month_map.get(m.lower()[:3], 0), int(y)
+        fy = y if mn >= 4 else y - 1
+        return f'{fy}-{str(fy+1)[2:]}'
+    s = re.sub(r'-{2,}', '-', val.strip())
+    s = re.sub(r'\s+TO\s+', ' to ', s, flags=re.IGNORECASE)
+    s = re.sub(r'\s+&\s+', ' to ', s)
+    m = re.match(r'^([A-Za-z]{3})[.\-\s]*(\d{4})[.\-\s]+([A-Za-z]{3})[.\-\s]*(\d{4})$', s)
+    if m:
+        fy1, fy2 = mfy(m.group(1), m.group(2)), mfy(m.group(3), m.group(4))
+        return fy1 if fy1 == fy2 else f'{fy1} to {fy2}'
+    m = re.match(r'^([A-Za-z]{3})-(\d{4})\s+to\s+([A-Za-z]{3})-(\d{4})(.*)?$', s, re.IGNORECASE)
+    if m:
+        fy1, fy2 = mfy(m.group(1), m.group(2)), mfy(m.group(3), m.group(4))
+        suffix = m.group(5).strip()
+        result = fy1 if fy1 == fy2 else f'{fy1} to {fy2}'
+        return f'{result} ({suffix})' if suffix else result
+    s = re.sub(r'\b(\d{4})-(\d{4})\b', lambda m: f'{m.group(1)}-{m.group(2)[2:]}', s)
+    s = re.sub(r'(?<![0-9])(1[5-9]|2[0-9])-([0-9]{2})(?![0-9])', lambda m: f'20{m.group(1)}-{m.group(2)}', s)
+    s = re.sub(r'\b([A-Z]{3})-(\d{2,4})\b', lambda m: f'{m.group(1).capitalize()}-{m.group(2)}', s)
+    return s
 
 
 def parse_amount(val) -> str | None:
@@ -179,7 +225,36 @@ def upsert_scn_record(
 # Sheet processor
 # ---------------------------------------------------------------------------
 
-def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
+SHEET_ABBR = {"DD & AD": "DD_AD", "SIO": "SIO", "ADD & JD ": "ADD_JD_"}
+
+GROUP_NORMALIZE_RE = re.compile(r'[A-Fa-f]')
+
+def normalize_group(val) -> str | None:
+    if not val:
+        return None
+    m = GROUP_NORMALIZE_RE.search(str(val))
+    return f"Group {m.group().upper()}" if m else None
+
+
+def build_user_cache(sb, workspace_id: str) -> dict:
+    users = sb.table("votum_users").select("id,name").eq("workspace_id", workspace_id).execute().data
+    groups = sb.table("dggi_user_group_assignments").select("user_id,group_name").execute().data
+    gmap = {g["user_id"]: g["group_name"] for g in groups}
+    return {u["name"].strip().lower(): (u["id"], gmap.get(u["id"])) for u in users}
+
+
+def resolve_officer(raw: str | None, user_cache: dict) -> tuple:
+    if not raw:
+        return None, None
+    first = re.split(r"[/,]", raw)[0].strip().lower()
+    hit = user_cache.get(first)
+    if hit:
+        return hit
+    hits = get_close_matches(first, list(user_cache.keys()), n=1, cutoff=0.7)
+    return user_cache[hits[0]] if hits else (None, None)
+
+
+def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, user_cache: dict, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
     inserted = updated = skipped_count = 0
 
@@ -196,8 +271,13 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, s
         if not taxpayer_name:
             continue
 
-        scn_no = clean(row[1])
-        sheet_abbr = sheet_name.strip().replace(" ", "_").replace("&", "").replace("__", "_")
+        scn_no = normalize_scn_no(clean(row[1]))
+        sheet_abbr = SHEET_ABBR.get(sheet_name, sheet_name.strip().replace(" ", "_").replace("&", "").replace("__", "_"))
+
+        officer_raw = clean(row[19])
+        group_val = normalize_group(clean(row[18]))
+        user_id, user_group = resolve_officer(officer_raw, user_cache)
+        final_group = group_val or user_group
 
         payload = {
             "scn_no": scn_no,
@@ -207,7 +287,7 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, s
             "demand_tax": parse_amount(row[5]),
             "demand_interest": parse_amount(row[6]),
             "demand_penalty": parse_amount(row[7]),
-            "period_involved": clean(row[8]),
+            "period_involved": normalize_period(clean(row[8])),
             "last_date_oio": parse_date(row[9]),
             "issue": clean(row[10]),
             "adjudication_formation": clean(row[11]),
@@ -217,6 +297,9 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, s
             "adjudication_status": clean(row[15]),
             "remarks": clean(row[16]),
             "competency": competency,
+            "group": final_group,
+            "sio": user_id,
+            "sio_name": officer_raw,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
 
@@ -283,6 +366,9 @@ def main():
         sb.table("dggi_scn_records").delete().eq("workspace_id", workspace_id).execute()
         print("Truncated.\n")
 
+    user_cache = build_user_cache(sb, workspace_id)
+    print(f"Loaded {len(user_cache)} users from votum_users\n")
+
     skipped = []
     log = []
 
@@ -291,7 +377,7 @@ def main():
             print(f"[WARN] Sheet {sheet_name!r} not found — skipping.")
             continue
         competency = SHEET_COMPETENCY[sheet_name]
-        process_sheet(wb[sheet_name], sheet_name, competency, sb, workspace_id, skipped, log, dry_run)
+        process_sheet(wb[sheet_name], sheet_name, competency, sb, workspace_id, user_cache, skipped, log, dry_run)
 
     if log:
         with open(LOG_JSON, "w") as f:

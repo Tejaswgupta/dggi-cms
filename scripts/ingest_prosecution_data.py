@@ -106,7 +106,7 @@ def lakhs_to_crores(val) -> str | None:
         lakhs = float(val)
         if lakhs == 0:
             return None
-        return str(round(lakhs / 100, 4))
+        return str(round(lakhs / 100, 2))
     except (ValueError, TypeError):
         return None
 

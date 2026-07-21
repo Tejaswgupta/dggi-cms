@@ -51,8 +51,10 @@ Usage:
 import csv
 import json
 import os
+import re
 import sys
 from datetime import date, datetime
+from difflib import get_close_matches
 
 import openpyxl
 from dotenv import load_dotenv
@@ -100,6 +102,20 @@ def parse_date(val) -> str | None:
 def clean(val) -> str | None:
     if val is None:
         return None
+    if isinstance(val, datetime):
+        return None  # datetime in a text field = Excel mis-parsed a label (e.g. "9-12" → Sep 12)
+    s = str(val).strip().strip("-").strip()
+    return s if s else None
+
+
+def clean_balance_period(val, label: str) -> str | None:
+    """Balance period cells are text labels like '3-6 Months'.
+    Excel sometimes mis-parses these as dates (e.g. '9-12' → datetime(2025,9,12)).
+    Return the canonical label when that happens."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return label  # phantom date — return the expected period label
     s = str(val).strip().strip("-").strip()
     return s if s else None
 
@@ -120,6 +136,46 @@ def clean_amount(val) -> str | None:
     if not s or s in ("-", "--", "na", "NA", "N/A"):
         return None
     return s
+
+
+GROUP_RE = re.compile(r'[Gg]r(?:oup)?[-.\s]*([A-Fa-f])', re.IGNORECASE)
+
+# Names not in votum_users → map to the replacement user's canonical name
+PA_NAME_OVERRIDES = {
+    "vikash chnadra kumawat": "nitish kaloya",
+    "vikash chandra kumawat": "nitish kaloya",
+    "sharad gupta": "nitish kaloya",
+}
+
+
+def build_user_cache(sb, workspace_id: str) -> dict:
+    users = sb.table("votum_users").select("id,name").eq("workspace_id", workspace_id).execute().data
+    groups = sb.table("dggi_user_group_assignments").select("user_id,group_name").execute().data
+    gmap = {g["user_id"]: g["group_name"] for g in groups}
+    return {u["name"].strip().lower(): (u["id"], gmap.get(u["id"])) for u in users}
+
+
+def parse_group_sio(text: str | None, user_cache: dict) -> tuple:
+    """Return (group_str, sio_uuid, sio_name_raw) from a free-text 'Group/SIO' cell."""
+    if not text:
+        return None, None, None
+    gm = GROUP_RE.search(text)
+    grp = f"Group {gm.group(1).upper()}" if gm else None
+    name_part = re.sub(GROUP_RE, "", text).replace("/", " ").replace(",", " ").strip()
+    name_clean = re.sub(r"\s+", " ", name_part).strip().lower()
+    override = PA_NAME_OVERRIDES.get(name_clean)
+    if override is not None:
+        hit = user_cache.get(override) or (None, None)
+    elif name_clean in PA_NAME_OVERRIDES:
+        hit = (None, None)
+    else:
+        hit = user_cache.get(name_clean)
+        if not hit:
+            matches = get_close_matches(name_clean, list(user_cache.keys()), n=1, cutoff=0.7)
+            hit = user_cache[matches[0]] if matches else (None, None)
+    uid, ugrp = hit
+    final_group = grp or ugrp
+    return final_group, uid, name_part or None
 
 
 # ---------------------------------------------------------------------------
@@ -172,7 +228,7 @@ def upsert_record(
 # Sheet processor
 # ---------------------------------------------------------------------------
 
-def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
+def process_sheet(ws, sb, workspace_id: str, user_cache: dict, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
     inserted = updated = skipped_count = 0
 
@@ -195,6 +251,9 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
                 f" | date={parse_date(row[28])}"
             )
 
+        group_sio_raw = clean(row[27])
+        grp, sio_uid, sio_name = parse_group_sio(group_sio_raw, user_cache)
+
         payload = {
             "person_name": taxpayer_name,
             "gstin_pan": clean(row[3]),
@@ -207,20 +266,23 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
             "value_immovable": clean_amount(row[11]),
             "value_movable": clean_amount(row[12]),
             "value_shares": clean_amount(row[13]),
-            "value_bank": clean_amount(row[14]),
+            "bank_account_no": clean(row[14]),
             "value_third_party": clean_amount(row[15]),
             "value_others": clean_amount(row[16]),
             "value_total": clean_amount(row[17]),
-            "balance_0_3m": clean(row[18]),
-            "balance_3_6m": clean(row[19]),
-            "balance_6_9m": clean(row[20]),
-            "balance_9_12m": clean(row[21]),
+            "balance_0_3m": clean_balance_period(row[18], "0-3 months"),
+            "balance_3_6m": clean_balance_period(row[19], "3-6 months"),
+            "balance_6_9m": clean_balance_period(row[20], "6-9 months"),
+            "balance_9_12m": clean_balance_period(row[21], "9-12 months"),
             "investigation_completed": clean(row[22]),
             "scn_issued": clean(row[23]),
             "letter_issued": clean(row[24]),
             "oio_issued": clean(row[25]),
             "permanent_attachment": clean(row[26]),
-            "group_sio": clean(row[27]),
+            "group_sio": group_sio_raw,
+            "group": grp,
+            "sio": sio_uid,
+            "sio_name": sio_name,
             "date_of_attachment": parse_date(row[28]),
         }
         payload = {k: v for k, v in payload.items() if v is not None}
@@ -273,9 +335,12 @@ def main():
     workspace_id = res.data[0]["workspace_id"]
     print(f"Workspace: {workspace_id}\n")
 
+    user_cache = build_user_cache(sb, workspace_id)
+    print(f"Loaded {len(user_cache)} users from votum_users\n")
+
     skipped = []
     log = []
-    process_sheet(wb["Sheet1"], sb, workspace_id, skipped, log, dry_run)
+    process_sheet(wb["Sheet1"], sb, workspace_id, user_cache, skipped, log, dry_run)
 
     if log:
         with open(LOG_JSON, "w") as f:
