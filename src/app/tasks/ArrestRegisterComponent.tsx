@@ -254,7 +254,7 @@ const COLUMNS: {
   },
   {
     key: "amount_crore",
-    label: "Amount (Rs. in Crore)",
+    label: "Amount (Rs.)",
     type: "number",
     width: "170px",
   },
@@ -410,6 +410,11 @@ function EditableCell({
   if (!editing || readOnly) {
     if (type === "datepicker")
       return <span className="whitespace-nowrap">{fmt(value)}</span>;
+    if (type === "number") {
+      const n = parseFloat(value);
+      if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
+      return <span>₹{n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>;
+    }
     return <span>{value || "—"}</span>;
   }
 

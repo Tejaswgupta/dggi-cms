@@ -268,7 +268,7 @@ const COLUMNS: RegisterColumn[] = [
   },
   {
     key: "expected_liability",
-    label: "Expected Liability",
+    label: "Expected Liability (Rs.)",
     type: "number",
     width: "160px",
   },
@@ -1563,11 +1563,10 @@ const ProvisionalAttachmentComponent = () => {
       if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
       return (
         <span>
-          {n.toLocaleString("en-IN", {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}{" "}
-          Cr
+          ₹{n.toLocaleString("en-IN", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+          })}
         </span>
       );
     }

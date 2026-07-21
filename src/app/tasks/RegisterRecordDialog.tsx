@@ -62,7 +62,7 @@ export interface RegisterColumn {
   key: string;
   label: string;
   dialogLabel?: string;
-  type: "text" | "number" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox" | "arrestlink" | "searchcombobox" | "adgcomments";
+  type: "text" | "number" | "rupees" | "datepicker" | "select" | "usercombobox" | "caselink" | "scncombobox" | "arrestlink" | "searchcombobox" | "adgcomments";
   options?: string[];
   allowOther?: boolean;
   readOnly?: boolean;
@@ -527,7 +527,7 @@ export function RegisterRecordDialog({
         </div>
       );
     }
-    if (col.type === "number") {
+    if (col.type === "number" || col.type === "rupees") {
       return (
         <Input
           value={value}

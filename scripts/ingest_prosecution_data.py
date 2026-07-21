@@ -98,15 +98,24 @@ def clean(val) -> str | None:
     return s
 
 
-def lakhs_to_crores(val) -> str | None:
-    """Convert amount in lakhs to crores (÷100)."""
+def lakhs_to_rupees(val) -> str | None:
+    """Convert amount in lakhs to rupees (×1,00,000)."""
     if val is None:
         return None
     try:
-        lakhs = float(val)
-        if lakhs == 0:
-            return None
-        return str(round(lakhs / 100, 2))
+        f = float(val)
+        return str(round(f * 1_00_000)) if f else None
+    except (ValueError, TypeError):
+        return None
+
+
+def clean_rupees(val) -> str | None:
+    """Amount already in rupees — store as integer string."""
+    if val is None:
+        return None
+    try:
+        f = float(val)
+        return str(round(f)) if f else None
     except (ValueError, TypeError):
         return None
 
@@ -193,7 +202,7 @@ def insert_arrest_record(
         "financial_year": clean(row[4]),
         "party_name": party_name,
         "unit_gstin": clean(row[8]) or "",
-        "amount_crore": lakhs_to_crores(row[9]),
+        "amount_crore": lakhs_to_rupees(row[9]),
         "arrested_name": clean(row[10]),
         "arrested_designation": clean(row[11]),
         "arrested_age": clean(row[12]),
@@ -248,7 +257,7 @@ def insert_arrest_prosecution(
         "sio_name": clean(row[2]),
         "entity_name": clean(row[6]),
         "gstin": clean(row[8]),
-        "amount_evaded_crore": lakhs_to_crores(row[9]),
+        "amount_evaded_crore": lakhs_to_rupees(row[9]),
         "arrested_person_name": person_name,
         "age": clean(row[12]),
         "date_of_arrest": parse_date(row[13]),
@@ -302,7 +311,7 @@ def insert_non_arrest_prosecution(
         "sio_name": clean(row[2]),
         "entity_name": clean(row[6]),
         "gstin": clean(row[8]),
-        "amount_evaded_crore": lakhs_to_crores(row[9]),
+        "amount_evaded_crore": clean_rupees(row[9]),
         "person_name": person_name,
         "age": clean(row[12]),
         "date_of_arrest": parse_date(row[13]),

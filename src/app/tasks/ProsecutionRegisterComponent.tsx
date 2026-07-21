@@ -48,7 +48,7 @@ const ARREST_COLS: RegisterColumn[] = [
   { key: "date_of_arrest", label: "Date of Arrest", type: "datepicker", width: "150px" },
   { key: "bail_status", label: "Bail Status", type: "select", options: ["Bail Given", "Bail Not Given"], width: "140px" },
   { key: "status_of_person", label: "Status", type: "select", options: ["On Bail", "In Custody", "Absconding", "Deceased"], width: "130px" },
-  { key: "amount_evaded_crore", label: "Amount Evaded (Cr.)", type: "text", width: "160px" },
+  { key: "amount_evaded_crore", label: "Amount Evaded (Rs.)", type: "rupees", width: "160px" },
   { key: "entity_name", label: "Entity Name", type: "text", width: "170px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   { key: "brief_modus_operandi", label: "Modus Operandi", type: "text", width: "240px" },
@@ -81,7 +81,7 @@ const NON_ARREST_COLS: RegisterColumn[] = [
   { key: "person_name", label: "Accused Person", type: "text", width: "170px" },
   { key: "age", label: "Age", type: "text", width: "80px" },
   { key: "date_of_arrest", label: "Date of Detection", type: "datepicker", width: "150px" },
-  { key: "amount_evaded_crore", label: "Amount Evaded (Cr.)", type: "text", width: "160px" },
+  { key: "amount_evaded_crore", label: "Amount Evaded (Rs.)", type: "rupees", width: "160px" },
   { key: "entity_name", label: "Entity Name", type: "text", width: "170px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   { key: "brief_modus_operandi", label: "Modus Operandi", type: "text", width: "240px" },
@@ -320,6 +320,11 @@ const ProsecutionRegisterComponent = () => {
       );
     }
     if (type === "datepicker") return <span className="whitespace-nowrap">{fmt(value)}</span>;
+    if (type === "rupees") {
+      const n = parseFloat(value);
+      if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
+      return <span>₹{n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>;
+    }
     return <span>{value || "—"}</span>;
   };
 
