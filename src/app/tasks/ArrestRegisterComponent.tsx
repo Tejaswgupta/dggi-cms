@@ -889,7 +889,9 @@ const ArrestRegisterComponent = () => {
         query = query.eq("group", "__none__");
       }
     }
-    const { data, error } = await query;
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
     if (error) {
       console.error("fetchRecords error:", error);
       return;

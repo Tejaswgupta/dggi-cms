@@ -60,7 +60,6 @@ import {
 interface SCNRecord {
   id: string;
   record_id: string;
-  scn_no: string;
   linked_case_id: string;
   date_of_scn: string;
   noticee_name: string;
@@ -105,7 +104,6 @@ const today = () => format(new Date(), "yyyy-MM-dd");
 
 const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   record_id: "",
-  scn_no: "",
   linked_case_id: "",
   date_of_scn: today(),
   noticee_name: "",
@@ -295,12 +293,6 @@ const COLUMNS: RegisterColumn[] = [
     type: "text",
     width: "200px",
     readOnly: true,
-  },
-  {
-    key: "scn_no",
-    label: "SCN Number",
-    type: "text",
-    width: "160px",
   },
   {
     key: "linked_case_id",
@@ -549,7 +541,9 @@ const SCNRegisterComponent = () => {
         query = query.eq("group", "__none__");
       }
     }
-    const { data, error } = await query;
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
     if (error) {
       console.error("fetchRecords error:", error);
       return;
@@ -574,7 +568,7 @@ const SCNRegisterComponent = () => {
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
-        const hit = [r.noticee_name, r.gstin_pan, r.file_no, r.record_id, r.scn_no].some(
+        const hit = [r.noticee_name, r.gstin_pan, r.file_no, r.record_id].some(
           (v) => v?.toLowerCase().includes(q),
         );
         if (!hit) return false;

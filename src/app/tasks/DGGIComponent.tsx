@@ -1746,7 +1746,6 @@ interface SCNSubRecord {
   id?: string;
   record_id?: string;
   linked_case_id: string;
-  scn_no: string;
   date_of_scn: string;
   noticee_name: string;
   gstin_pan: string;
@@ -1990,7 +1989,6 @@ const SCN_COLUMNS: RegisterColumn[] = [
     type: "caselink",
     width: "180px",
   },
-  { key: "scn_no", label: "SCN No.", type: "text", width: "200px" },
   {
     key: "date_of_scn",
     label: "Date of SCN",
@@ -3337,7 +3335,9 @@ const DGGIComponent = () => {
       }
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
     if (error) {
       console.error("fetchRecords error:", error);
       return;
@@ -4457,7 +4457,6 @@ const DGGIComponent = () => {
       adjudication_status: rec?.latest_status ?? "",
       remarks: "",
       // Blank fields user must fill
-      scn_no: "",
       last_date_oio: "",
       adjudication_formation: "",
       din_no: "",

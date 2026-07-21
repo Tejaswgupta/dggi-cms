@@ -48,7 +48,6 @@ interface SeizureRecord {
   quantity: string;
   scn_issued: string;
   scn_issue_date: string;
-  scn_no: string;
   extended_by_commissioner: string;
   extension_order_date: string;
   goods_returned: string;
@@ -79,7 +78,6 @@ const EMPTY_RECORD: Omit<SeizureRecord, "id"> = {
   quantity: "",
   scn_issued: "",
   scn_issue_date: "",
-  scn_no: "",
   extended_by_commissioner: "",
   extension_order_date: "",
   goods_returned: "",
@@ -105,7 +103,6 @@ const COLUMNS: RegisterColumn[] = [
   { key: "mahazar_no",              label: "Mahazar No.",               type: "text",        width: "140px" },
   { key: "scn_issued",              label: "SCN Issued?",               type: "select",      options: ["Yes", "No"], width: "120px" },
   { key: "scn_issue_date",          label: "SCN Issue Date",            type: "datepicker",  width: "150px" },
-  { key: "scn_no",                  label: "SCN No.",                   type: "text",        width: "150px" },
   { key: "extended_by_commissioner",label: "Extended by Commissioner?", type: "select",      options: ["Yes", "No"], width: "190px" },
   { key: "extension_order_date",    label: "Extension Order Date",      type: "datepicker",  width: "170px" },
   { key: "goods_returned",          label: "Goods Returned?",           type: "select",      options: ["Yes", "No"], width: "140px" },
@@ -188,7 +185,7 @@ const fmt = (iso: string) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const PAGE_SIZE_DEFAULT = 50;
-const SEARCH_COLS = ["case_file_no", "entity_name", "goods_description", "mahazar_no", "scn_no"];
+const SEARCH_COLS = ["case_file_no", "entity_name", "goods_description", "mahazar_no"];
 
 const SeizureRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();

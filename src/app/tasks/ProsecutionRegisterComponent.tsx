@@ -160,8 +160,8 @@ const ProsecutionRegisterComponent = () => {
         }
       }
       const [{ data: ad }, { data: nd }, cases, { data: arrestRows }] = await Promise.all([
-        arrestQuery,
-        nonArrestQuery,
+        arrestQuery.order("created_at", { ascending: false }),
+        nonArrestQuery.order("created_at", { ascending: false }),
         fetchCaseOptions(supabase, wid),
         supabase.from("dggi_arrest_records").select("id,record_id,arrested_name,arrested_age,date_of_arrest,party_name,unit_gstin,amount_crore,role_evidence,sio,group").eq("workspace_id", wid),
       ]);

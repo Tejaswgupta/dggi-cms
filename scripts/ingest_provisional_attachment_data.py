@@ -138,6 +138,22 @@ def clean_amount(val) -> str | None:
     return s
 
 
+def crores_to_rupees(val) -> str | None:
+    """Convert amount in crores to rupees (×1,00,00,000), stored as integer string."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        f = float(val)
+        return str(round(f * 1_00_00_000)) if f else None
+    s = str(val).strip()
+    if not s or s in ("-", "--", "na", "NA", "N/A"):
+        return None
+    try:
+        return str(round(float(s) * 1_00_00_000))
+    except ValueError:
+        return None
+
+
 GROUP_RE = re.compile(r'[Gg]r(?:oup)?[-.\s]*([A-Fa-f])', re.IGNORECASE)
 
 # Names not in votum_users → map to the replacement user's canonical name
@@ -258,7 +274,7 @@ def process_sheet(ws, sb, workspace_id: str, user_cache: dict, skipped: list, lo
             "person_name": taxpayer_name,
             "gstin_pan": clean(row[3]),
             "person_status": clean(row[4]),
-            "expected_liability": clean_amount(row[5]),
+            "expected_liability": crores_to_rupees(row[5]),
             "entity_gstin": clean(row[6]),
             "issue_involved": clean(row[7]),
             "brief_description": clean(row[8]),

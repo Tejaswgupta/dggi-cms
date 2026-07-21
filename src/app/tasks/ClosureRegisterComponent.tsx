@@ -286,7 +286,7 @@ const ClosureRegisterComponent = () => {
         }
       }
       const [{ data, error }] = await Promise.all([
-        query,
+        query.order("created_at", { ascending: false }),
       ]);
       if (!error) setRecords(data ?? []);
       setLoading(false);
