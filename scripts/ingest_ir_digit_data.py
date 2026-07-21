@@ -21,7 +21,7 @@ Column mapping:
   Col 14 Modus Operandi                  → issue_involved (primary)
   Col 15 Nature of Tax                   → combined into issue_involved
   Col 16 Classification of Tax Evasion   → combined into issue_involved
-  Col 17 Assigned To                     → handling_io_sio_name (text; no UUID mapping)
+  Col 17 Assigned To                     → sio_name (text; no UUID mapping)
 
 Dedup strategy (checked in order):
   1. IR No. match    — exact match of col 9 vs record_id in DB  (primary)
@@ -300,7 +300,7 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
             "recovery_itc": str_amount(row[12]),
             "latest_status": clean(row[13]),
             "issue_involved": " | ".join(issue_parts) if issue_parts else None,
-            "handling_io_sio_name": clean(row[17]),
+            "sio_name": clean(row[17]),
             "is_ir": True,
         }
         payload = {k: v for k, v in payload.items() if v is not None}

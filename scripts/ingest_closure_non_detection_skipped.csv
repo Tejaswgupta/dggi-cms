@@ -1,0 +1,9 @@
+sr_no,file_no,reason
+001,DGGI/INT/INTL/119/2025-DD/AD-IV-o/o Pr. ADG-DGGI-ZU,"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"
+002,DGGI/INT/INTL/528/2025-Gr.C,"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"
+003,DGGI/INT/INTL/976/2025-DD/AD-IV,"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"
+001,DGGI/INV/33/2026-GrA-o/o Pr. ADG-DGGI-ZU-MUMBAI,"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"
+003,DGGI/INV/GST/623/2026-Gr.F(A)-o/o Pr. ADG-DGGI-ZU-Mumbai,"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"
+004,DGGI/INV/GST/166/2025-Gr.F(A)-o/o Pr. ADG-DGGI-ZU-MUMBAI,"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"
+004,DGGI/INT/INTL/784/2024-GrE-o/o Pr. ADG-DGGI-ZU-Mumbai,"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"
+005,DGGI/INT/INTL/1115/2024-Gr A-o/o Pr. ADG-DGGI-ZU-Mumbai-(Part 1),"{'message': ""Could not find the 'handling_io_sio_name' column of 'dggi_closure_records' in the schema cache"", 'code': 'PGRST204', 'hint': None, 'details': None}"

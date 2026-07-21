@@ -8,7 +8,7 @@ Column mapping:
   Col 0  Sr No             → upsert key (fallback record_id = "NON-IR-{sr_no:03d}")
   Col 1  File Number       → record_id (upsert key 1) + file_no
   Col 2  Date of NON-IR    → date_of_non_ir
-  Col 3  Officer Name      → handling_io_sio_name (text fallback)
+  Col 3  Officer Name      → sio_name (text fallback)
   Col 4  Group Name        → group (prefixed "Group " + letter)
   Col 5  E-Mail ID         → lookup votum_users.email → handling_io_sio (UUID)
 
@@ -230,7 +230,7 @@ def process_sheet(ws, sb, workspace_id: str, user_cache: dict, start_seq: int, s
             "file_no": file_no,
             "date_of_non_ir": rec["ir_date"],
             "group": rec["group_val"],
-            "handling_io_sio_name": rec["officer_name"],
+            "sio_name": rec["officer_name"],
             "handling_io_sio": handling_io_sio_id,
             "is_ir": False,
             "date_of_ir": None,

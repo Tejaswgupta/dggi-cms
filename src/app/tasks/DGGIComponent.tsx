@@ -145,7 +145,7 @@ export interface DGGIRecord {
   mode_of_initiation: ModeOfInitiation | "";
   intelligence_action_date: string;
   handling_io_sio: string;
-  handling_io_sio_name: string;
+  sio_name: string;
   issue_involved: string;
   latest_status: string;
   pr_adg_comments: string;
@@ -232,7 +232,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   mode_of_initiation: "",
   intelligence_action_date: "",
   handling_io_sio: "",
-  handling_io_sio_name: "",
+  sio_name: "",
   issue_involved: "",
   latest_status: "",
   pr_adg_comments: "",
@@ -2354,7 +2354,7 @@ export function DGGIRecordDialog({
         col.type === "usercombobox"
           ? users.find((u) => u.id === (value as string))?.name ||
             (col.key === "handling_io_sio"
-              ? (draft as any).handling_io_sio_name
+              ? (draft as any).sio_name
               : undefined) ||
             (value as string) ||
             "—"
@@ -3068,7 +3068,7 @@ function SingleCaseTransferDialog({
 
   const currentSioName =
     users.find((u) => u.id === record?.handling_io_sio)?.name ||
-    record?.handling_io_sio_name ||
+    record?.sio_name ||
     "—";
   const toUser = users.find((u) => u.id === toUserId);
   const canTransfer =
@@ -3558,7 +3558,7 @@ const DGGIComponent = () => {
       .update({
         ...updatePayload,
         handling_io_sio: dialogDraft.handling_io_sio || null,
-        handling_io_sio_name:
+        sio_name:
           workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
             ?.name || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
@@ -3582,9 +3582,9 @@ const DGGIComponent = () => {
           ? {
               ...r,
               ...dialogDraft,
-              handling_io_sio_name:
+              sio_name:
                 workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
-                  ?.name || r.handling_io_sio_name,
+                  ?.name || r.sio_name,
             }
           : r,
       ),
@@ -3737,7 +3737,7 @@ const DGGIComponent = () => {
         .from("dggi_records")
         .update({
           handling_io_sio: toUserId,
-          handling_io_sio_name: newUser.name,
+          sio_name: newUser.name,
         })
         .eq("handling_io_sio", fromUserId)
         .eq("workspace_id", workspaceId)
@@ -3800,7 +3800,7 @@ const DGGIComponent = () => {
             ? {
                 ...r,
                 handling_io_sio: toUserId,
-                handling_io_sio_name: newUser.name,
+                sio_name: newUser.name,
               }
             : r,
         ),
@@ -3827,7 +3827,7 @@ const DGGIComponent = () => {
           .from("dggi_records")
           .update({
             handling_io_sio: toUserId,
-            handling_io_sio_name: newUser.name,
+            sio_name: newUser.name,
           })
           .eq("id", record.id),
         supabase
@@ -3874,7 +3874,7 @@ const DGGIComponent = () => {
             ? {
                 ...r,
                 handling_io_sio: toUserId,
-                handling_io_sio_name: newUser.name,
+                sio_name: newUser.name,
               }
             : r,
         ),
@@ -3911,7 +3911,7 @@ const DGGIComponent = () => {
         { filter: { is_ir: draft.is_ir }, separator: "-" },
       ),
       handling_io_sio: draft.handling_io_sio || null,
-      handling_io_sio_name:
+      sio_name:
         workspaceUsers.find((u) => u.id === draft.handling_io_sio)?.name ||
         null,
       mode_of_initiation: draft.mode_of_initiation || null,
@@ -3961,7 +3961,7 @@ const DGGIComponent = () => {
         .update({
           ...sourceDraft,
           handling_io_sio: sourceDraft.handling_io_sio || null,
-          handling_io_sio_name:
+          sio_name:
             workspaceUsers.find((u) => u.id === sourceDraft.handling_io_sio)
               ?.name || null,
           mode_of_initiation: sourceDraft.mode_of_initiation || null,
@@ -3986,10 +3986,10 @@ const DGGIComponent = () => {
               ? {
                   ...r,
                   ...sourceDraft,
-                  handling_io_sio_name:
+                  sio_name:
                     workspaceUsers.find(
                       (u) => u.id === sourceDraft.handling_io_sio,
-                    )?.name || r.handling_io_sio_name,
+                    )?.name || r.sio_name,
                 }
               : r,
           ),
@@ -4781,7 +4781,7 @@ const DGGIComponent = () => {
                 readOnly={col.readOnly}
                 storedName={
                   col.key === "handling_io_sio"
-                    ? record.handling_io_sio_name
+                    ? record.sio_name
                     : undefined
                 }
                 columnKey={col.key}

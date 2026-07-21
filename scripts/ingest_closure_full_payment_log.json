@@ -1,0 +1,363 @@
+[
+  {
+    "action": "insert",
+    "sr_no": "005",
+    "new_record_id": "CIR/012/25-26",
+    "db_id": "605d7d4b-dda3-4947-89c3-31794537399a",
+    "file_no": "DGGI/INT/INTL/884/2024-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "002",
+    "new_record_id": "CIR/013/25-26",
+    "db_id": "836b3e32-d02a-4753-8da9-0b03176c0d2d",
+    "file_no": "DGI/INV/GST/1700/2025-Gr.C"
+  },
+  {
+    "action": "insert",
+    "sr_no": "001",
+    "new_record_id": "CIR/014/25-26",
+    "db_id": "9e78dae4-092c-4ab0-b0b1-b7a6df66fa24",
+    "file_no": "DGGI/INT/INTL/266/2025-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "003",
+    "new_record_id": "CIR/015/25-26",
+    "db_id": "22ad912a-8b79-4464-8adf-ac6f28ccea5a",
+    "file_no": "DGGI/INV/GST/2384/2025-Grp E"
+  },
+  {
+    "action": "insert",
+    "sr_no": "004",
+    "new_record_id": "CIR/016/25-26",
+    "db_id": "432a93b7-706b-44d6-bb57-e809cd47687c",
+    "file_no": "DGGI/INV/GST/2386/2025-Grp E"
+  },
+  {
+    "action": "insert",
+    "sr_no": "006",
+    "new_record_id": "CIR/017/25-26",
+    "db_id": "ae7f4551-626b-437c-8391-8911493af4f3",
+    "file_no": "DGGI/INT/INTL/1203/2024-GrE"
+  },
+  {
+    "action": "insert",
+    "sr_no": "007",
+    "new_record_id": "CIR/018/25-26",
+    "db_id": "115020bd-28a2-4504-81f2-5e488664de24",
+    "file_no": "DGGI/INT/INTL/871/2025-DD/AD-IV"
+  },
+  {
+    "action": "insert",
+    "sr_no": "008",
+    "new_record_id": "CIR/019/25-26",
+    "db_id": "729ce747-cc6b-4ae9-851e-9df107c44bf7",
+    "file_no": "DGGI/INT/INTL/1105/2024"
+  },
+  {
+    "action": "insert",
+    "sr_no": "010",
+    "new_record_id": "CIR/020/25-26",
+    "db_id": "e8842025-76b0-4415-832c-5676c35546a2",
+    "file_no": "DGGI/INT/INTL/870/2024"
+  },
+  {
+    "action": "insert",
+    "sr_no": "011",
+    "new_record_id": "CIR/021/25-26",
+    "db_id": "2ea80ca3-d092-4d55-9026-976c5e26ef84",
+    "file_no": "DGGI/INV/GST/2171/2025-Gr-B-o/oPr.ADG-DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "012",
+    "new_record_id": "CIR/022/25-26",
+    "db_id": "c3b7379d-d194-432d-adac-ffaef23a454c",
+    "file_no": "DGGI/INT/INTL/2694/2024"
+  },
+  {
+    "action": "insert",
+    "sr_no": "014",
+    "new_record_id": "CIR/023/25-26",
+    "db_id": "9f903045-942b-4573-81c2-4392935afa03",
+    "file_no": "DGGI/INT/INTL/633/2025-Gr.A-O/O Pr.ADG"
+  },
+  {
+    "action": "insert",
+    "sr_no": "015",
+    "new_record_id": "CIR/024/25-26",
+    "db_id": "d593a212-c610-4eb3-8fe6-88d5bbaaaedc",
+    "file_no": "DGGI/INT/INTL/775/2025-GrA-O/O Pr.ADG"
+  },
+  {
+    "action": "insert",
+    "sr_no": "013",
+    "new_record_id": "CIR/025/25-26",
+    "db_id": "651965bd-e11f-4529-a7a5-7cd7292b51f2",
+    "file_no": "DGGI/INV/GST/185/2025-GrC"
+  },
+  {
+    "action": "insert",
+    "sr_no": "016",
+    "new_record_id": "CIR/026/25-26",
+    "db_id": "604fe045-b586-45c1-aca4-0d42a44aa590",
+    "file_no": "DGGI/INT/INTL/226/2025-GrB-O/O Pr.ADG-ZU-Mum"
+  },
+  {
+    "action": "insert",
+    "sr_no": "017",
+    "new_record_id": "CIR/027/25-26",
+    "db_id": "ecdac8c7-4cf1-42ab-8ed0-c25b5dd85f6c",
+    "file_no": "DGGI/MZU/I&IS/'F'/12(1)96/2023"
+  },
+  {
+    "action": "insert",
+    "sr_no": "018",
+    "new_record_id": "CIR/028/25-26",
+    "db_id": "f74f3f86-dd87-4e03-bd25-fc97182609e0",
+    "file_no": "DGGI/INT/INTL/728/2025-Gr-C"
+  },
+  {
+    "action": "insert",
+    "sr_no": "020",
+    "new_record_id": "CIR/029/25-26",
+    "db_id": "36871182-40b6-46be-9ee2-45f37873eee9",
+    "file_no": "DGGI/INV/GST/123/2026-Gr.C"
+  },
+  {
+    "action": "insert",
+    "sr_no": "021",
+    "new_record_id": "CIR/030/25-26",
+    "db_id": "a5cc89f3-59bf-4f48-979f-5ffe915fd669",
+    "file_no": "DGGI/INT/INTL/1165/2025-Gr.B O/Opr.ADG/DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "022",
+    "new_record_id": "CIR/031/25-26",
+    "db_id": "70bc4694-e676-43e8-847c-98f50b6d6e47",
+    "file_no": "DGGI/INT/INTL/68/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "023",
+    "new_record_id": "CIR/032/25-26",
+    "db_id": "b1ef9d7b-7a3a-4f29-9724-a18134bb438e",
+    "file_no": "DGGI/INT/INTL/43/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "024",
+    "new_record_id": "CIR/033/25-26",
+    "db_id": "b002fdac-0fd4-4114-94a1-91d0ea56c898",
+    "file_no": "DGGI/INT/INTL/106/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "013",
+    "new_record_id": "CIR/034/26-27",
+    "db_id": "2e15d8bc-e0b4-415c-b1ee-d36658eb9c53",
+    "file_no": "DGGI/INTL/1548/2024-Gr.D-O/O-Pr.ADG-DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "001",
+    "new_record_id": "CIR/035/26-27",
+    "db_id": "8afb9ea1-04e5-41c7-beac-61cbbde5443a",
+    "file_no": "DGGI/INT/INTL/847/2026-Gr.C"
+  },
+  {
+    "action": "insert",
+    "sr_no": "002",
+    "new_record_id": "CIR/036/26-27",
+    "db_id": "83de027e-2fa2-458b-a295-f706f9242eae",
+    "file_no": "DGGI/INT/INTL/28/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "003",
+    "new_record_id": "CIR/037/26-27",
+    "db_id": "619dbe02-ed6e-4ae0-9c5f-859e185518b1",
+    "file_no": "DGGI/INT/INTL/292/2026-Grp.E"
+  },
+  {
+    "action": "update",
+    "match_by": "file_no",
+    "sr_no": "004",
+    "file_no": "DGGI/INT/INTL/292/2026-Grp.E",
+    "old_record_id": "CIR/037/26-27",
+    "new_record_id": "CIR/038/26-27",
+    "db_id": "619dbe02-ed6e-4ae0-9c5f-859e185518b1"
+  },
+  {
+    "action": "update",
+    "match_by": "file_no",
+    "sr_no": "005",
+    "file_no": "DGGI/INT/INTL/292/2026-Grp.E",
+    "old_record_id": "CIR/038/26-27",
+    "new_record_id": "CIR/039/26-27",
+    "db_id": "619dbe02-ed6e-4ae0-9c5f-859e185518b1"
+  },
+  {
+    "action": "insert",
+    "sr_no": "006",
+    "new_record_id": "CIR/040/26-27",
+    "db_id": "ca8a1326-0662-43eb-9974-938802f71492",
+    "file_no": "DGGI/INT/INTL/58/2026-Gr.C"
+  },
+  {
+    "action": "insert",
+    "sr_no": "009",
+    "new_record_id": "CIR/041/26-27",
+    "db_id": "2b2300e4-9a24-4050-9481-d8658c583592",
+    "file_no": "DGGI/INV/33/2026-Gr.A-O/O Pr.ADG-DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "007",
+    "new_record_id": "CIR/042/26-27",
+    "db_id": "18333664-1539-417d-9545-70e4141cd40e",
+    "file_no": "DGGI/INT/INTL/117/2026-Gr.E"
+  },
+  {
+    "action": "insert",
+    "sr_no": "008",
+    "new_record_id": "CIR/043/26-27",
+    "db_id": "1a36af61-cc5d-4554-b51a-783873419d45",
+    "file_no": "DGGI/INT/INTL/383/2026-Gr-B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "010",
+    "new_record_id": "CIR/044/26-27",
+    "db_id": "f2e47cff-fbe9-4cc2-bc93-f128e3088eb8",
+    "file_no": "DGGI/INV/GST/345/2026-Gr.E-O/O-Pr.ADG-DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "016",
+    "new_record_id": "CIR/045/26-27",
+    "db_id": "76820198-9372-4cf6-a709-5919c9243724",
+    "file_no": "DGGI/INT/INTL/944/2025-DD/AD-I-O/O-Pr.ADG-DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "011",
+    "new_record_id": "CIR/046/26-27",
+    "db_id": "f4ae4813-eb3f-417f-9285-85f0f719b0af",
+    "file_no": "DGGI/INV/GST/687/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "012",
+    "new_record_id": "CIR/047/26-27",
+    "db_id": "957a442e-c87e-4aad-9aab-2c3f691754dd",
+    "file_no": "DGI/INV/GST/686/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "014",
+    "new_record_id": "CIR/048/26-27",
+    "db_id": "c953237c-f74f-4a77-9b3c-7012632e1426",
+    "file_no": "DGGI/INT/INTL/243/2026-Gr-E"
+  },
+  {
+    "action": "insert",
+    "sr_no": "015",
+    "new_record_id": "CIR/049/26-27",
+    "db_id": "8178b64a-8255-4303-8e47-d1def16cd36a",
+    "file_no": "DGGI/INT/INTL/3100/2026-Gr-B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "018",
+    "new_record_id": "CIR/050/26-27",
+    "db_id": "2c035800-047d-4e17-a18b-515ba59c9933",
+    "file_no": "DGGI/INV/GST/862/2026-Gr.B-O/O-Pr.ADG-DGGI-ZU-Mum"
+  },
+  {
+    "action": "insert",
+    "sr_no": "019",
+    "new_record_id": "CIR/051/26-27",
+    "db_id": "b0701733-63cf-46e1-9013-e46c77ea20ef",
+    "file_no": "DGGI/INV/GST/863/2026-Gr.B-O/O-Pr.ADG-DGGI-ZU-Mum"
+  },
+  {
+    "action": "insert",
+    "sr_no": "020",
+    "new_record_id": "CIR/052/26-27",
+    "db_id": "2cb0aac9-6f12-4c57-87f1-5326a27ad303",
+    "file_no": "DGGI/INT/INTL/441/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "017",
+    "new_record_id": "CIR/053/26-27",
+    "db_id": "dcdf0352-a6a9-4179-ac71-c6322c184ef4",
+    "file_no": "DGGI/INT/INTL/188/2025-DD/AD-I-O/O-Pr.ADG-DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "021",
+    "new_record_id": "CIR/054/26-27",
+    "db_id": "15d89629-3cac-4c69-aa4c-7cea6cd599f6",
+    "file_no": "DGGI/INV/GST/585/2025-Gr.C"
+  },
+  {
+    "action": "insert",
+    "sr_no": "023",
+    "new_record_id": "CIR/055/26-27",
+    "db_id": "0b2bce3a-3aef-4b15-b195-a37882642b12",
+    "file_no": "DGGI/INV/GST/872/2026-Gr.B-O/O-Pr.ADG-DGGI-ZU-Mum"
+  },
+  {
+    "action": "insert",
+    "sr_no": "024",
+    "new_record_id": "CIR/056/26-27",
+    "db_id": "45694d1f-08fc-4ee9-a3db-04128373bf67",
+    "file_no": "DGGI/INV/34/2026-Gr.A-O/O-Pr.ADG-DGGI-ZU-Mum"
+  },
+  {
+    "action": "insert",
+    "sr_no": "025",
+    "new_record_id": "CIR/057/26-27",
+    "db_id": "73c50fc3-56e2-46ff-9976-2f3dbc1be5b7",
+    "file_no": "DGGI/INT/INTL/518/2026-Gr.B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "026",
+    "new_record_id": "CIR/058/26-27",
+    "db_id": "4c069826-316b-4f00-9332-f6f7094471d9",
+    "file_no": "DGGI/INV/GST/345/2026-Gr.E-O/O-Pr.ADG-DGGI-ZU-Mumbai-Part(I)"
+  },
+  {
+    "action": "insert",
+    "sr_no": "027",
+    "new_record_id": "CIR/059/26-27",
+    "db_id": "6afe0c1d-ba88-44d2-bd56-cdac8d2a8cee",
+    "file_no": "DGGI/INT/INTL/499/2026-Gr.B-O/O-Pr.ADG-DGGI-ZU-Mumbai"
+  },
+  {
+    "action": "insert",
+    "sr_no": "009",
+    "new_record_id": "CIR/060/26-27",
+    "db_id": "9ee1aad5-1822-49de-a0eb-66b980816f9a",
+    "file_no": "DGGI/MZU/I&IS'A'/12(1)63/2019"
+  },
+  {
+    "action": "insert",
+    "sr_no": "019",
+    "new_record_id": "CIR/061/26-27",
+    "db_id": "7d4e1111-e38c-498d-b6e8-52779f78a1db",
+    "file_no": "DGGI/INT/INTL/312/2025-Gr-B"
+  },
+  {
+    "action": "insert",
+    "sr_no": "022",
+    "new_record_id": "CIR/062/26-27",
+    "db_id": "dff15b4c-eafd-4978-a636-413ba23f90da",
+    "file_no": "DGGI/INT/INTL/371/2026-Gr.D-O/O-Pr.ADG-DGGI-ZU-Mum"
+  }
+]
