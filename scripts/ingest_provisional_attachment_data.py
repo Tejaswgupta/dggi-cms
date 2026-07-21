@@ -150,7 +150,7 @@ def upsert_record(
                 print(f"    → UPDATE  existing record_id={record_id!r}  db_id={row['id']}")
             else:
                 sb.table("dggi_provisional_attachment_records").update(payload).eq("id", row["id"]).execute()
-            log.append({"action": "update", "sr_no": sr_no, "record_id": record_id, "db_id": row["id"], "taxpayer_name": payload.get("taxpayer_name")})
+            log.append({"action": "update", "sr_no": sr_no, "record_id": record_id, "db_id": row["id"], "person_name": payload.get("person_name")})
             return "updated"
 
         insert_payload = {**payload, "workspace_id": workspace_id, "record_id": record_id}
@@ -160,7 +160,7 @@ def upsert_record(
         else:
             insert_res = sb.table("dggi_provisional_attachment_records").insert(insert_payload).execute()
             inserted_id = insert_res.data[0]["id"] if insert_res.data else None
-        log.append({"action": "insert", "sr_no": sr_no, "record_id": record_id, "db_id": inserted_id, "taxpayer_name": payload.get("taxpayer_name")})
+        log.append({"action": "insert", "sr_no": sr_no, "record_id": record_id, "db_id": inserted_id, "person_name": payload.get("person_name")})
         return "inserted"
 
     except Exception as e:
@@ -196,32 +196,30 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
             )
 
         payload = {
-            "taxpayer_name": taxpayer_name,
-            "formation": clean(row[1]),
-            "gstins": clean(row[3]),
+            "person_name": taxpayer_name,
+            "gstin_pan": clean(row[3]),
             "person_status": clean(row[4]),
             "expected_liability": clean_amount(row[5]),
             "entity_gstin": clean(row[6]),
             "issue_involved": clean(row[7]),
             "brief_description": clean(row[8]),
-            "arrest_status": clean(row[9]),
             "dossier_prepared": clean(row[10]),
             "value_immovable": clean_amount(row[11]),
             "value_movable": clean_amount(row[12]),
-            "value_shares_fd": clean_amount(row[13]),
+            "value_shares": clean_amount(row[13]),
             "value_bank": clean_amount(row[14]),
             "value_third_party": clean_amount(row[15]),
             "value_others": clean_amount(row[16]),
             "value_total": clean_amount(row[17]),
-            "balance_period_0_3": clean(row[18]),
-            "balance_period_3_6": clean(row[19]),
-            "balance_period_6_9": parse_date(row[20]),
-            "balance_period_9_12": parse_date(row[21]),
+            "balance_0_3m": clean(row[18]),
+            "balance_3_6m": clean(row[19]),
+            "balance_6_9m": clean(row[20]),
+            "balance_9_12m": clean(row[21]),
             "investigation_completed": clean(row[22]),
             "scn_issued": clean(row[23]),
             "letter_issued": clean(row[24]),
             "oio_issued": clean(row[25]),
-            "converted_to_permanent": clean(row[26]),
+            "permanent_attachment": clean(row[26]),
             "group_sio": clean(row[27]),
             "date_of_attachment": parse_date(row[28]),
         }

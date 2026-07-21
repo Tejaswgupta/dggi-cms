@@ -41,7 +41,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { exportRegisterToExcel } from "./register-utils";
-import type { RegisterColumn, WorkspaceUser } from "./RegisterRecordDialog";
+import type { RegisterColumn } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -81,22 +81,59 @@ type SortDir = "asc" | "desc";
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const COLUMNS: RegisterColumn[] = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
+  {
+    key: "record_id",
+    label: "ID",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
   { key: "intel_source", label: "Intel Source", type: "text", width: "140px" },
   { key: "date_of_receipt", label: "Date", type: "datepicker", width: "130px" },
   { key: "file_no", label: "File No.", type: "text", width: "140px" },
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
-  { key: "detection_amount", label: "Detection (₹)", type: "number", width: "150px" },
-  { key: "recovery_itc", label: "Recovery ITC (₹)", type: "number", width: "160px" },
-  { key: "recovery_cash", label: "Recovery Cash (₹)", type: "number", width: "160px" },
-  { key: "issue_involved", label: "Issue Involved", type: "text", width: "220px" },
+  {
+    key: "detection_amount",
+    label: "Detection (₹)",
+    type: "number",
+    width: "150px",
+  },
+  {
+    key: "recovery_itc",
+    label: "Recovery ITC (₹)",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "recovery_cash",
+    label: "Recovery Cash (₹)",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "issue_involved",
+    label: "Issue Involved",
+    type: "text",
+    width: "220px",
+  },
   { key: "latest_status", label: "Status", type: "text", width: "180px" },
   { key: "mode_of_initiation", label: "Mode", type: "text", width: "140px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
+  {
+    key: "group",
+    label: "Group",
+    type: "select",
+    options: DGGI_GROUPS,
+    width: "120px",
+  },
   { key: "bo_id", label: "BO ID", type: "text", width: "130px" },
   { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
   { key: "gstins", label: "GSTIN(s)", type: "text", width: "160px" },
-  { key: "handling_io_sio", label: "SIO", type: "usercombobox", width: "160px" },
+  {
+    key: "handling_io_sio",
+    label: "SIO",
+    type: "usercombobox",
+    width: "160px",
+  },
 ];
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -118,7 +155,9 @@ const IncidentReportComponent = () => {
 
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState<GroupByField | "none">("none");
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -131,7 +170,11 @@ const IncidentReportComponent = () => {
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
 
-  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
+  const {
+    allUsers: workspaceUsers,
+    sioUsers,
+    loading: usersLoading,
+  } = useGroupFilteredSioUsers();
 
   const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
   const totalCols = visibleColumns.length;
@@ -161,10 +204,15 @@ const IncidentReportComponent = () => {
 
       const [userRow, groupRows] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid),
       ]);
       const role = userRow.data?.dggi_role ?? "";
-      const groups = (groupRows.data ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows.data ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
       setUserRole(role);
       setUserGroups(groups);
 
@@ -211,13 +259,19 @@ const IncidentReportComponent = () => {
       if (groupFilter && r.group !== groupFilter) return false;
       if (!search) return true;
       const q = search.toLowerCase();
-      return [r.taxpayer_name, r.file_no, r.bo_id, r.group, r.intel_source, r.gstins].some(
-        (v) => v?.toLowerCase().includes(q),
-      );
+      return [
+        r.taxpayer_name,
+        r.file_no,
+        r.bo_id,
+        r.group,
+        r.intel_source,
+        r.gstins,
+      ].some((v) => v?.toLowerCase().includes(q));
     })
     .sort((a, b) => {
       if (!sortCol) {
-        const numOf = (id: string) => parseInt(id.split("-")[1] ?? "0", 10) || 0;
+        const numOf = (id: string) =>
+          parseInt(id.split("-")[1] ?? "0", 10) || 0;
         return numOf(a.record_id) - numOf(b.record_id);
       }
       const av = (a as any)[sortCol] ?? "";
@@ -228,7 +282,11 @@ const IncidentReportComponent = () => {
 
   // ── Grouped buckets ────────────────────────────────────────────────────────
 
-  const groupedBuckets: { key: string; label: string; rows: IncidentReportRecord[] }[] =
+  const groupedBuckets: {
+    key: string;
+    label: string;
+    rows: IncidentReportRecord[];
+  }[] =
     groupBy === "none"
       ? []
       : (() => {
@@ -268,8 +326,11 @@ const IncidentReportComponent = () => {
   };
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, visibleColumns, "Incident_Report", (msg) =>
-      toast.success(msg),
+    exportRegisterToExcel(
+      tableRecords,
+      visibleColumns,
+      "Incident_Report",
+      (msg) => toast.success(msg),
     );
   };
 
@@ -279,12 +340,19 @@ const IncidentReportComponent = () => {
 
   const renderCell = (value: string, col: RegisterColumn) => {
     if (col.type === "usercombobox")
-      return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+      return (
+        <span>
+          {workspaceUsers.find((u) => u.id === value)?.name || value || "—"}
+        </span>
+      );
     return <span>{value || "—"}</span>;
   };
 
   const renderRow = (record: IncidentReportRecord) => (
-    <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+    <TableRow
+      key={record.id}
+      className="border-b border-[#EDEDEA] text-base hover:bg-white"
+    >
       {visibleColumns.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
           {renderCell((record as any)[col.key] ?? "", col)}
@@ -310,9 +378,12 @@ const IncidentReportComponent = () => {
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-medium text-[#1a1a1a]">Incident Report Register</h1>
+              <h1 className="text-xl font-medium text-[#1a1a1a]">
+                IR Register
+              </h1>
               <p className="text-base text-[#9a9a96]">
-                {tableRecords.length} record{tableRecords.length !== 1 ? "s" : ""}
+                {tableRecords.length} record
+                {tableRecords.length !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -353,7 +424,9 @@ const IncidentReportComponent = () => {
                   className="w-[220px] p-2 border border-[#EDEDEA] shadow-none rounded-xl max-h-[400px] overflow-y-auto"
                 >
                   <div className="flex items-center justify-between px-2 py-1 mb-1">
-                    <span className="text-sm font-medium text-[#1a1a1a]">Toggle columns</span>
+                    <span className="text-sm font-medium text-[#1a1a1a]">
+                      Toggle columns
+                    </span>
                     {hiddenColumns.size > 0 && (
                       <button
                         onClick={() => {
@@ -376,15 +449,21 @@ const IncidentReportComponent = () => {
                           key={col.key}
                           onClick={() => toggleColumn(col.key)}
                           className={`flex items-center gap-2 rounded-lg px-3 py-2 text-base text-left transition-all ${
-                            visible ? "text-[#1a1a1a] hover:bg-[#F3F2EF]" : "text-[#9a9a96] hover:bg-[#F3F2EF]"
+                            visible
+                              ? "text-[#1a1a1a] hover:bg-[#F3F2EF]"
+                              : "text-[#9a9a96] hover:bg-[#F3F2EF]"
                           }`}
                         >
                           <span
                             className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                              visible ? "border-[#4A5FD4] bg-[#4A5FD4]" : "border-[#EDEDEA]"
+                              visible
+                                ? "border-[#4A5FD4] bg-[#4A5FD4]"
+                                : "border-[#EDEDEA]"
                             }`}
                           >
-                            {visible && <Check size={10} className="text-white" />}
+                            {visible && (
+                              <Check size={10} className="text-white" />
+                            )}
                           </span>
                           <span className="truncate">{col.label}</span>
                         </button>
@@ -407,7 +486,10 @@ const IncidentReportComponent = () => {
             </div>
 
             <div className="relative flex items-center">
-              <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
+              <Search
+                size={13}
+                className="absolute left-3 text-[#9a9a96] pointer-events-none"
+              />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -509,13 +591,18 @@ const IncidentReportComponent = () => {
                 </button>
                 <span className="text-[#EDEDEA]">·</span>
                 <button
-                  onClick={() => setCollapsedGroups(new Set(groupedBuckets.map((b) => b.key)))}
+                  onClick={() =>
+                    setCollapsedGroups(
+                      new Set(groupedBuckets.map((b) => b.key)),
+                    )
+                  }
                   className="text-base text-[#6b6b6b] hover:text-[#4A5FD4] transition-all px-2 py-1 rounded-lg hover:bg-[#EEF2FF]"
                 >
                   Collapse all
                 </button>
                 <span className="ml-2 text-base text-[#9a9a96]">
-                  {groupedBuckets.length} group{groupedBuckets.length !== 1 ? "s" : ""}
+                  {groupedBuckets.length} group
+                  {groupedBuckets.length !== 1 ? "s" : ""}
                 </span>
               </div>
             )}
@@ -525,97 +612,110 @@ const IncidentReportComponent = () => {
         {/* ── Records table ────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
           <Table>
-              <TableHeader className="sticky top-0 z-10 bg-white">
-                <TableRow className="bg-white border-b border-[#EDEDEA]">
-                  {visibleColumns.map((col) => (
-                    <TableHead
-                      key={col.key}
-                      style={{ minWidth: col.width }}
-                      className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
-                      onClick={() => toggleSort(col.key)}
-                    >
-                      <span className="flex items-center gap-1">
-                        {col.label}
-                        {sortCol === col.key &&
-                          (sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
-                      </span>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
+            <TableHeader className="sticky top-0 z-10 bg-white">
+              <TableRow className="bg-white border-b border-[#EDEDEA]">
+                {visibleColumns.map((col) => (
+                  <TableHead
+                    key={col.key}
+                    style={{ minWidth: col.width }}
+                    className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
+                    onClick={() => toggleSort(col.key)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {col.label}
+                      {sortCol === col.key &&
+                        (sortDir === "asc" ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        ))}
+                    </span>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
 
-              <TableBody>
-                {groupBy === "none" ? (
-                  <>
-                    {tableRecords.map(renderRow)}
-                    {tableRecords.length === 0 && (
-                      <TableRow>
-                        <TableCell
-                          colSpan={totalCols}
-                          className="py-12 text-center text-base text-[#9a9a96]"
-                        >
-                          No records match the current filters.{" "}
-                          {activeFilterCount > 0 && (
-                            <button
-                              className="text-[#4A5FD4] underline"
-                              onClick={() => {
-                                setSearch("");
-                                setGroupFilter(null);
-                              }}
+            <TableBody>
+              {groupBy === "none" ? (
+                <>
+                  {tableRecords.map(renderRow)}
+                  {tableRecords.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={totalCols}
+                        className="py-12 text-center text-base text-[#9a9a96]"
+                      >
+                        No records match the current filters.{" "}
+                        {activeFilterCount > 0 && (
+                          <button
+                            className="text-[#4A5FD4] underline"
+                            onClick={() => {
+                              setSearch("");
+                              setGroupFilter(null);
+                            }}
+                          >
+                            Clear filters
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
+              ) : (
+                <>
+                  {groupedBuckets.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={totalCols}
+                        className="py-12 text-center text-base text-[#9a9a96]"
+                      >
+                        No records match the current filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    groupedBuckets.map(({ key, label, rows }) => {
+                      const collapsed = collapsedGroups.has(key);
+                      return (
+                        <>
+                          <TableRow
+                            key={`hdr-${key}`}
+                            className="bg-white border-b border-[#EDEDEA] cursor-pointer select-none hover:bg-[#F0EEFA]"
+                            onClick={() => toggleGroupCollapse(key)}
+                          >
+                            <TableCell
+                              colSpan={totalCols}
+                              className="px-3 py-2"
                             >
-                              Clear filters
-                            </button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {groupedBuckets.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={totalCols}
-                          className="py-12 text-center text-base text-[#9a9a96]"
-                        >
-                          No records match the current filters.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      groupedBuckets.map(({ key, label, rows }) => {
-                        const collapsed = collapsedGroups.has(key);
-                        return (
-                          <>
-                            <TableRow
-                              key={`hdr-${key}`}
-                              className="bg-white border-b border-[#EDEDEA] cursor-pointer select-none hover:bg-[#F0EEFA]"
-                              onClick={() => toggleGroupCollapse(key)}
-                            >
-                              <TableCell colSpan={totalCols} className="px-3 py-2">
-                                <div className="flex items-center gap-2">
-                                  {collapsed ? (
-                                    <ChevronRight size={14} className="text-[#6b6b6b] shrink-0" />
-                                  ) : (
-                                    <ChevronDown size={14} className="text-[#6b6b6b] shrink-0" />
-                                  )}
-                                  <span className="text-base font-semibold text-[#1a1a1a]">
-                                    {label}
-                                  </span>
-                                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#4A5FD4] px-1.5 text-xs text-white font-medium">
-                                    {rows.length}
-                                  </span>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                            {!collapsed && rows.map(renderRow)}
-                          </>
-                        );
-                      })
-                    )}
-                  </>
-                )}
-              </TableBody>
-            </Table>
+                              <div className="flex items-center gap-2">
+                                {collapsed ? (
+                                  <ChevronRight
+                                    size={14}
+                                    className="text-[#6b6b6b] shrink-0"
+                                  />
+                                ) : (
+                                  <ChevronDown
+                                    size={14}
+                                    className="text-[#6b6b6b] shrink-0"
+                                  />
+                                )}
+                                <span className="text-base font-semibold text-[#1a1a1a]">
+                                  {label}
+                                </span>
+                                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#4A5FD4] px-1.5 text-xs text-white font-medium">
+                                  {rows.length}
+                                </span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                          {!collapsed && rows.map(renderRow)}
+                        </>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>

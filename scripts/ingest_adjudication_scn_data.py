@@ -155,7 +155,7 @@ def upsert_scn_record(
                     print(f"    → UPDATE (scn_no)  existing record_id={row['record_id']!r}  db_id={row['id']}")
                 else:
                     sb.table("dggi_scn_records").update(payload).eq("id", row["id"]).execute()
-                log.append({"action": "update", "match_by": "scn_no", "sr_no": sr_no, "record_id": row["record_id"], "db_id": row["id"], "taxpayer_name": payload.get("taxpayer_name")})
+                log.append({"action": "update", "match_by": "scn_no", "sr_no": sr_no, "record_id": row["record_id"], "db_id": row["id"], "noticee_name": payload.get("noticee_name")})
                 return "updated"
 
         # 2. Insert — use scn_no as record_id (fallback to sheet_abbr-{sr_no:03d})
@@ -167,7 +167,7 @@ def upsert_scn_record(
         else:
             insert_res = sb.table("dggi_scn_records").insert(insert_payload).execute()
             inserted_id = insert_res.data[0]["id"] if insert_res.data else None
-        log.append({"action": "insert", "sr_no": sr_no, "record_id": new_record_id, "db_id": inserted_id, "taxpayer_name": payload.get("taxpayer_name")})
+        log.append({"action": "insert", "sr_no": sr_no, "record_id": new_record_id, "db_id": inserted_id, "noticee_name": payload.get("noticee_name")})
         return "inserted"
 
     except Exception as e:
@@ -192,7 +192,7 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, s
         except (ValueError, TypeError):
             continue
 
-        taxpayer_name = clean(row[3])
+        taxpayer_name = clean(row[3])  # used only for skip-check and dry-run label
         if not taxpayer_name:
             continue
 
@@ -202,24 +202,20 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, s
         payload = {
             "scn_no": scn_no,
             "date_of_scn": parse_date(row[2]),
-            "taxpayer_name": taxpayer_name,
-            "gstins": clean(row[4]),
+            "noticee_name": taxpayer_name,
+            "gstin_pan": clean(row[4]),
             "demand_tax": parse_amount(row[5]),
             "demand_interest": parse_amount(row[6]),
             "demand_penalty": parse_amount(row[7]),
             "period_involved": clean(row[8]),
-            "last_date_of_oio": parse_date(row[9]),
-            "issue_involved": clean(row[10]),
+            "last_date_oio": parse_date(row[9]),
+            "issue": clean(row[10]),
             "adjudication_formation": clean(row[11]),
             "file_no": clean(row[12]),
             "din_no": clean(row[13]),
-            "date_of_bo_portal_upload": clean(row[14]),
+            "date_uploading_bo": parse_date(row[14]),
             "adjudication_status": clean(row[15]),
             "remarks": clean(row[16]),
-            "date_of_adjudication": parse_date(row[17]),
-            "group_name": clean(row[18]),
-            "officer_name": clean(row[19]),
-            "source_sheet": sheet_name.strip(),
             "competency": competency,
         }
         payload = {k: v for k, v in payload.items() if v is not None}

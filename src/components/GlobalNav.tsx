@@ -43,7 +43,7 @@ const REGISTER_ITEMS: SidebarItem[] = [
   },
   {
     href: "/tasks/incident-report",
-    label: "Incident Report",
+    label: "IR Register",
     icon: AlertTriangle,
   },
   {
@@ -195,7 +195,8 @@ export default function GlobalNav() {
       return {
         ...section,
         items: section.items.filter(
-          (item) => item.href !== "/tasks/intelligence-allocation" || canSeeIntel,
+          (item) =>
+            item.href !== "/tasks/intelligence-allocation" || canSeeIntel,
         ),
       };
     return section;
