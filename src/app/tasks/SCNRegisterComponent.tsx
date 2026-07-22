@@ -80,6 +80,7 @@ interface SCNRecord {
   group: string;
   competency: string;
   common_adjudicating_authority: string;
+  division_and_range: string;
 }
 
 interface Filters {
@@ -124,6 +125,7 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   group: "",
   competency: "",
   common_adjudicating_authority: "",
+  division_and_range: "",
 };
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -369,6 +371,12 @@ const COLUMNS: RegisterColumn[] = [
     width: "220px",
   },
   { key: "file_no", label: "File No.", type: "text", width: "120px" },
+  {
+    key: "division_and_range",
+    label: "Division and Range",
+    type: "text",
+    width: "180px",
+  },
   {
     key: "date_uploading_bo",
     label: "Date of Uploading on BO Portal",
