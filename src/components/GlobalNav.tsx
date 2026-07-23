@@ -77,7 +77,7 @@ const REGISTER_ITEMS: SidebarItem[] = [
 ];
 
 const MONITORING_ITEMS: SidebarItem[] = [
-  { href: "/tasks/mpr", label: "MPR", icon: BarChart3 },
+  { href: "/tasks/mpr", label: "Report Compliance", icon: BarChart3 },
 ];
 
 const INVESTIGATION_ITEMS: SidebarItem[] = [
