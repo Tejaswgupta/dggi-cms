@@ -12,7 +12,6 @@ import {
   Brain,
   ClipboardList,
   FileSearch,
-  FlaskConical,
   LayoutDashboard,
   LogOut,
   Paperclip,
@@ -69,12 +68,12 @@ const REGISTER_ITEMS: SidebarItem[] = [
     icon: Scale,
   },
   { href: "/tasks/closure-register", label: "Closure Register", icon: Archive },
-  { href: "/tasks/alert-circular", label: "Alert Circular", icon: Bell },
-  {
-    href: "/tasks/modus-operandi",
-    label: "Modus Operandi",
-    icon: FlaskConical,
-  },
+  // { href: "/tasks/alert-circular", label: "Alert Circular", icon: Bell },
+  // {
+  //   href: "/tasks/modus-operandi",
+  //   label: "Modus Operandi",
+  //   icon: FlaskConical,
+  // },
 ];
 
 const MONITORING_ITEMS: SidebarItem[] = [
