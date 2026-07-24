@@ -3056,13 +3056,21 @@ function SingleCaseTransferDialog({
   onOpenChange: (v: boolean) => void;
   users: WorkspaceUser[];
   record: DGGIRecord | null;
-  onTransfer: (record: DGGIRecord, toUserId: string) => void;
+  onTransfer: (record: DGGIRecord, toUserId: string, toGroup: GroupName) => void;
   transferring: boolean;
 }) {
   const [toUserId, setToUserId] = useState("");
+  const [toGroup, setToGroup] = useState<GroupName | "">(record?.group ?? "");
+
+  useEffect(() => {
+    if (record) setToGroup(record.group);
+  }, [record]);
 
   const handleOpenChange = (v: boolean) => {
-    if (!v) setToUserId("");
+    if (!v) {
+      setToUserId("");
+      setToGroup(record?.group ?? "");
+    }
     onOpenChange(v);
   };
 
@@ -3072,7 +3080,7 @@ function SingleCaseTransferDialog({
     "—";
   const toUser = users.find((u) => u.id === toUserId);
   const canTransfer =
-    toUserId && record?.handling_io_sio !== toUserId;
+    toUserId && record?.handling_io_sio !== toUserId && toGroup;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -3103,6 +3111,10 @@ function SingleCaseTransferDialog({
               <span className="text-sm text-[#9a9a96]">Current SIO</span>
               <span className="text-base text-[#1a1a1a]">{currentSioName}</span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#9a9a96]">Current Group</span>
+              <span className="text-base text-[#1a1a1a]">{record?.group || "—"}</span>
+            </div>
           </div>
 
           {/* To */}
@@ -3119,13 +3131,41 @@ function SingleCaseTransferDialog({
             />
           </div>
 
+          {/* Group */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#6b6b6b]">
+              Transfer to Group
+            </label>
+            <Select
+              value={toGroup}
+              onValueChange={(v) => setToGroup(v as GroupName)}
+            >
+              <SelectTrigger className="h-9 w-full border-[#EDEDEA] text-base rounded-lg">
+                <SelectValue placeholder="Select group…" />
+              </SelectTrigger>
+              <SelectContent>
+                {GROUPS.map((g) => (
+                  <SelectItem key={g} value={g}>
+                    {g}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Confirmation summary */}
           {canTransfer && toUser && (
             <div className="rounded-xl border border-[#4A5FD4]/20 bg-[#EEF2FF] px-4 py-3 text-sm text-[#4A5FD4]">
               Case{" "}
               <span className="font-medium">{record?.record_id}</span>
               {" and its linked SCN, Arrest, and Provisional Attachment records will be reassigned to "}
-              <span className="font-medium">{toUser.name}</span>.
+              <span className="font-medium">{toUser.name}</span>
+              {toGroup !== record?.group && (
+                <>
+                  {" "}and moved to <span className="font-medium">{toGroup}</span>
+                </>
+              )}
+              .
             </div>
           )}
         </div>
@@ -3140,7 +3180,7 @@ function SingleCaseTransferDialog({
           </Button>
           <Button
             className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none"
-            onClick={() => record && onTransfer(record, toUserId)}
+            onClick={() => record && toGroup && onTransfer(record, toUserId, toGroup)}
             disabled={!canTransfer || transferring}
           >
             {transferring ? "Transferring…" : "Transfer Case"}
@@ -3814,7 +3854,7 @@ const DGGIComponent = () => {
     setTransferring(false);
   };
 
-  const singleTransfer = async (record: DGGIRecord, toUserId: string) => {
+  const singleTransfer = async (record: DGGIRecord, toUserId: string, toGroup: GroupName) => {
     const newUser = workspaceUsers.find((u) => u.id === toUserId);
     if (!newUser) return;
     setSingleTransferring(true);
@@ -3828,27 +3868,28 @@ const DGGIComponent = () => {
           .update({
             handling_io_sio: toUserId,
             sio_name: newUser.name,
+            group: toGroup,
           })
           .eq("id", record.id),
         supabase
           .from("dggi_scn_records")
-          .update({ sio: toUserId, sio_name: newUser.name })
+          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
           .eq("linked_case_id", caseRecordId),
         supabase
           .from("dggi_arrest_records")
-          .update({ sio: toUserId, sio_name: newUser.name })
+          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
           .eq("linked_case_id", caseRecordId),
         supabase
           .from("dggi_provisional_attachment_records")
-          .update({ sio: toUserId })
+          .update({ sio: toUserId, group: toGroup })
           .eq("linked_case_id", caseRecordId),
         supabase
           .from("dggi_prosecution_arrest_records")
-          .update({ sio: toUserId, sio_name: newUser.name })
+          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
           .eq("linked_case_id", caseRecordId),
         supabase
           .from("dggi_prosecution_non_arrest_records")
-          .update({ sio: toUserId, sio_name: newUser.name })
+          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
           .eq("linked_case_id", caseRecordId),
       ]);
 
@@ -3875,6 +3916,7 @@ const DGGIComponent = () => {
                 ...r,
                 handling_io_sio: toUserId,
                 sio_name: newUser.name,
+                group: toGroup,
               }
             : r,
         ),
