@@ -8,8 +8,10 @@ import { useState } from "react";
 
 export type AdgComment = { text: string; timestamp: string };
 
-export const parseAdgComments = (raw: string): AdgComment[] => {
+export const parseAdgComments = (raw: string | AdgComment[] | unknown): AdgComment[] => {
   if (!raw) return [];
+  if (Array.isArray(raw)) return raw as AdgComment[];
+  if (typeof raw !== "string") return [];
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed;
