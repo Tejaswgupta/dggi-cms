@@ -482,8 +482,8 @@ const SCNRegisterComponent = () => {
 
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [savingRow, setSavingRow] = useState(false);
-  const [sortCol, setSortCol] = useState<string | null>("created_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
@@ -599,10 +599,16 @@ const SCNRegisterComponent = () => {
       return true;
     })
     .sort((a, b) => {
-      if (!sortCol) return 0;
-      const av = (a as unknown as Record<string, string>)[sortCol] ?? "";
-      const bv = (b as unknown as Record<string, string>)[sortCol] ?? "";
-      const cmp = String(av).localeCompare(String(bv));
+      if (!sortCol) {
+        const ac = (a as any).created_at ?? "";
+        const bc = (b as any).created_at ?? "";
+        return bc.localeCompare(ac);
+      }
+      const av = (a as any)[sortCol] ?? "";
+      const bv = (b as any)[sortCol] ?? "";
+      const na = parseFloat(av);
+      const nb = parseFloat(bv);
+      const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });
 

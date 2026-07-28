@@ -113,7 +113,7 @@ const ProsecutionRegisterComponent = () => {
   const [arrestRecords, setArrestRecords] = useState<ArrestCaseRecord[]>([]);
   const [arrestSearch, setArrestSearch] = useState("");
   const [arrestSaving, setArrestSaving] = useState(false);
-  const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: "created_at", dir: "desc" });
+  const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
 
   const [arrestDialogOpen, setArrestDialogOpen] = useState(false);
   const [arrestDialogMode, setArrestDialogMode] = useState<"add" | "edit">("add");
@@ -123,7 +123,7 @@ const ProsecutionRegisterComponent = () => {
   const [nonArrestRecords, setNonArrestRecords] = useState<NonArrestRecord[]>([]);
   const [nonArrestSearch, setNonArrestSearch] = useState("");
   const [nonArrestSaving, setNonArrestSaving] = useState(false);
-  const [nonArrestSort, setNonArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: "created_at", dir: "desc" });
+  const [nonArrestSort, setNonArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
 
   const [nonArrestDialogOpen, setNonArrestDialogOpen] = useState(false);
   const [nonArrestDialogMode, setNonArrestDialogMode] = useState<"add" | "edit">("add");
@@ -181,8 +181,16 @@ const ProsecutionRegisterComponent = () => {
     const q = arrestSearch.toLowerCase();
     return [r.arrested_person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
-    if (!arrestSort.col) return 0;
-    const cmp = String((a as any)[arrestSort.col] ?? "").localeCompare(String((b as any)[arrestSort.col] ?? ""));
+    if (!arrestSort.col) {
+      const ac = (a as any).created_at ?? "";
+      const bc = (b as any).created_at ?? "";
+      return bc.localeCompare(ac);
+    }
+    const av = (a as any)[arrestSort.col] ?? "";
+    const bv = (b as any)[arrestSort.col] ?? "";
+    const na = parseFloat(av);
+    const nb = parseFloat(bv);
+    const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
     return arrestSort.dir === "asc" ? cmp : -cmp;
   });
 
@@ -242,8 +250,16 @@ const ProsecutionRegisterComponent = () => {
     const q = nonArrestSearch.toLowerCase();
     return [r.person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
-    if (!nonArrestSort.col) return 0;
-    const cmp = String((a as any)[nonArrestSort.col] ?? "").localeCompare(String((b as any)[nonArrestSort.col] ?? ""));
+    if (!nonArrestSort.col) {
+      const ac = (a as any).created_at ?? "";
+      const bc = (b as any).created_at ?? "";
+      return bc.localeCompare(ac);
+    }
+    const av = (a as any)[nonArrestSort.col] ?? "";
+    const bv = (b as any)[nonArrestSort.col] ?? "";
+    const na = parseFloat(av);
+    const nb = parseFloat(bv);
+    const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
     return nonArrestSort.dir === "asc" ? cmp : -cmp;
   });
 
