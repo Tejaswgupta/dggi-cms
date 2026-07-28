@@ -709,9 +709,10 @@ const SCNRegisterComponent = () => {
     const { count } = await supabase
       .from("dggi_scn_records")
       .select("*", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId);
+      .eq("workspace_id", workspaceId)
+      .eq("competency", draft.competency ?? "SIO Competency");
     const seq = String((count ?? 0) + 1).padStart(2, "0");
-    const grp = draft.group ?? "";
+    const grp = (draft.group ?? "").replace(/^Group-/i, "");
     const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
     const rawRole = sioUser?.dggi_role ?? "";
     const designation = rawRole.startsWith("DD") ? "DD" : rawRole;
@@ -1207,7 +1208,7 @@ const SCNRegisterComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
-        users={sioUsers}
+        users={workspaceUsers}
       />
     </div>
   );
