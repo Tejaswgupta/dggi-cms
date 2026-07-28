@@ -2925,16 +2925,20 @@ function BulkTransferDialog({
   records,
   onTransfer,
   transferring,
+  userGroupMap,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   users: WorkspaceUser[];
   records: DGGIRecord[];
-  onTransfer: (fromUserId: string, toUserId: string) => void;
+  onTransfer: (fromUserId: string, toUserId: string, toGroup: GroupName) => void;
   transferring: boolean;
+  userGroupMap: Record<string, GroupName>;
 }) {
   const [fromUserId, setFromUserId] = useState("");
   const [toUserId, setToUserId] = useState("");
+
+  const toGroup = userGroupMap[toUserId] || "";
 
   const handleOpenChange = (v: boolean) => {
     if (!v) {
@@ -2952,7 +2956,7 @@ function BulkTransferDialog({
   const fromUser = users.find((u) => u.id === fromUserId);
   const toUser = users.find((u) => u.id === toUserId);
   const canTransfer =
-    fromUserId && toUserId && fromUserId !== toUserId && affectedCount > 0;
+    fromUserId && toUserId && fromUserId !== toUserId && affectedCount > 0 && toGroup;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -2998,6 +3002,16 @@ function BulkTransferDialog({
               className="w-full h-9"
               filterRole="SIO"
             />
+            {toUserId && toGroup && (
+              <p className="text-sm text-[#9a9a96]">
+                Group: <span className="font-medium text-[#1a1a1a]">{toGroup}</span>
+              </p>
+            )}
+            {toUserId && !toGroup && (
+              <p className="text-sm text-amber-600">
+                This user has no group assignment. Transfer cannot proceed.
+              </p>
+            )}
           </div>
 
           {/* Confirmation summary */}
@@ -3011,10 +3025,9 @@ function BulkTransferDialog({
               }
               <span className="font-medium">{fromUser?.name}</span>
               {" to "}
-              <span className="font-medium">{toUser?.name}</span>.
-              {" Only records where "}
-              <span className="font-medium">{fromUser?.name}</span>
-              {" is the current responsible SIO will be updated."}
+              <span className="font-medium">{toUser?.name}</span>
+              {" and moved to "}
+              <span className="font-medium">{toGroup}</span>.
             </div>
           )}
         </div>
@@ -3029,7 +3042,7 @@ function BulkTransferDialog({
           </Button>
           <Button
             className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none"
-            onClick={() => onTransfer(fromUserId, toUserId)}
+            onClick={() => toGroup && onTransfer(fromUserId, toUserId, toGroup as GroupName)}
             disabled={!canTransfer || transferring}
           >
             {transferring
@@ -3051,6 +3064,7 @@ function SingleCaseTransferDialog({
   record,
   onTransfer,
   transferring,
+  userGroupMap,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -3058,18 +3072,15 @@ function SingleCaseTransferDialog({
   record: DGGIRecord | null;
   onTransfer: (record: DGGIRecord, toUserId: string, toGroup: GroupName) => void;
   transferring: boolean;
+  userGroupMap: Record<string, GroupName>;
 }) {
   const [toUserId, setToUserId] = useState("");
-  const [toGroup, setToGroup] = useState<GroupName | "">(record?.group ?? "");
 
-  useEffect(() => {
-    if (record) setToGroup(record.group);
-  }, [record]);
+  const toGroup = userGroupMap[toUserId] || "";
 
   const handleOpenChange = (v: boolean) => {
     if (!v) {
       setToUserId("");
-      setToGroup(record?.group ?? "");
     }
     onOpenChange(v);
   };
@@ -3129,28 +3140,16 @@ function SingleCaseTransferDialog({
               className="w-full h-9"
               filterRole="SIO"
             />
-          </div>
-
-          {/* Group */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[#6b6b6b]">
-              Transfer to Group
-            </label>
-            <Select
-              value={toGroup}
-              onValueChange={(v) => setToGroup(v as GroupName)}
-            >
-              <SelectTrigger className="h-9 w-full border-[#EDEDEA] text-base rounded-lg">
-                <SelectValue placeholder="Select group…" />
-              </SelectTrigger>
-              <SelectContent>
-                {GROUPS.map((g) => (
-                  <SelectItem key={g} value={g}>
-                    {g}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {toUserId && toGroup && (
+              <p className="text-sm text-[#9a9a96]">
+                Group: <span className="font-medium text-[#1a1a1a]">{toGroup}</span>
+              </p>
+            )}
+            {toUserId && !toGroup && (
+              <p className="text-sm text-amber-600">
+                This user has no group assignment. Transfer cannot proceed.
+              </p>
+            )}
           </div>
 
           {/* Confirmation summary */}
@@ -3256,6 +3255,7 @@ const DGGIComponent = () => {
   const [singleTransferRecord, setSingleTransferRecord] =
     useState<DGGIRecord | null>(null);
   const [singleTransferring, setSingleTransferring] = useState(false);
+  const [userGroupMap, setUserGroupMap] = useState<Record<string, GroupName>>({});
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -3337,11 +3337,20 @@ const DGGIComponent = () => {
       setUserRole(role);
       setUserGroups(groups);
 
-      const [, usersRes] = await Promise.all([
+      const [, usersRes, allGroupAssignments] = await Promise.all([
         fetchRecords(wid, role, groups, uid),
         getAllUsers(),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("user_id, group_name"),
       ]);
       if (usersRes.success) setWorkspaceUsers(usersRes.data ?? []);
+
+      const gMap: Record<string, GroupName> = {};
+      for (const row of allGroupAssignments.data ?? []) {
+        gMap[row.user_id] = row.group_name as GroupName;
+      }
+      setUserGroupMap(gMap);
 
       const caseId = searchParams?.get("caseId");
       if (caseId) {
@@ -3762,7 +3771,7 @@ const DGGIComponent = () => {
     );
   };
 
-  const bulkTransfer = async (fromUserId: string, toUserId: string) => {
+  const bulkTransfer = async (fromUserId: string, toUserId: string, toGroup: GroupName) => {
     const newUser = workspaceUsers.find((u) => u.id === toUserId);
     if (!newUser) return;
     setTransferring(true);
@@ -3778,6 +3787,7 @@ const DGGIComponent = () => {
         .update({
           handling_io_sio: toUserId,
           sio_name: newUser.name,
+          group: toGroup,
         })
         .eq("handling_io_sio", fromUserId)
         .eq("workspace_id", workspaceId)
@@ -3785,35 +3795,35 @@ const DGGIComponent = () => {
       affectedRecordIds.length > 0
         ? supabase
             .from("dggi_scn_records")
-            .update({ sio: toUserId, sio_name: newUser.name })
+            .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
             .eq("sio", fromUserId)
             .in("linked_case_id", affectedRecordIds)
         : Promise.resolve({ error: null }),
       affectedRecordIds.length > 0
         ? supabase
             .from("dggi_arrest_records")
-            .update({ sio: toUserId, sio_name: newUser.name })
+            .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
             .eq("sio", fromUserId)
             .in("linked_case_id", affectedRecordIds)
         : Promise.resolve({ error: null }),
       affectedRecordIds.length > 0
         ? supabase
             .from("dggi_provisional_attachment_records")
-            .update({ sio: toUserId })
+            .update({ sio: toUserId, group: toGroup })
             .eq("sio", fromUserId)
             .in("linked_case_id", affectedRecordIds)
         : Promise.resolve({ error: null }),
       affectedRecordIds.length > 0
         ? supabase
             .from("dggi_prosecution_arrest_records")
-            .update({ sio: toUserId, sio_name: newUser.name })
+            .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
             .eq("sio", fromUserId)
             .in("linked_case_id", affectedRecordIds)
         : Promise.resolve({ error: null }),
       affectedRecordIds.length > 0
         ? supabase
             .from("dggi_prosecution_non_arrest_records")
-            .update({ sio: toUserId, sio_name: newUser.name })
+            .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
             .eq("sio", fromUserId)
             .in("linked_case_id", affectedRecordIds)
         : Promise.resolve({ error: null }),
@@ -3841,12 +3851,13 @@ const DGGIComponent = () => {
                 ...r,
                 handling_io_sio: toUserId,
                 sio_name: newUser.name,
+                group: toGroup,
               }
             : r,
         ),
       );
       toast.success(
-        `${affectedCases.length} case${affectedCases.length !== 1 ? "s" : ""} transferred from ${fromUser?.name ?? "user"} to ${newUser.name}`,
+        `${affectedCases.length} case${affectedCases.length !== 1 ? "s" : ""} transferred from ${fromUser?.name ?? "user"} to ${newUser.name} (${toGroup})`,
       );
       setBulkTransferOpen(false);
     }
@@ -4910,6 +4921,7 @@ const DGGIComponent = () => {
         records={records}
         onTransfer={bulkTransfer}
         transferring={transferring}
+        userGroupMap={userGroupMap}
       />
       <SingleCaseTransferDialog
         open={singleTransferOpen}
@@ -4921,6 +4933,7 @@ const DGGIComponent = () => {
         record={singleTransferRecord}
         onTransfer={singleTransfer}
         transferring={singleTransferring}
+        userGroupMap={userGroupMap}
       />
       <CreateFromIntelDialog
         open={intelDialogOpen}
