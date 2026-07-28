@@ -94,7 +94,6 @@ import {
 import {
   RegisterRecordDialog,
   type RegisterColumn,
-  type ScnOption,
 } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1737,7 +1736,6 @@ interface ProvisionalSubRecord {
   date_of_release: string;
   group_sio: string;
   date_of_attachment: string;
-  linked_scn_no: string;
   sio: string;
   group: string;
 }
@@ -1965,12 +1963,6 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
     label: "Date of Attachment",
     type: "datepicker",
     width: "160px",
-  },
-  {
-    key: "linked_scn_no",
-    label: "Linked SCN No.",
-    type: "scncombobox",
-    width: "180px",
   },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   {
@@ -3284,7 +3276,6 @@ const DGGIComponent = () => {
   const [scnRecordsMap, setScnRecordsMap] = useState<
     Map<string, SCNSubRecord[]>
   >(new Map());
-  const [allScnOptions, setAllScnOptions] = useState<ScnOption[]>([]);
 
   // Sub-dialogs
   const [arrestDialogOpen, setArrestDialogOpen] = useState(false);
@@ -4392,7 +4383,6 @@ const DGGIComponent = () => {
       letter_issued: "",
       oio_issued: "",
       date_of_release: "",
-      linked_scn_no: "",
     });
     setProvisionalDialogOpen(true);
   };

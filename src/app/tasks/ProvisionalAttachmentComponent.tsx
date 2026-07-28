@@ -90,7 +90,6 @@ import {
   RegisterRecordDialog,
   type ColumnGroup,
   type RegisterColumn,
-  type ScnOption,
   type WorkspaceUser,
 } from "./RegisterRecordDialog";
 
@@ -133,7 +132,6 @@ interface ProvisionalAttachmentRecord {
   date_of_release: string;
   group_sio: string;
   date_of_attachment: string;
-  linked_scn_no: string;
   sio: string;
   sio_name: string;
   group: string;
@@ -185,7 +183,6 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
   date_of_release: "",
   group_sio: "",
   date_of_attachment: today(),
-  linked_scn_no: "",
   sio: "",
   sio_name: "",
   group: "",
@@ -227,7 +224,6 @@ const PROPERTY_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
   "value_third_party",
   "value_others",
   "value_total",
-  "linked_scn_no",
 ]);
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -396,12 +392,6 @@ const COLUMNS: RegisterColumn[] = [
     label: "Date of Attachment",
     type: "datepicker",
     width: "160px",
-  },
-  {
-    key: "linked_scn_no",
-    label: "Linked SCN No.",
-    type: "scncombobox",
-    width: "180px",
   },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
   {
@@ -713,7 +703,6 @@ const EMPTY_PROPERTY = (): Record<string, string> => ({
   value_third_party: "",
   value_others: "",
   value_total: "",
-  linked_scn_no: "",
 });
 
 function AddAttachmentDialog({
@@ -723,7 +712,6 @@ function AddAttachmentDialog({
   saving,
   caseOptions,
   users,
-  scnOptions,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -734,7 +722,6 @@ function AddAttachmentDialog({
   saving: boolean;
   caseOptions: DGGICaseOption[];
   users: WorkspaceUser[];
-  scnOptions: ScnOption[];
 }) {
   const [batch, setBatch] = useState<Record<string, string>>({
     linked_case_id: "",
@@ -865,26 +852,6 @@ function AddAttachmentDialog({
     idx: number,
   ) => {
     const value = properties[idx][col.key] ?? "";
-    if (col.type === "scncombobox") {
-      return (
-        <Select
-          value={value}
-          onValueChange={(v) => setPropertyField(idx, col.key, v)}
-        >
-          <SelectTrigger className="h-9 border-[#EDEDEA] text-base rounded-lg w-full">
-            <SelectValue placeholder="Select SCN…" />
-          </SelectTrigger>
-          <SelectContent>
-            {scnOptions.map((s) => (
-              <SelectItem key={s.scn_no} value={s.scn_no}>
-                {s.scn_no}
-                {s.noticee_name ? ` — ${s.noticee_name}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      );
-    }
     return (
       <Input
         value={value}
@@ -1011,8 +978,6 @@ const ProvisionalAttachmentComponent = () => {
   const [records, setRecords] = useState<ProvisionalAttachmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [scnByGstin, setScnByGstin] = useState<Map<string, string>>(new Map());
-  const [scnOptions, setScnOptions] = useState<ScnOption[]>([]);
 
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
   const [currentUserId, setCurrentUserId] = useState<string>("");
@@ -1082,10 +1047,7 @@ const ProvisionalAttachmentComponent = () => {
 
       const [cases] = await Promise.all([
         fetchCaseOptions(supabase, wid),
-        Promise.all([
-          fetchRecords(wid, role, groups, uid!, 1, EMPTY_FILTERS),
-          fetchScnMap(wid),
-        ]),
+        fetchRecords(wid, role, groups, uid!, 1, EMPTY_FILTERS),
       ]);
       setCaseOptions(cases);
       setLoading(false);
@@ -1226,26 +1188,6 @@ const ProvisionalAttachmentComponent = () => {
     setRecords(sorted);
   };
 
-  const fetchScnMap = async (wid: string) => {
-    const { data } = await supabase
-      .from("dggi_scn_records")
-      .select("gstin_pan,scn_no,date_of_scn,noticee_name")
-      .eq("workspace_id", wid);
-    if (!data) return;
-    const map = new Map<string, string>();
-    const opts: ScnOption[] = [];
-    for (const row of data) {
-      if (row.gstin_pan && row.scn_no) map.set(row.gstin_pan, row.scn_no);
-      if (row.scn_no)
-        opts.push({
-          scn_no: row.scn_no,
-          date_of_scn: row.date_of_scn ?? "",
-          noticee_name: row.noticee_name ?? "",
-        });
-    }
-    setScnByGstin(map);
-    setScnOptions(opts);
-  };
 
   // ── Derived ───────────────────────────────────────────────────────────────────
 
@@ -1514,31 +1456,6 @@ const ProvisionalAttachmentComponent = () => {
     type: RegisterColumn["type"],
     record: ProvisionalAttachmentRecord,
   ) => {
-    if (colKey === "linked_scn_no") {
-      const autoScn = record.gstin_pan
-        ? (scnByGstin.get(record.gstin_pan) ?? null)
-        : null;
-      const displayLinkedScn = record.linked_scn_no || autoScn;
-      return (
-        <div className="flex flex-col gap-0.5">
-          {displayLinkedScn ? (
-            <div className="flex items-center gap-1">
-              <Link2 size={11} className="text-[#4A5FD4] shrink-0" />
-              <span className="text-base text-[#4A5FD4] font-medium">
-                {displayLinkedScn}
-              </span>
-              {autoScn && !record.linked_scn_no && (
-                <span className="text-[10px] text-[#9a9a96] bg-[#F3F2EF] rounded px-1">
-                  auto
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-[#9a9a96]">—</span>
-          )}
-        </div>
-      );
-    }
     if (type === "usercombobox")
       return (
         <span>
@@ -2206,7 +2123,6 @@ const ProvisionalAttachmentComponent = () => {
         saving={savingRow}
         caseOptions={caseOptions}
         users={workspaceUsers}
-        scnOptions={scnOptions}
       />
 
       <RegisterRecordDialog
@@ -2235,7 +2151,6 @@ const ProvisionalAttachmentComponent = () => {
         saving={savingRow}
         caseOptions={caseOptions}
         users={sioUsers}
-        scnOptions={scnOptions}
       />
 
       <Dialog

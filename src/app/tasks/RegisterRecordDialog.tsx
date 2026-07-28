@@ -38,12 +38,6 @@ export interface WorkspaceUser {
   dggi_role?: string;
 }
 
-export interface ScnOption {
-  scn_no: string;
-  date_of_scn: string;
-  noticee_name: string;
-}
-
 export interface ArrestOption {
   id: string;
   record_id: string;
@@ -90,7 +84,6 @@ interface RegisterRecordDialogProps {
   saving: boolean;
   users?: WorkspaceUser[];
   caseOptions?: DGGICaseOption[];
-  scnOptions?: ScnOption[];
   arrestOptions?: ArrestOption[];
   userRole?: string;
 }
@@ -158,75 +151,6 @@ function DialogUserCombobox({
                   <div className="flex flex-col min-w-0">
                     <span className="truncate">{u.name}</span>
                     <span className="truncate text-[#9a9a96] text-sm">{u.email}</span>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function ScnCombobox({
-  value,
-  onChange,
-  scnOptions,
-}: {
-  value: string;
-  onChange: (scn: ScnOption | null) => void;
-  scnOptions: ScnOption[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const filtered = scnOptions.filter(
-    (s) =>
-      s.scn_no.toLowerCase().includes(query.toLowerCase()) ||
-      s.noticee_name?.toLowerCase().includes(query.toLowerCase()),
-  );
-  const selected = scnOptions.find((s) => s.scn_no === value);
-  return (
-    <Popover open={open} onOpenChange={setOpen} modal={true}>
-      <PopoverTrigger asChild>
-        <button className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] truncate">
-          <span className="truncate">
-            {selected ? selected.scn_no : <span className="text-[#9a9a96]">Select SCN…</span>}
-          </span>
-          <ChevronsUpDown size={12} className="text-[#9a9a96] shrink-0" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0 border border-[#EDEDEA] shadow-none rounded-xl" align="start">
-        <Command>
-          <CommandInput
-            placeholder="Search SCN…"
-            value={query}
-            onValueChange={setQuery}
-            className="text-base"
-          />
-          <CommandList className="max-h-[220px] overflow-y-auto">
-            <CommandEmpty className="py-3 text-center text-base text-[#9a9a96]">No SCN records found.</CommandEmpty>
-            <CommandGroup>
-              {value && (
-                <CommandItem
-                  value="__clear__"
-                  onSelect={() => { onChange(null); setOpen(false); setQuery(""); }}
-                  className="text-base text-[#9a9a96]"
-                >
-                  Clear selection
-                </CommandItem>
-              )}
-              {filtered.map((s) => (
-                <CommandItem
-                  key={s.scn_no}
-                  value={s.scn_no}
-                  onSelect={() => { onChange(s); setOpen(false); setQuery(""); }}
-                  className="text-base"
-                >
-                  <Check size={13} className={`mr-2 shrink-0 ${value === s.scn_no ? "opacity-100" : "opacity-0"}`} />
-                  <div className="flex flex-col min-w-0">
-                    <span className="truncate font-medium">{s.scn_no}</span>
-                    {s.noticee_name && <span className="truncate text-[#9a9a96] text-sm">{s.noticee_name}</span>}
                   </div>
                 </CommandItem>
               ))}
@@ -383,7 +307,6 @@ export function RegisterRecordDialog({
   saving,
   users = [],
   caseOptions = [],
-  scnOptions = [],
   arrestOptions = [],
   userRole = "",
 }: RegisterRecordDialogProps) {
@@ -413,33 +336,6 @@ export function RegisterRecordDialog({
       );
     }
 
-    if (col.type === "scncombobox") {
-      return (
-        <ScnCombobox
-          value={value}
-          scnOptions={scnOptions}
-          onChange={(scn) => {
-            if (scn) {
-              if (onMultiDraftChange) {
-                onMultiDraftChange({
-                  linked_scn_no: scn.scn_no,
-                  date_of_scn_issuance: scn.date_of_scn,
-                  scn_issued: "Yes",
-                });
-              } else {
-                onChange(scn.scn_no);
-              }
-            } else {
-              if (onMultiDraftChange) {
-                onMultiDraftChange({ linked_scn_no: "", date_of_scn_issuance: "", scn_issued: "" });
-              } else {
-                onChange("");
-              }
-            }
-          }}
-        />
-      );
-    }
     if (col.type === "arrestlink") {
       return (
         <ArrestLinkCombobox
