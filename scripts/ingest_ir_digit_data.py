@@ -1,32 +1,34 @@
 """
-Ingest IR issued data (April 26 – 15 July DIGIT) into Supabase dggi_records.
+Ingest IR pending cases data into Supabase dggi_records.
 
-Source: 'IR issued data april 26 to 15 july DIGIT.xlsx'  (Sheet1, 82 rows)
+Source: 'MZU_ Pending IR cases.xlsx'  (sheet '30062026', ~92 rows)
 
 Column mapping:
-  Col 0  Sr.No.                         → upsert key (fallback record_id = "DIGIT-{sr_no:03d}")
-  Col 1  Digit Id                        → digit_id  (upsert key 1; DB stores without "DIGIT-" prefix)
-  Col 2  Formation                       → adjudication_formation
-  Col 3  Year                            → (skipped — derivable from IR Date)
-  Col 4  Name of the Company             → taxpayer_name
-  Col 5  Noticee                         → (all null in source — skipped)
-  Col 6  PAN                             → (all null in source — skipped)
-  Col 7  GSTIN                           → gstins
-  Col 8  File No.                        → file_no
-  Col 9  IR No.                          → upsert key 2 (exact match vs record_id); also in issue_involved
-  Col 10 IR Date                         → date_of_ir + date_of_initiation
-  Col 11 Amount Of Evasion Detected      → detection_amount
-  Col 12 Amount Recovered (If any)       → recovery_itc
-  Col 13 Present Status                  → latest_status
-  Col 14 Modus Operandi                  → issue_involved (primary)
-  Col 15 Nature of Tax                   → combined into issue_involved
-  Col 16 Classification of Tax Evasion   → combined into issue_involved
-  Col 17 Assigned To                     → sio_name (text; no UUID mapping)
+  Col 0  Sr. No.                            → upsert key (fallback record_id = "DIGIT-{sr_no:03d}")
+  Col 1  Name of the Taxpayer               → taxpayer_name
+  Col 2  GSTIN/PAN                          → gstins
+  Col 3  IR No./335-J No.                   → upsert key 1 (exact match vs record_id)
+  Col 4  Date of Detection/IR Date          → date_of_ir + date_of_initiation
+  Col 5  (second date, skip)
+  Col 6  Pending since (days)               → (skipped)
+  Col 7  Pendency Year Wise                 → (skipped)
+  Col 8  Detection (in Lakhs)               → detection_amount (× 1,00,000)
+  Col 9  Additional Detection (In Lakhs)    → (skipped)
+  Col 10 Recovery (In Lakh)                 → recovery_itc (× 1,00,000)
+  Col 11 Additional Recovery (In Lakhs)     → (skipped)
+  Col 12 Type of Case                       → (skipped)
+  Col 13 Brief Facts of the Case            → issue_involved
+  Col 14 Present Status                     → latest_status
+  Col 15 Expected Date of Closure/SCN       → (skipped)
+  Col 16 Name of SIO                        → sio_name
+  Col 17 Group                              → group (prefixed "Group " + letter)
+  Col 18 Section (73/74/76)                 → (skipped)
+  Col 19 Whether in DIGIT (DIGIT No.)       → digit_id (upsert key 2; only real DIGIT IDs kept)
 
 Dedup strategy (checked in order):
-  1. IR No. match    — exact match of col 9 vs record_id in DB  (primary)
-  2. digit_id match  — Excel "DIGIT-XYZ" → strip "DIGIT-" prefix → match DB digit_id  (fallback)
-  3. No match        → insert; record_id = "DIGIT-{sr_no:03d}"
+  1. IR No. match    — exact match of col 3 vs record_id in DB  (primary)
+  2. digit_id match  — col 19 numeric-format IDs matched vs DB digit_id  (fallback)
+  3. No match        → insert; record_id = IR No. (fallback "DIGIT-{sr_no:03d}")
 
 Usage:
     python3 scripts/ingest_ir_digit_data.py [/path/to/file.xlsx] [--dry-run]
@@ -52,8 +54,10 @@ DEFAULT_EXCEL_PATH = os.path.join(
     os.path.dirname(__file__),
     "..",
     "data",
-    "IR issued data april 26 to 15 july DIGIT.xlsx",
+    "MZU_ Pending IR cases.xlsx",
 )
+
+SHEET_NAME = "30062026"
 
 SKIPPED_CSV = os.path.join(os.path.dirname(__file__), "ingest_ir_digit_skipped.csv")
 LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_ir_digit_log.json")
@@ -258,12 +262,25 @@ def _insert_closure(sb, workspace_id: str, source_record_id: str, ir_date: str |
 # Sheet processor
 # ---------------------------------------------------------------------------
 
+def _is_real_digit_id(val: str | None) -> bool:
+    """Return True only for numeric-format DIGIT IDs like '20251103132254-640'."""
+    if not val:
+        return False
+    s = val.strip()
+    if s.lower() in ("ok", "not in digit", ""):
+        return False
+    # Accept IDs that look like timestamps: digits optionally followed by -digits
+    import re
+    return bool(re.match(r"^\d{10,}-\d+$", s)) or bool(re.match(r"^DIGIT-\d", s, re.IGNORECASE))
+
+
 def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
     inserted = updated = skipped_count = 0
     cir_seq_cache: dict[str, int] = {}
 
-    for row in rows[1:]:  # row 0 = headers
+    # Skip row 0 (title) and row 1 (header); data starts at row 2 (index 2)
+    for row in rows[2:]:
         if row[0] is None:
             continue
         try:
@@ -271,41 +288,40 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
         except (ValueError, TypeError):
             continue
 
-        taxpayer_name = clean(row[4])
+        taxpayer_name = clean(row[1])
         if not taxpayer_name:
             continue
 
-        ir_date = parse_date(row[10])
-        digit_id_raw = clean(row[1])
-        ir_no = clean(row[9])
+        ir_date = parse_date(row[4])
+        ir_no = clean(row[3])
+
+        # Col 19: DIGIT ID — only use real numeric-format IDs
+        digit_id_raw_col19 = clean(row[19])
+        digit_id_raw = digit_id_raw_col19 if _is_real_digit_id(digit_id_raw_col19) else None
 
         issue_parts = []
-        if clean(row[14]):
-            issue_parts.append(clean(row[14]))
-        if clean(row[16]) and clean(row[16]) != clean(row[14]):
-            issue_parts.append(f"Classification: {clean(row[16])}")
-        if clean(row[15]):
-            issue_parts.append(f"Tax: {clean(row[15])}")
+        if clean(row[13]):
+            issue_parts.append(clean(row[13]))
         if ir_no:
             issue_parts.append(f"IR No: {ir_no}")
 
         payload = {
             "taxpayer_name": taxpayer_name,
             "digit_id": strip_digit_prefix(digit_id_raw),
-            "gstins": clean(row[7]),
-            "file_no": clean(row[8]),
+            "gstins": clean(row[2]),
             "date_of_ir": ir_date,
             "date_of_initiation": ir_date,
-            "detection_amount": str_amount(row[11]),
-            "recovery_itc": str_amount(row[12]),
-            "latest_status": clean(row[13]),
+            "detection_amount": str_amount(row[8]),
+            "recovery_itc": str_amount(row[10]),
+            "latest_status": clean(row[14]),
             "issue_involved": " | ".join(issue_parts) if issue_parts else None,
-            "sio_name": clean(row[17]),
+            "sio_name": clean(row[16]),
+            "group": f"Group {clean(row[17])}" if clean(row[17]) else None,
             "is_ir": True,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        is_closed = clean(row[13]) == CLOSED_STATUS
+        is_closed = clean(row[14]) == CLOSED_STATUS
 
         if dry_run:
             print(
@@ -350,6 +366,9 @@ def main():
     print(f"Loading: {excel_path}")
     wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
 
+    if SHEET_NAME not in wb.sheetnames:
+        raise SystemExit(f"Sheet {SHEET_NAME!r} not found. Available: {wb.sheetnames}")
+
     sb = create_client(SUPABASE_URL, SERVICE_ROLE_KEY)
 
     res = (
@@ -366,7 +385,7 @@ def main():
 
     skipped = []
     log = []
-    process_sheet(wb["Sheet1"], sb, workspace_id, skipped, log, dry_run)
+    process_sheet(wb[SHEET_NAME], sb, workspace_id, skipped, log, dry_run)
 
     if log:
         with open(LOG_JSON, "w") as f:

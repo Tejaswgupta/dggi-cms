@@ -617,7 +617,8 @@ const SCNRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const updatePayload = nullifyEmpty({ ...dialogDraft }, COLUMNS);
+    const { record_id: _locked, ...editableFields } = dialogDraft as SCNRecord;
+    const updatePayload = nullifyEmpty({ ...editableFields }, COLUMNS);
     (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
     const { error } = await supabase
       .from("dggi_scn_records")

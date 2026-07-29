@@ -36,13 +36,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { parseAdgComments } from "./AdgCommentThread";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   DGGIRecordDialog,
   EMPTY_RECORD,
   type DGGIRecord,
 } from "./DGGIComponent";
-import { parseAdgComments } from "./AdgCommentThread";
 import {
   REGISTER_PREFIXES,
   exportRegisterToExcel,
@@ -174,6 +174,7 @@ const RAPID_COLS: RegisterColumn[] = [
     type: "usercombobox",
     width: "180px",
     showWhen: { field: "action_taken", values: ["Allocated"] },
+    filterByGroupField: "assigned_group",
   },
   {
     key: "non_ir_no",
@@ -330,6 +331,7 @@ const OTHER_COLS: RegisterColumn[] = [
     type: "usercombobox",
     width: "180px",
     showWhen: { field: "action_taken", values: ["Allocated"] },
+    filterByGroupField: "assigned_group",
   },
   { key: "remarks", label: "Remarks", type: "text", width: "220px" },
 ];
@@ -506,6 +508,7 @@ const STR_COLS: RegisterColumn[] = [
     type: "usercombobox",
     width: "180px",
     showWhen: { field: "action_taken", values: ["Allocated"] },
+    filterByGroupField: "group",
   },
   {
     key: "group",
@@ -688,13 +691,18 @@ function SubTable<T extends { id: string; record_id: string }>({
   ) => {
     if (type === "adgcomments") {
       const comments = parseAdgComments(value);
-      if (comments.length === 0) return <span className="text-[#9a9a96]">—</span>;
+      if (comments.length === 0)
+        return <span className="text-[#9a9a96]">—</span>;
       const last = comments[comments.length - 1];
       return (
         <div className="flex flex-col gap-0.5 max-w-[190px]">
-          <span className="text-base text-[#1a1a1a] truncate" title={last.text}>{last.text}</span>
+          <span className="text-base text-[#1a1a1a] truncate" title={last.text}>
+            {last.text}
+          </span>
           {comments.length > 1 && (
-            <span className="text-xs text-[#9a9a96]">+{comments.length - 1} more</span>
+            <span className="text-xs text-[#9a9a96]">
+              +{comments.length - 1} more
+            </span>
           )}
         </div>
       );
@@ -775,104 +783,101 @@ function SubTable<T extends { id: string; record_id: string }>({
         </div>
       </div>
       <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
-          <Table>
-            <TableHeader className="sticky top-0 z-10 bg-white">
-              <TableRow className="bg-white border-b border-[#EDEDEA]">
-                {columns.map((col) => (
-                  <TableHead
-                    key={col.key}
-                    style={{ minWidth: col.width }}
-                    className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
-                    onClick={() => onSort(col.key)}
-                  >
-                    <span className="flex items-center gap-1">
-                      {col.label}
-                      {sortCol === col.key &&
-                        (sortDir === "asc" ? (
-                          <ChevronUp size={12} />
-                        ) : (
-                          <ChevronDown size={12} />
-                        ))}
-                    </span>
-                  </TableHead>
-                ))}
-                <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
-                  Actions
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records.map((record) => (
-                <TableRow
-                  key={record.id}
-                  data-record-id={record.record_id}
-                  className="border-b border-[#EDEDEA] text-base hover:bg-white"
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-white">
+            <TableRow className="bg-white border-b border-[#EDEDEA]">
+              {columns.map((col) => (
+                <TableHead
+                  key={col.key}
+                  style={{ minWidth: col.width }}
+                  className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
+                  onClick={() => onSort(col.key)}
                 >
-                  {columns.map((col) => (
-                    <TableCell
-                      key={col.key}
-                      className="px-3 py-2 text-[#1a1a1a]"
-                    >
-                      {customCells?.[col.key] ? (
-                        customCells[col.key](record)
-                      ) : alarmCells?.[col.key] ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="whitespace-nowrap">
-                            {fmt((record as any)[col.key] ?? "")}
-                          </span>
-                          {alarmCells[col.key](
-                            record as unknown as Record<string, string>,
-                          )}
-                        </div>
+                  <span className="flex items-center gap-1">
+                    {col.label}
+                    {sortCol === col.key &&
+                      (sortDir === "asc" ? (
+                        <ChevronUp size={12} />
                       ) : (
-                        renderCell(
-                          (record as any)[col.key] ?? "",
-                          col.type,
-                          col.key === "sio"
-                            ? (record as any).sio_name
-                            : undefined,
-                        )
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell className="px-3 py-2">
-                    {(!readOnly || editOnly) && (
-                      <div className="flex items-center gap-1">
+                        <ChevronDown size={12} />
+                      ))}
+                  </span>
+                </TableHead>
+              ))}
+              <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {records.map((record) => (
+              <TableRow
+                key={record.id}
+                data-record-id={record.record_id}
+                className="border-b border-[#EDEDEA] text-base hover:bg-white"
+              >
+                {columns.map((col) => (
+                  <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
+                    {customCells?.[col.key] ? (
+                      customCells[col.key](record)
+                    ) : alarmCells?.[col.key] ? (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="whitespace-nowrap">
+                          {fmt((record as any)[col.key] ?? "")}
+                        </span>
+                        {alarmCells[col.key](
+                          record as unknown as Record<string, string>,
+                        )}
+                      </div>
+                    ) : (
+                      renderCell(
+                        (record as any)[col.key] ?? "",
+                        col.type,
+                        col.key === "sio"
+                          ? (record as any).sio_name
+                          : undefined,
+                      )
+                    )}
+                  </TableCell>
+                ))}
+                <TableCell className="px-3 py-2">
+                  {(!readOnly || editOnly) && (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                        onClick={() => onEdit(record)}
+                      >
+                        <Pencil size={13} />
+                      </Button>
+                      {!editOnly && (
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
-                          onClick={() => onEdit(record)}
+                          className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                          onClick={() => onDelete(record.id)}
                         >
-                          <Pencil size={13} />
+                          <Trash2 size={13} />
                         </Button>
-                        {!editOnly && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-                            onClick={() => onDelete(record.id)}
-                          >
-                            <Trash2 size={13} />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {records.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length + 1}
-                    className="py-12 text-center text-base text-[#9a9a96]"
-                  >
-                    {emptyMessage}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                      )}
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {records.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length + 1}
+                  className="py-12 text-center text-base text-[#9a9a96]"
+                >
+                  {emptyMessage}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -926,7 +931,12 @@ const IntelligenceAllocationComponent = () => {
   const [strDialogDraft, setStrDialogDraft] = useState<Partial<STRRecord>>({});
 
   const [hideClosed, setHideClosed] = useState(true);
-  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
+  const {
+    allUsers: workspaceUsers,
+    sioUsers,
+    userGroupMap,
+    loading: usersLoading,
+  } = useGroupFilteredSioUsers();
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
   const [userRole, setUserRole] = useState("");
@@ -984,7 +994,8 @@ const IntelligenceAllocationComponent = () => {
         .eq("workspace_id", wid);
 
       // ADG, DD_INT, SIO_INT — see all data
-      const canViewAll = role === "ADG" || role === "DD_INT" || role === "SIO_INT";
+      const canViewAll =
+        role === "ADG" || role === "DD_INT" || role === "SIO_INT";
       if (!canViewAll) {
         if (role === "IO" || role === "SIO") {
           // SIO/IO see only records assigned to them
@@ -1093,8 +1104,12 @@ const IntelligenceAllocationComponent = () => {
       setSaving(true);
 
       const existingRecord = records.find((r) => r.id === dialogDraft.id);
-      const normNew = JSON.stringify(parseAdgComments((dialogDraft as any).pr_adg_comments ?? ""));
-      const normOld = JSON.stringify(parseAdgComments((existingRecord as any)?.pr_adg_comments ?? ""));
+      const normNew = JSON.stringify(
+        parseAdgComments((dialogDraft as any).pr_adg_comments ?? ""),
+      );
+      const normOld = JSON.stringify(
+        parseAdgComments((existingRecord as any)?.pr_adg_comments ?? ""),
+      );
       const commentChanged = userRole === "ADG" && normNew !== normOld;
 
       const rawDraft = Object.fromEntries(
@@ -1121,7 +1136,9 @@ const IntelligenceAllocationComponent = () => {
         );
         if ((dialogDraft as any).action_taken === "Allocated") {
           await sendAllocationNotifications(
-            (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
+            (dialogDraft as any).assigned_group ??
+              (dialogDraft as any).group ??
+              "",
             (dialogDraft as any).record_id ?? "",
             table,
             (dialogDraft as any).sio ?? "",
@@ -1129,7 +1146,9 @@ const IntelligenceAllocationComponent = () => {
         }
         if (commentChanged) {
           await sendAdgCommentNotifications(
-            (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
+            (dialogDraft as any).assigned_group ??
+              (dialogDraft as any).group ??
+              "",
             (dialogDraft as any).sio ?? "",
             (dialogDraft as any).record_id ?? "",
             table,
@@ -1176,7 +1195,9 @@ const IntelligenceAllocationComponent = () => {
         setRecords((prev) => [...prev, data as T]);
         if ((dialogDraft as any).action_taken === "Allocated") {
           await sendAllocationNotifications(
-            (dialogDraft as any).assigned_group ?? (dialogDraft as any).group ?? "",
+            (dialogDraft as any).assigned_group ??
+              (dialogDraft as any).group ??
+              "",
             (data as any).record_id ?? "",
             table,
             (dialogDraft as any).sio ?? "",
@@ -1197,20 +1218,20 @@ const IntelligenceAllocationComponent = () => {
   ) => {
     if (!recordId || !workspaceId) return;
     let recipientIds: string[] = [];
-    if (userRole === "DD") {
-      // DD allocating to SIO — notify SIO only
-      if (sioId) recipientIds = [sioId];
-    } else {
-      // DD_INT / ADG / SIO_INT allocating to a group — notify that group's DDs
-      if (group) {
-        const { data: ddAssignments } = await supabase
-          .from("dggi_user_group_assignments")
-          .select("user_id, votum_users!inner(dggi_role)")
-          .eq("group_name", group)
-          .eq("votum_users.dggi_role", "DD");
-        recipientIds = (ddAssignments ?? []).map((g: { user_id: string }) => g.user_id);
-      }
+
+    // DD_INT / ADG / SIO_INT allocating to a group — notify that group's DDs and the assigned SIO
+    if (group) {
+      const { data: ddAssignments } = await supabase
+        .from("dggi_user_group_assignments")
+        .select("user_id, votum_users!inner(dggi_role)")
+        .eq("group_name", group)
+        .eq("votum_users.dggi_role", "DD");
+      recipientIds = (ddAssignments ?? []).map(
+        (g: { user_id: string }) => g.user_id,
+      );
     }
+    if (sioId) recipientIds.push(sioId);
+
     const recipients = Array.from(new Set(recipientIds)).filter(
       (uid) => uid !== currentUserId,
     );
@@ -1241,13 +1262,17 @@ const IntelligenceAllocationComponent = () => {
       .select("user_id, votum_users!inner(dggi_role)")
       .eq("group_name", group)
       .eq("votum_users.dggi_role", "DD");
-    const ddIds = (ddAssignments ?? []).map((g: { user_id: string }) => g.user_id);
+    const ddIds = (ddAssignments ?? []).map(
+      (g: { user_id: string }) => g.user_id,
+    );
     const recipients = Array.from(
       new Set([...ddIds, ...(sioId ? [sioId] : [])]),
     ).filter((uid) => uid !== currentUserId);
     if (!recipients.length) return;
     const comments = parseAdgComments(rawComments);
-    const lastComment = comments.length ? comments[comments.length - 1].text.slice(0, 80) : "";
+    const lastComment = comments.length
+      ? comments[comments.length - 1].text.slice(0, 80)
+      : "";
     await supabase.from("dggi_notifications").insert(
       recipients.map((uid) => ({
         user_id: uid,
@@ -1452,7 +1477,8 @@ const IntelligenceAllocationComponent = () => {
   };
 
   const isDDInt = userRole === "DD_INT" || userRole === "ADG";
-  const canCreate = userRole === "ADG" || userRole === "DD_INT" || userRole === "SIO_INT";
+  const canCreate =
+    userRole === "ADG" || userRole === "DD_INT" || userRole === "SIO_INT";
   const isDD = userRole === "DD";
   const visibleRapidCols = isDDInt
     ? RAPID_COLS
@@ -1754,6 +1780,7 @@ const IntelligenceAllocationComponent = () => {
               if (v === "Allocated") next.group_allocation_date = today;
               else next.group_allocation_date = "";
             }
+            if (k === "assigned_group") next.sio = "";
             return next;
           });
         }}
@@ -1762,6 +1789,7 @@ const IntelligenceAllocationComponent = () => {
         }
         saving={rapidSaving}
         users={sioUsers}
+        userGroupMap={userGroupMap}
         caseOptions={caseOptions}
         userRole={userRole}
       />
@@ -1780,6 +1808,7 @@ const IntelligenceAllocationComponent = () => {
               const today = new Date().toISOString().split("T")[0];
               next.date_of_action_taken = today;
             }
+            if (k === "assigned_group") next.sio = "";
             return next;
           });
         }}
@@ -1788,6 +1817,7 @@ const IntelligenceAllocationComponent = () => {
         }
         saving={otherSaving}
         users={sioUsers}
+        userGroupMap={userGroupMap}
         caseOptions={caseOptions}
         userRole={userRole}
       />
@@ -1808,12 +1838,14 @@ const IntelligenceAllocationComponent = () => {
               if (v === "Allocated") next.group_allocation_date = today;
               else next.group_allocation_date = "";
             }
+            if (k === "group") next.sio = "";
             return next;
           });
         }}
         onSave={strDialogMode === "add" ? strCrud.onSaveNew : strCrud.onSave}
         saving={strSaving}
         users={sioUsers}
+        userGroupMap={userGroupMap}
         caseOptions={caseOptions}
         userRole={userRole}
       />
@@ -1832,12 +1864,14 @@ const IntelligenceAllocationComponent = () => {
             if (k === "is_ir" && v === false && !prev.date_of_non_ir) {
               next.date_of_non_ir = new Date().toISOString().split("T")[0];
             }
+            if (k === "group") (next as any).handling_io_sio = "";
             return next;
           })
         }
         onSave={saveNonIrCase}
         saving={nonIrSaving}
         users={workspaceUsers}
+        userGroupMap={userGroupMap}
       />
     </div>
   );

@@ -63,6 +63,8 @@ export interface RegisterColumn {
   width?: string;
   showWhen?: { field: string; values: string[] };
   showWhenNonEmpty?: string;
+  /** When set, filters the user list to those whose group matches draft[filterByGroupField]. */
+  filterByGroupField?: string;
 }
 
 export interface ColumnGroup {
@@ -83,6 +85,7 @@ interface RegisterRecordDialogProps {
   onSave: () => void;
   saving: boolean;
   users?: WorkspaceUser[];
+  userGroupMap?: Record<string, string>;
   caseOptions?: DGGICaseOption[];
   arrestOptions?: ArrestOption[];
   userRole?: string;
@@ -306,6 +309,7 @@ export function RegisterRecordDialog({
   onSave,
   saving,
   users = [],
+  userGroupMap = {},
   caseOptions = [],
   arrestOptions = [],
   userRole = "",
@@ -384,8 +388,14 @@ export function RegisterRecordDialog({
       return <DateInput value={value} onChange={onChange} />;
     }
     if (col.type === "usercombobox") {
+      const filteredUsers =
+        col.filterByGroupField && draft[col.filterByGroupField]
+          ? users.filter(
+              (u) => userGroupMap[u.id] === draft[col.filterByGroupField!],
+            )
+          : users;
       return (
-        <DialogUserCombobox value={value} onChange={onChange} users={users} />
+        <DialogUserCombobox value={value} onChange={onChange} users={filteredUsers} />
       );
     }
     if (col.type === "searchcombobox") {

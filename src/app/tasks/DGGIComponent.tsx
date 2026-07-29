@@ -116,6 +116,9 @@ const MODE_OPTIONS: ModeOfInitiation[] = [
 ];
 
 const OTHER_SENTINEL = "__other__";
+const ABEYANCE_STATUS = "Kept in Abeyance";
+
+const LATEST_STATUS_OPTIONS = [ABEYANCE_STATUS];
 
 type GroupByField =
   | "group"
@@ -403,7 +406,8 @@ const COLUMNS: {
   {
     key: "latest_status",
     label: "Latest Status",
-    type: "text",
+    type: "select-with-other",
+    options: LATEST_STATUS_OPTIONS,
     width: "180px",
   },
 ];
@@ -553,7 +557,8 @@ const NON_IR_COLUMNS: ColDef[] = [
   {
     key: "latest_status",
     label: "Latest Status",
-    type: "text",
+    type: "select-with-other",
+    options: LATEST_STATUS_OPTIONS,
     width: "160px",
   },
   {
@@ -1670,6 +1675,7 @@ export interface DGGIRecordDialogProps {
   onSave: () => void;
   saving: boolean;
   users: WorkspaceUser[];
+  userGroupMap?: Record<string, GroupName>;
   // Related registers (only meaningful in edit mode once record is saved)
   caseRecordId?: string;
   arrestRecords?: ArrestSubRecord[];
@@ -2276,6 +2282,7 @@ export function DGGIRecordDialog({
   onSave,
   saving,
   users,
+  userGroupMap = {},
   caseRecordId,
   arrestRecords = [],
   provisionalRecords = [],
@@ -2399,13 +2406,21 @@ export function DGGIRecordDialog({
     }
 
     if (col.type === "usercombobox") {
+      const selectedGroup = draft.group as string | undefined;
+      const filteredUsers =
+        col.key === "handling_io_sio" && selectedGroup
+          ? users.filter(
+              (u) =>
+                u.dggi_role === "SIO" &&
+                userGroupMap[u.id] === selectedGroup,
+            )
+          : users;
       return (
         <UserCombobox
           value={value as string}
           onChange={(v) => onDraftChange(col.key, v)}
-          users={users}
+          users={filteredUsers}
           className="w-full h-9"
-          filterRole={col.key === "handling_io_sio" ? "SIO" : undefined}
         />
       );
     }
@@ -3412,8 +3427,12 @@ const DGGIComponent = () => {
 
   // ── Derived counts ─────────────────────────────────────────────────────────
 
-  const irTotal = records.filter((r) => r.is_ir && !r.closure_by).length;
-  const nonIrTotal = records.filter((r) => !r.is_ir && !r.closure_by).length;
+  const irTotal = records.filter(
+    (r) => r.is_ir && !r.closure_by && r.latest_status !== ABEYANCE_STATUS,
+  ).length;
+  const nonIrTotal = records.filter(
+    (r) => !r.is_ir && !r.closure_by && r.latest_status !== ABEYANCE_STATUS,
+  ).length;
 
   const activeFilterCount =
     (filters.search ? 1 : 0) +
@@ -3568,6 +3587,7 @@ const DGGIComponent = () => {
         date_of_initiation: today(),
         date_of_ir: today(),
         converted_from_non_ir: sourceRecordId,
+        pr_adg_comments: dialogDraft.pr_adg_comments ?? "",
       });
       setDialogMode("add");
       setDialogEditingId(null);
@@ -4950,6 +4970,7 @@ const DGGIComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         users={workspaceUsers}
+        userGroupMap={userGroupMap}
         userRole={userRole}
         caseRecordId={dialogDraft.record_id}
         arrestRecords={arrestRecordsMap.get(dialogDraft.record_id ?? "") ?? []}
@@ -5181,6 +5202,7 @@ const DGGIComponent = () => {
               (r) =>
                 r.group === name &&
                 !r.closure_by &&
+                r.latest_status !== ABEYANCE_STATUS &&
                 (topFilter === "ir" ? r.is_ir : !r.is_ir),
             ).length;
             if (count === 0) return null;
