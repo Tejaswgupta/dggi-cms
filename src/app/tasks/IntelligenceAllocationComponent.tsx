@@ -1,6 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -22,9 +28,9 @@ import {
   ChevronUp,
   Clock,
   Download,
-  Eye,
   EyeOff,
   FilePlus2,
+  Filter,
   Pencil,
   Plus,
   Search,
@@ -931,6 +937,8 @@ const IntelligenceAllocationComponent = () => {
   const [strDialogDraft, setStrDialogDraft] = useState<Partial<STRRecord>>({});
 
   const [hideClosed, setHideClosed] = useState(true);
+  const [hideAllocated, setHideAllocated] = useState(false);
+  const [hideWithNonIr, setHideWithNonIr] = useState(false);
   const {
     allUsers: workspaceUsers,
     sioUsers,
@@ -1043,13 +1051,14 @@ const IntelligenceAllocationComponent = () => {
   ) =>
     records
       .filter((r) => {
+        const actionLower = String(r.action_taken ?? "").toLowerCase();
         if (
           hideClosed &&
-          ["closed", "transferred"].includes(
-            String(r.action_taken ?? "").toLowerCase(),
-          )
+          ["closed", "transferred"].includes(actionLower)
         )
           return false;
+        if (hideAllocated && actionLower === "allocated") return false;
+        if (hideWithNonIr && r.non_ir_no) return false;
         if (!search) return true;
         const q = search.toLowerCase();
         return fields.some((f) =>
@@ -1530,21 +1539,47 @@ const IntelligenceAllocationComponent = () => {
                 STR
               </TabsTrigger>
             </TabsList>
-            <Button
-              size="sm"
-              variant="outline"
-              className={`h-9 rounded-lg border-[#EDEDEA] text-base shadow-none px-4 ${hideClosed ? "bg-[#EEF2FF] text-[#4A5FD4] border-[#4A5FD4]/30" : "text-[#6b6b6b] hover:bg-[#F3F2EF]"}`}
-              onClick={() => setHideClosed((v) => !v)}
-            >
-              {hideClosed ? (
-                <EyeOff size={14} className="mr-1.5" />
-              ) : (
-                <Eye size={14} className="mr-1.5" />
-              )}
-              {hideClosed
-                ? "Show Closed/Transferred"
-                : "Hide Closed/Transferred"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={`h-9 rounded-lg border-[#EDEDEA] text-base shadow-none px-4 ${hideClosed || hideAllocated || hideWithNonIr ? "bg-[#EEF2FF] text-[#4A5FD4] border-[#4A5FD4]/30" : "text-[#6b6b6b] hover:bg-[#F3F2EF]"}`}
+                >
+                  <Filter size={14} className="mr-1.5" />
+                  Filters
+                  {(hideClosed || hideAllocated || hideWithNonIr) && (
+                    <span className="ml-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#4A5FD4] text-[10px] text-white font-bold">
+                      {[hideClosed, hideAllocated, hideWithNonIr].filter(Boolean).length}
+                    </span>
+                  )}
+                  <ChevronDown size={13} className="ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuCheckboxItem
+                  checked={hideClosed}
+                  onCheckedChange={setHideClosed}
+                >
+                  <EyeOff size={13} className="mr-2 text-[#6b6b6b]" />
+                  Hide Closed/Transferred
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={hideAllocated}
+                  onCheckedChange={setHideAllocated}
+                >
+                  <EyeOff size={13} className="mr-2 text-[#6b6b6b]" />
+                  Hide Allocated
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={hideWithNonIr}
+                  onCheckedChange={setHideWithNonIr}
+                >
+                  <EyeOff size={13} className="mr-2 text-[#6b6b6b]" />
+                  Hide Cases with NON-IR
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <TabsContent value="rapid">

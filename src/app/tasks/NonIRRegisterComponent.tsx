@@ -74,6 +74,7 @@ interface NonIRRegisterRecord {
   digit_id: string;
   gstins: string;
   is_ir: boolean;
+  closure_by: string | null;
 }
 
 type SortDir = "asc" | "desc";

@@ -3618,6 +3618,9 @@ const DGGIComponent = () => {
         updatePayload.pr_adg_comments,
       );
     }
+    if (!hadClosureBefore && isNowClosed && dialogDraft.closure_by) {
+      updatePayload.latest_status = dialogDraft.closure_by;
+    }
 
     const { error } = await supabase
       .from("dggi_records")
@@ -4042,6 +4045,7 @@ const DGGIComponent = () => {
             sourceDraft.intelligence_action_date || null,
           due_date: sourceDraft.due_date || null,
           date_of_non_ir: sourceDraft.date_of_non_ir || null,
+          latest_status: "Convert to IR",
         })
         .eq("id", sourceDbId);
 
