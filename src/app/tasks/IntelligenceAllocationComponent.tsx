@@ -659,6 +659,7 @@ function SubTable<T extends { id: string; record_id: string }>({
   alarmCells,
   customCells,
   readOnly,
+  editOnly,
 }: {
   records: T[];
   columns: RegisterColumn[];
@@ -678,6 +679,7 @@ function SubTable<T extends { id: string; record_id: string }>({
   alarmCells?: Record<string, AlarmCellRenderer>;
   customCells?: Record<string, CustomCellRenderer<T>>;
   readOnly?: boolean;
+  editOnly?: boolean;
 }) {
   const renderCell = (
     value: string,
@@ -759,7 +761,7 @@ function SubTable<T extends { id: string; record_id: string }>({
               <Download size={15} className="mr-1" />
               Export to Excel
             </Button>
-            {!readOnly && (
+            {!readOnly && !editOnly && (
               <Button
                 size="sm"
                 className="h-9 rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white text-base shadow-none px-4"
@@ -834,7 +836,7 @@ function SubTable<T extends { id: string; record_id: string }>({
                     </TableCell>
                   ))}
                   <TableCell className="px-3 py-2">
-                    {!readOnly && (
+                    {(!readOnly || editOnly) && (
                       <div className="flex items-center gap-1">
                         <Button
                           size="icon"
@@ -844,14 +846,16 @@ function SubTable<T extends { id: string; record_id: string }>({
                         >
                           <Pencil size={13} />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-                          onClick={() => onDelete(record.id)}
-                        >
-                          <Trash2 size={13} />
-                        </Button>
+                        {!editOnly && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                            onClick={() => onDelete(record.id)}
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </TableCell>
@@ -1441,6 +1445,7 @@ const IntelligenceAllocationComponent = () => {
   const isDDInt = userRole === "DD_INT" || userRole === "ADG";
   const isSioInt = userRole === "SIO_INT";
   const canCreate = userRole === "ADG" || userRole === "DD_INT" || userRole === "SIO_INT";
+  const isDD = userRole === "DD";
   const visibleRapidCols = isDDInt
     ? RAPID_COLS
     : RAPID_COLS.filter((c) => c.key !== "transferred_to");
@@ -1543,7 +1548,8 @@ const IntelligenceAllocationComponent = () => {
               onExport={handleRapidExport}
               users={workspaceUsers}
               cases={caseOptions}
-              readOnly={!canCreate}
+              readOnly={!canCreate && !isDD}
+              editOnly={isDD}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1553,7 +1559,7 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
-                  ) : !canCreate ? (
+                  ) : !canCreate && userRole !== "SIO" ? (
                     <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
@@ -1616,7 +1622,8 @@ const IntelligenceAllocationComponent = () => {
               onExport={handleOtherExport}
               users={workspaceUsers}
               cases={caseOptions}
-              readOnly={!canCreate}
+              readOnly={!canCreate && !isDD}
+              editOnly={isDD}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1626,7 +1633,7 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
-                  ) : !canCreate ? (
+                  ) : !canCreate && userRole !== "SIO" ? (
                     <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
@@ -1683,7 +1690,8 @@ const IntelligenceAllocationComponent = () => {
               onExport={handleStrExport}
               users={workspaceUsers}
               cases={caseOptions}
-              readOnly={!canCreate}
+              readOnly={!canCreate && !isDD}
+              editOnly={isDD}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1693,7 +1701,7 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
-                  ) : !canCreate ? (
+                  ) : !canCreate && userRole !== "SIO" ? (
                     <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
