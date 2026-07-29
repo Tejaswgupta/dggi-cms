@@ -79,6 +79,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
+import { useDebounce } from "@/hooks/useDebounce";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
@@ -980,6 +981,8 @@ const ProvisionalAttachmentComponent = () => {
 
 
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
+  const debouncedSearch = useDebounce(filters.search, 400);
+  const fetchIdRef = useRef(0);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [savingRow, setSavingRow] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>("created_at");
@@ -1055,7 +1058,7 @@ const ProvisionalAttachmentComponent = () => {
     init();
   }, []);
 
-  // Re-fetch when page, filters, or sort changes (after initial load)
+  // Re-fetch when page, effective filters, or sort changes (after initial load)
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
@@ -1064,8 +1067,9 @@ const ProvisionalAttachmentComponent = () => {
     }
     if (!authCtx.current) return;
     const { wid, role, groups, uid } = authCtx.current;
-    fetchRecords(wid, role, groups, uid, page, filters);
-  }, [page, filters, sortCol, sortDir]);
+    const effectiveFilters: Filters = { ...filters, search: debouncedSearch };
+    fetchRecords(wid, role, groups, uid, page, effectiveFilters);
+  }, [page, debouncedSearch, filters.dateFrom, filters.dateTo, filters.alarmOnly, sortCol, sortDir]);
 
   const fetchRecords = async (
     wid: string,
@@ -1075,6 +1079,7 @@ const ProvisionalAttachmentComponent = () => {
     pg: number,
     flt: Filters,
   ) => {
+    const fetchId = ++fetchIdRef.current;
     const sortField = sortCol ?? "created_at";
 
     // Step 1: RPC returns one row per distinct batch, paginated server-side.
@@ -1099,6 +1104,7 @@ const ProvisionalAttachmentComponent = () => {
       console.error("fetchRecords rpc error:", rpcErr);
       return;
     }
+    if (fetchId !== fetchIdRef.current) return;
 
     const rows = batchRows ?? [];
     setTotalCount(rows.length > 0 ? Number(rows[0].total_batches) : 0);
@@ -1169,6 +1175,7 @@ const ProvisionalAttachmentComponent = () => {
     }
 
     const results = await Promise.all(queries);
+    if (fetchId !== fetchIdRef.current) return;
     const fetchError = results.find((r) => r.error)?.error;
     if (fetchError) {
       console.error("fetchRecords error:", fetchError);
