@@ -965,7 +965,7 @@ const IntelligenceAllocationComponent = () => {
         (g: { group_name: string }) => g.group_name,
       );
 
-      // Build queries with group-based filtering matching RLS policy
+      // Build queries with role-based filtering
       let rapidQuery = supabase
         .from("dggi_intel_rapid_records")
         .select("*")
@@ -979,11 +979,19 @@ const IntelligenceAllocationComponent = () => {
         .select("*")
         .eq("workspace_id", wid);
 
-      if (role !== "DD_INT" && role !== "ADG") {
-        if (role === "IO" || role === "SIO" || role === "SIO_INT") {
+      // ADG, DD_INT, SIO_INT — see all data
+      const canViewAll = role === "ADG" || role === "DD_INT" || role === "SIO_INT";
+      if (!canViewAll) {
+        if (role === "IO" || role === "SIO") {
+          // SIO/IO see only records assigned to them
           rapidQuery = rapidQuery.eq("sio", uid!);
           otherQuery = otherQuery.eq("sio", uid!);
           strQuery = strQuery.eq("sio", uid!);
+        } else if (role === "DD" && groups.length > 0) {
+          // DD sees their group's data
+          rapidQuery = rapidQuery.in("assigned_group", groups);
+          otherQuery = otherQuery.in("assigned_group", groups);
+          strQuery = strQuery.in("group", groups);
         } else if (groups.length > 0) {
           rapidQuery = rapidQuery.in("assigned_group", groups);
           otherQuery = otherQuery.in("assigned_group", groups);
@@ -1432,6 +1440,7 @@ const IntelligenceAllocationComponent = () => {
 
   const isDDInt = userRole === "DD_INT" || userRole === "ADG";
   const isSioInt = userRole === "SIO_INT";
+  const canCreate = userRole === "ADG" || userRole === "DD_INT" || userRole === "SIO_INT";
   const visibleRapidCols = isDDInt
     ? RAPID_COLS
     : RAPID_COLS.filter((c) => c.key !== "transferred_to");
@@ -1534,7 +1543,7 @@ const IntelligenceAllocationComponent = () => {
               onExport={handleRapidExport}
               users={workspaceUsers}
               cases={caseOptions}
-              readOnly={isSioInt}
+              readOnly={!canCreate}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1544,7 +1553,7 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
-                  ) : userRole === "DD_INT" || isSioInt ? (
+                  ) : !canCreate ? (
                     <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
@@ -1607,7 +1616,7 @@ const IntelligenceAllocationComponent = () => {
               onExport={handleOtherExport}
               users={workspaceUsers}
               cases={caseOptions}
-              readOnly={isSioInt}
+              readOnly={!canCreate}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1617,7 +1626,7 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
-                  ) : userRole === "DD_INT" || isSioInt ? (
+                  ) : !canCreate ? (
                     <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button
@@ -1674,7 +1683,7 @@ const IntelligenceAllocationComponent = () => {
               onExport={handleStrExport}
               users={workspaceUsers}
               cases={caseOptions}
-              readOnly={isSioInt}
+              readOnly={!canCreate}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1684,7 +1693,7 @@ const IntelligenceAllocationComponent = () => {
                     >
                       {r.non_ir_no}
                     </Link>
-                  ) : userRole === "DD_INT" || isSioInt ? (
+                  ) : !canCreate ? (
                     <span className="text-[#9a9a96]">—</span>
                   ) : (
                     <Button

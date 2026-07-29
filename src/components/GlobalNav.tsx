@@ -25,7 +25,6 @@ import { useEffect, useState } from "react";
 
 const USERS_MGMT_ROLES = ["ADG", "DD_INT"];
 const NOTIF_ROLES = ["SIO", "DD", "DD_INT", "IO"];
-const INTEL_ROLES = ["ADG", "DD_INT", "SIO_INT"];
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -172,7 +171,6 @@ export default function GlobalNav() {
 
   const canManageUsers = USERS_MGMT_ROLES.includes(dggiRole ?? "");
   const showNotifications = NOTIF_ROLES.includes(dggiRole ?? "");
-  const canSeeIntel = INTEL_ROLES.includes(dggiRole ?? "");
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter(
     (item) => item.href !== "/users" || canManageUsers,
@@ -190,14 +188,7 @@ export default function GlobalNav() {
       return { ...section, items: visibleDashboardItems };
     if (section.label === "Investigation")
       return { ...section, items: visibleInvestigationItems };
-    if (section.label === "Registers")
-      return {
-        ...section,
-        items: section.items.filter(
-          (item) =>
-            item.href !== "/tasks/intelligence-allocation" || canSeeIntel,
-        ),
-      };
+    if (section.label === "Registers") return section;
     return section;
   });
 
