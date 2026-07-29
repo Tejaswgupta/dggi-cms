@@ -713,7 +713,7 @@ const SCNRegisterComponent = () => {
       .eq("workspace_id", workspaceId)
       .eq("competency", draft.competency ?? "SIO Competency");
     const seq = String((count ?? 0) + 1).padStart(2, "0");
-    const grp = (draft.group ?? "").replace(/^Group-/i, "");
+    const grp = (draft.group ?? "").replace(/^Group[\s-]*/i, "");
     const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
     const rawRole = sioUser?.dggi_role ?? "";
     const designation = rawRole.startsWith("DD") ? "DD" : rawRole;
