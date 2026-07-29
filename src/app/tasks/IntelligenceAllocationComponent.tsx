@@ -1195,16 +1195,25 @@ const IntelligenceAllocationComponent = () => {
     sourceTable: string,
     sioId: string = "",
   ) => {
-    if (!group || !recordId || !workspaceId) return;
-    const { data: ddAssignments } = await supabase
-      .from("dggi_user_group_assignments")
-      .select("user_id, votum_users!inner(dggi_role)")
-      .eq("group_name", group)
-      .eq("votum_users.dggi_role", "DD");
-    const ddIds = (ddAssignments ?? []).map((g: { user_id: string }) => g.user_id);
-    const recipients = Array.from(
-      new Set([...ddIds, ...(sioId ? [sioId] : [])]),
-    ).filter((uid) => uid !== currentUserId);
+    if (!recordId || !workspaceId) return;
+    let recipientIds: string[] = [];
+    if (userRole === "DD") {
+      // DD allocating to SIO — notify SIO only
+      if (sioId) recipientIds = [sioId];
+    } else {
+      // DD_INT / ADG / SIO_INT allocating to a group — notify that group's DDs
+      if (group) {
+        const { data: ddAssignments } = await supabase
+          .from("dggi_user_group_assignments")
+          .select("user_id, votum_users!inner(dggi_role)")
+          .eq("group_name", group)
+          .eq("votum_users.dggi_role", "DD");
+        recipientIds = (ddAssignments ?? []).map((g: { user_id: string }) => g.user_id);
+      }
+    }
+    const recipients = Array.from(new Set(recipientIds)).filter(
+      (uid) => uid !== currentUserId,
+    );
     if (!recipients.length) return;
     await supabase.from("dggi_notifications").insert(
       recipients.map((uid) => ({
@@ -1443,7 +1452,6 @@ const IntelligenceAllocationComponent = () => {
   };
 
   const isDDInt = userRole === "DD_INT" || userRole === "ADG";
-  const isSioInt = userRole === "SIO_INT";
   const canCreate = userRole === "ADG" || userRole === "DD_INT" || userRole === "SIO_INT";
   const isDD = userRole === "DD";
   const visibleRapidCols = isDDInt
