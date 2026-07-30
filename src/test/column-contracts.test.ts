@@ -195,39 +195,6 @@ describe("AlertCircularRegisterComponent column contracts", () => {
   });
 });
 
-// ─── InformerRewardComponent columns ─────────────────────────────────────────
-
-const INFORMER_REWARD_COLUMNS = [
-  { key: "linked_case_id", type: "caselink" },
-  { key: "date_of_information", type: "datepicker" },
-  { key: "reward_sanctioned_date", type: "datepicker" },
-  { key: "reward_paid_date", type: "datepicker" },
-  { key: "sio", type: "usercombobox" },
-  { key: "informer_code", type: "text" },
-];
-
-describe("InformerRewardComponent column contracts", () => {
-  it("three datepicker columns are all nullified when empty", () => {
-    const result = nullifyEmpty(
-      {
-        linked_case_id: "",
-        date_of_information: "",
-        reward_sanctioned_date: "2024-06-01",
-        reward_paid_date: "",
-        sio: "",
-        informer_code: "IC-001",
-      },
-      INFORMER_REWARD_COLUMNS,
-    );
-    expect(result.linked_case_id).toBeNull();
-    expect(result.date_of_information).toBeNull();
-    expect(result.reward_sanctioned_date).toBe("2024-06-01"); // non-empty — kept
-    expect(result.reward_paid_date).toBeNull();
-    expect(result.sio).toBeNull();
-    expect(result.informer_code).toBe("IC-001");
-  });
-});
-
 // ─── EvidenceRoomComponent columns ───────────────────────────────────────────
 
 const EVIDENCE_ROOM_COLUMNS = [

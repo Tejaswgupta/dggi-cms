@@ -41,7 +41,9 @@ import { DGGI_GROUPS } from "@/lib/dggi-constants";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const RECORD_PREFIX = REGISTER_PREFIXES.NON_IR;
+// NIR_CASE is distinct from "NIR" used in dggi_records (dggi-case non-IR) so
+// the two registers don't share a sequence counter.
+const RECORD_PREFIX = "NIR_CASE";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

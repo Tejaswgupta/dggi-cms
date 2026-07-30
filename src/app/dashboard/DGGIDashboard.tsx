@@ -186,7 +186,7 @@ const REGISTERS: RegisterMeta[] = [
     label: "IR Register",
     shortLabel: "Incident",
     icon: AlertTriangle,
-    table: "dggi_incident_report_records",
+    table: "dggi_records",
     accentColor: "#DC2626",
     category: "register",
   },
@@ -1205,12 +1205,11 @@ export default function DGGIDashboard() {
         ),
         applyRbacFilter(
           supabase
-            .from("dggi_incident_report_records")
-            .select(
-              "incident_date, detection_amount, recovery_itc, recovery_cash",
-            )
-            .eq("workspace_id", wid),
-          "dggi_incident_report_records",
+            .from("dggi_records")
+            .select("date_of_ir, detection_amount, recovery_itc, recovery_cash")
+            .eq("workspace_id", wid)
+            .eq("is_ir", true),
+          "dggi_records",
           rbac,
         ),
         applyRbacFilter(
@@ -1259,8 +1258,8 @@ export default function DGGIDashboard() {
         { detection: number; recoveryCash: number; recoveryItc: number }
       >();
       for (const row of irRows) {
-        if (!row.incident_date) continue;
-        const d = new Date(row.incident_date as string);
+        if (!row.date_of_ir) continue;
+        const d = new Date(row.date_of_ir as string);
         if (isNaN(d.getTime())) continue;
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         const existing = monthMap.get(key) ?? {
