@@ -59,7 +59,7 @@ interface IncidentReportRecord {
   id: string;
   record_id: string;
   intel_source: string;
-  date_of_receipt: string;
+  date_of_ir: string;
   file_no: string;
   taxpayer_name: string;
   detection_amount: string;
@@ -89,7 +89,7 @@ const COLUMNS: RegisterColumn[] = [
     readOnly: true,
   },
   { key: "intel_source", label: "Intel Source", type: "text", width: "140px" },
-  { key: "date_of_receipt", label: "Date", type: "datepicker", width: "130px" },
+  { key: "date_of_ir", label: "IR Date", type: "datepicker", width: "130px" },
   { key: "file_no", label: "File No.", type: "text", width: "140px" },
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
   {

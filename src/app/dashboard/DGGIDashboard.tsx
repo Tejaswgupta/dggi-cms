@@ -31,7 +31,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import type {
-  CpgramInformerRow,
   DetectionRecoveryRow,
   IssueInvolvedRow,
   RegisterActivityDataset,
@@ -39,7 +38,6 @@ import type {
 } from "./DGGICharts";
 import {
   ComplianceGauge,
-  CpgramInformerChart,
   DeadlineHeatmap,
   DetectionRecoveryChart,
   IssueInvolvedChart,
@@ -924,7 +922,6 @@ function GraphView({
   issueInvolvedData,
   activityDatasets,
   registerRows,
-  cpgramInformerData,
   loading,
 }: {
   expiredItems: DeadlineItem[];
@@ -937,7 +934,6 @@ function GraphView({
   issueInvolvedData: IssueInvolvedRow[];
   activityDatasets: RegisterActivityDataset[];
   registerRows: RegisterPendencyCardRow[];
-  cpgramInformerData: CpgramInformerRow[];
   loading: boolean;
 }) {
   return (
@@ -973,15 +969,8 @@ function GraphView({
         <OfficerExposureChart items={allItemsRaw} loading={loading} />
       </div>
 
-      {/* Deadline heatmap + CPGRAM/Informer */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-2">
-          <DeadlineHeatmap items={allItems} loading={loading} />
-        </div>
-        <div className="lg:col-span-3">
-          <CpgramInformerChart data={cpgramInformerData} loading={loading} />
-        </div>
-      </div>
+      {/* Deadline heatmap */}
+      <DeadlineHeatmap items={allItems} loading={loading} />
     </div>
   );
 }
@@ -1023,10 +1012,6 @@ export default function DGGIDashboard() {
   const [activityDatasets, setActivityDatasets] = useState<
     RegisterActivityDataset[]
   >([]);
-  const [cpgramInformerData, setCpgramInformerData] = useState<
-    CpgramInformerRow[]
-  >([]);
-
   const [usersMap, setUsersMap] = useState<Map<string, string>>(new Map());
 
   // Deadline Tracker state
@@ -1355,52 +1340,6 @@ export default function DGGIDashboard() {
 
       setActivityDatasets(builtDatasets);
 
-      // Fetch CPGRAM + Informer Reward monthly counts
-      const [cpgramRes, informerRes] = await Promise.all([
-        supabase
-          .from("dggi_cpgram_records")
-          .select("date_of_receipt")
-          .eq("workspace_id", wid),
-        supabase
-          .from("dggi_informer_reward_records")
-          .select("date_of_information")
-          .eq("workspace_id", wid),
-      ]);
-
-      const cpgramMonthMap = new Map<string, number>();
-      for (const row of (cpgramRes.data ?? []) as AnyRecord[]) {
-        const dateStr = row.date_of_receipt as string | undefined;
-        if (!dateStr) continue;
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) continue;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        cpgramMonthMap.set(key, (cpgramMonthMap.get(key) ?? 0) + 1);
-      }
-
-      const informerMonthMap = new Map<string, number>();
-      for (const row of (informerRes.data ?? []) as AnyRecord[]) {
-        const dateStr = row.date_of_information as string | undefined;
-        if (!dateStr) continue;
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) continue;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        informerMonthMap.set(key, (informerMonthMap.get(key) ?? 0) + 1);
-      }
-
-      const allCpgramInformerMonths = Array.from(
-        new Set([...cpgramMonthMap.keys(), ...informerMonthMap.keys()]),
-      ).sort();
-
-      setCpgramInformerData(
-        allCpgramInformerMonths.map((key) => ({
-          month: new Date(key + "-01").toLocaleDateString("en-IN", {
-            month: "short",
-            year: "2-digit",
-          }),
-          cpgram: cpgramMonthMap.get(key) ?? 0,
-          informer: informerMonthMap.get(key) ?? 0,
-        })),
-      );
     } catch (e) {
       console.error("DGGIDashboard fetch error:", e);
     } finally {
@@ -2056,7 +1995,6 @@ export default function DGGIDashboard() {
             issueInvolvedData={issueInvolvedData}
             activityDatasets={activityDatasets}
             registerRows={allRegisterRows}
-            cpgramInformerData={cpgramInformerData}
             loading={loading}
           />
         ) : (

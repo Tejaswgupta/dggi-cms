@@ -59,7 +59,7 @@ interface NonIRRegisterRecord {
   id: string;
   record_id: string;
   intel_source: string;
-  date_of_receipt: string;
+  date_of_non_ir: string;
   file_no: string;
   taxpayer_name: string;
   detection_amount: string;
@@ -84,7 +84,7 @@ type SortDir = "asc" | "desc";
 const COLUMNS: RegisterColumn[] = [
   { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
   { key: "intel_source", label: "Intel Source", type: "text", width: "140px" },
-  { key: "date_of_receipt", label: "Date", type: "datepicker", width: "130px" },
+  { key: "date_of_non_ir", label: "Non-IR Date", type: "datepicker", width: "130px" },
   { key: "file_no", label: "File No.", type: "text", width: "140px" },
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
   { key: "detection_amount", label: "Detection (₹)", type: "number", width: "150px" },
