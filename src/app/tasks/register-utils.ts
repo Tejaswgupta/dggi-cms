@@ -66,12 +66,14 @@ export const currentFYFull = (): string => {
 };
 
 /**
- * Queries the DB for the current workspace record count and generates a sequential ID.
- * Safe for concurrent inserts across workspace members.
+ * Atomically generates the next sequential record ID via a Postgres sequence table.
+ * Race-safe: DB uses SELECT FOR UPDATE so concurrent inserts cannot produce the same ID.
+ * The `_table` and `filter` params are accepted but ignored — the sequence is keyed
+ * by (workspace_id, prefix, fy), not by row count.
  */
 export const generateWorkspaceRecordId = async (
   supabase: SupabaseClient,
-  table: string,
+  _table: string,
   prefix: string,
   workspaceId: string,
   options?: {
@@ -80,65 +82,96 @@ export const generateWorkspaceRecordId = async (
   },
 ): Promise<string> => {
   const sep = options?.separator ?? "/";
-  let query = supabase
-    .from(table)
-    .select("*", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId);
-  if (options?.filter) {
-    for (const [key, val] of Object.entries(options.filter)) {
-      query = query.eq(key, val);
-    }
-  }
-  const { count, error } = await query;
-  if (error) throw new Error(`Failed to fetch record count: ${error.message}`);
-  return `${prefix}${sep}${String((count ?? 0) + 1).padStart(3, "0")}${sep}${currentFY()}`;
+  const { data, error } = await supabase.rpc("next_record_id", {
+    p_workspace_id: workspaceId,
+    p_prefix: prefix,
+    p_fy: currentFY(),
+    p_separator: sep,
+  });
+  if (error) throw new Error(`Failed to generate record ID: ${error.message}`);
+  return data as string;
 };
 
 /**
- * Generates N sequential record IDs in a single DB round-trip.
+ * Atomically generates N sequential record IDs in a single DB round-trip.
  * Returns IDs like ["ARR/050/26-27", "ARR/051/26-27"] for a batch of 2.
  */
 export const generateWorkspaceRecordIds = async (
   supabase: SupabaseClient,
-  table: string,
+  _table: string,
   prefix: string,
   workspaceId: string,
   n: number,
   options?: { separator?: string },
 ): Promise<string[]> => {
   const sep = options?.separator ?? "/";
-  const { count, error } = await supabase
-    .from(table)
-    .select("*", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId);
-  if (error) throw new Error(`Failed to fetch record count: ${error.message}`);
-  const start = (count ?? 0) + 1;
-  const fy = currentFY();
-  return Array.from(
-    { length: n },
-    (_, i) => `${prefix}${sep}${String(start + i).padStart(3, "0")}${sep}${fy}`,
-  );
+  const { data, error } = await supabase.rpc("next_record_ids_batch", {
+    p_workspace_id: workspaceId,
+    p_prefix: prefix,
+    p_fy: currentFY(),
+    p_n: n,
+    p_separator: sep,
+  });
+  if (error) throw new Error(`Failed to generate record IDs: ${error.message}`);
+  return data as string[];
 };
 
 /**
- * Generates an IR case record ID matching the DGGI Excel convention:
- * IR cases  → "{seq}/GST/{YYYY-YY}"   e.g. "001/GST/2026-27"
- * NON-IR cases → "NIR-{seq}-{YY-YY}"  e.g. "NIR-001-26-27"  (unchanged)
+ * Atomically generates a Closure Register record ID in the prescribed format:
+ *   Full-payment closures  ("Closed After Payment of Tax")
+ *     → "DGGI/MZU/CR/FP/{YYYY-YY}/{NNN}"   e.g. "DGGI/MZU/CR/FP/2026-27/001"
+ *   All other closures
+ *     → "DGGI/MZU/CR-NSP-{YYYY-YY}/{NNN}"  e.g. "DGGI/MZU/CR-NSP-2026-27/001"
+ */
+export const generateClosureRecordId = async (
+  supabase: SupabaseClient,
+  workspaceId: string,
+  closureBy: string,
+): Promise<string> => {
+  const isFP = closureBy === "Closed After Payment of Tax";
+  const fy = currentFYFull();
+  // Use distinct prefix keys so FP and NSP counters don't share the same sequence.
+  const seqPrefix = isFP ? "CR_FP" : "CR_NSP";
+  const { data, error } = await supabase.rpc("next_seq_val", {
+    p_workspace_id: workspaceId,
+    p_prefix: seqPrefix,
+    p_fy: fy,
+  });
+  if (error) throw new Error(`Failed to generate closure record ID: ${error.message}`);
+  const seq = String(data as number).padStart(3, "0");
+  return isFP
+    ? `DGGI/MZU/CR/FP/${fy}/${seq}`
+    : `DGGI/MZU/CR-NSP-${fy}/${seq}`;
+};
+
+/**
+ * Atomically generates an IR case record ID matching the DGGI Excel convention:
+ * IR cases     → "{seq}/GST/{YYYY-YY}"  e.g. "001/GST/2026-27"
+ * NON-IR cases → "NIR-{seq}-{YY-YY}"   e.g. "NIR-001-26-27"
  */
 export const generateIRCaseRecordId = async (
   supabase: SupabaseClient,
   workspaceId: string,
   isIR: boolean,
 ): Promise<string> => {
-  const { count, error } = await supabase
-    .from("dggi_records")
-    .select("*", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
-    .eq("is_ir", isIR);
-  if (error) throw new Error(`Failed to fetch record count: ${error.message}`);
-  const seq = String((count ?? 0) + 1).padStart(3, "0");
-  if (isIR) return `${seq}/GST/${currentFYFull()}`;
-  return `NIR-${seq}-${currentFY()}`;
+  if (isIR) {
+    const fy = currentFYFull();
+    const { data, error } = await supabase.rpc("next_seq_val", {
+      p_workspace_id: workspaceId,
+      p_prefix: "IR",
+      p_fy: fy,
+    });
+    if (error) throw new Error(`Failed to generate IR record ID: ${error.message}`);
+    return `${String(data as number).padStart(3, "0")}/GST/${fy}`;
+  }
+  const fy = currentFY();
+  const { data, error } = await supabase.rpc("next_seq_val", {
+    p_workspace_id: workspaceId,
+    p_prefix: "NIR",
+    p_fy: fy,
+  });
+  if (error) throw new Error(`Failed to generate NIR record ID: ${error.message}`);
+  return `NIR-${String(data as number).padStart(3, "0")}-${fy}`;
 };
 
 /**

@@ -1,0 +1,42 @@
+id,name,email,dggi_role,groups,created_at
+5982ce23-16ad-45a8-ab37-33e45aeaf3c1,Ajay Kumar,ajayk.g101302@gov.in,SIO,Group B,2026-07-10T09:18:10.520543+00:00
+d69419b3-2f55-4370-9d7d-5b5aaea66c64,Ajay Singh,ajayus.g149501@gov.in,SIO,Group A,2026-07-10T09:18:08.459502+00:00
+bc2542e5-35ae-4213-b4fd-8ba365432937,Ajinkya Hari Katkar,ajinkya.k1@gov.in,DD,"Group C, Group D",2026-07-10T09:12:25.013149+00:00
+782673af-d398-487c-a66d-20252e960677,Ashwinkumar Dhanrup Ukey,ashwin.ukey@gov.in,ADC,,2026-07-10T09:12:24.236346+00:00
+fff3ede3-804c-44e4-9439-a785f952e2f1,Bhoopender Singh Dagur,bhoopendrasd.g141301@gov.in,SIO,Group B,2026-07-10T09:18:09.628778+00:00
+74256fda-2af4-4de5-a260-f6440e7d3360,DD Intelligence,dd-int@gov.in,DD_INT,,2026-07-17T07:26:59.007876+00:00
+7813cc23-c5f2-49d9-a381-a32ebec7cae3,Deshraj Meena,deshrajm.g141601@gov.in,SIO,Group F,2026-07-10T09:18:15.691848+00:00
+39ea1d20-111a-480e-a55e-719a4cd93c22,Dhananjay Singh,dhananjays.g140901@gov.in,SIO,Group D,2026-07-10T09:18:12.826235+00:00
+a4a4478d-62ca-48ba-bb67-ea0b8d64c3e7,Dharmendra Kumar Rai,dharmendrakr.g141301@gov.in,SIO,Group F,2026-07-10T09:18:15.114003+00:00
+cdb715ae-b7a1-4298-980a-855210d92437,Jagdish Rawat,jagdishrr.g140701@gov.in,SIO,Group B,2026-07-10T09:18:09.931813+00:00
+0617d41e-b319-4b4f-a43b-2f5c17602636,Jagtap Vinod Ramdas,jagtapvr.c020701@gov.in,SIO,Group F,2026-07-10T09:18:15.400496+00:00
+a7630771-33cf-4c7a-a4fa-eac4bd408173,Jens Chhikara,jensc.g141301@gov.in,SIO,Group E,2026-07-10T09:18:14.539426+00:00
+f2f02016-a154-4d61-9d37-4ee4a139e8b9,Kapil Dev Gupta,kapildg.g101301@gov.in,SIO,Group C,2026-07-10T09:18:12.250762+00:00
+f37ff16a-5262-466f-879a-b1a19561f6e0,K Engineer,k.engineer@gov.in,ADG,,2026-07-10T09:08:05.514348+00:00
+2ed6939a-2407-471c-906a-c2f728538245,Kuldeep R. Vashisth,kuldeep.d111501@gov.in,SIO,Group A,2026-07-10T09:18:07.844446+00:00
+a07baac9-3ff5-4b66-a966-fffd53e1dba2,Mahendra Kumar Verma,mahendrakv.g151601@gov.in,SIO,Group E,2026-07-10T09:18:13.687246+00:00
+24a25249-6886-4320-ae6f-f442cddf8f15,Maninder,maninder.g141601@gov.in,SIO,Group D,2026-07-10T09:18:13.402695+00:00
+87c9bb06-eb70-4190-9488-dd4ddf73d696,Manoj Kumar,manojk.g149601@gov.in,SIO,Group F,2026-07-10T09:18:07.098756+00:00
+e220fa79-451d-4866-a73e-b4cddfb6117d,Michael Andrew,michaelj.andrew@nic.in,SIO,Group A,2026-07-10T09:18:07.474831+00:00
+b7c1e4b0-0cca-4c7c-9c76-242915c06325,Mohit Gupta,Mohitg.g141601@gov.in,SIO,Group C,2026-07-10T09:18:11.678138+00:00
+9416b6e8-bada-4139-a4fd-db40869b51e9,Monu Prasant Rai,monupr.g141301@gov.in,SIO,Group B,2026-07-10T09:18:10.227274+00:00
+11ff18e5-ce8a-4b71-af61-e6271e202da8,Neeraj Pandey,neerajvp.d110701@gov.in,SIO,Group C,2026-07-10T09:18:10.811655+00:00
+ae4a4dea-f1fa-4081-b529-fa15956c12fd,Neha Sudhir Nikam,nehasudhir.nikam@gov.in,DD,Group E,2026-07-10T09:12:26.344662+00:00
+eda7afce-5995-49b9-b04c-c1c337b93473,Nitish Kaloya,nitish.kaloya@gov.in,SIO,Group E,2026-07-10T09:18:13.96574+00:00
+0132624d-ff3c-48d8-87c3-7a049de8ab07,Raj Kumar,rajk.g141605@gov.in,SIO,Group A,2026-07-10T09:18:08.763985+00:00
+968a3236-8df2-4492-90f3-60d6a5403879,Rajneesh Kumar Choudhary,rajneeshkc.g140901@gov.in,SIO,Group E,2026-07-10T09:18:14.25804+00:00
+7d0b5d7a-eb2a-4d79-b788-19688ea5c29e,Rishi Yadav,rishi.yadav29@gov.in,DD,Group A,2026-07-10T09:12:25.567656+00:00
+e3d5ba1a-c82d-40ca-ae7a-abe695ec0fc3,Sanjay Poojari,sanjayp.g149301@gov.in,SIO,Group D,2026-07-10T09:18:12.540865+00:00
+54af6024-fbc2-403e-adab-21fb143fa504,Sanjib Kumar Paul,paul.sanjib@gov.in,SIO,Group A,2026-07-10T09:18:08.142165+00:00
+c2a56d03-1eb2-4df6-a887-5967cc097952,Shekhar Singh,shekhars.c099401@gov.in,AD,Group F,2026-07-10T09:12:26.649103+00:00
+3fba978a-866b-4def-9740-a3f9e1184924,Shubham Jaiswal,shubham.jaiswal54@gov.in,DD,Group B,2026-07-10T09:12:25.962001+00:00
+ad0b145b-2222-4299-8af6-c96b2019b0f2,Shyam Ji Mishra,shyamjm.g141601@gov.in,SIO,Group D,2026-07-10T09:18:13.112321+00:00
+4e6d5072-4d4b-43c9-af76-9f8c2242982c,SIO Intelligence,sio-int@gov.in,SIO_INT,,2026-07-17T07:26:59.376434+00:00
+a0216ed4-0e37-4c17-b4eb-4aa5b3494697,S. Manikanta,manikantas.g211301@gov.in,SIO,Group A,2026-07-10T09:18:09.053738+00:00
+11f229f8-e610-482d-84ef-34fab06f665d,Sunil Kumar,sk.mishra40@gov.in,ADC,,2026-07-10T09:12:23.71106+00:00
+2894127f-a2ed-4c93-9676-9b1961617596,Utsav,utsav.g141501@gov.in,SIO,Group B,2026-07-10T09:18:09.340094+00:00
+c286719f-d702-4bcc-9acd-e330c1406e46,Vikramjeet Kaur,vikramjeetk.g140601@gov.in,SIO,Group F,2026-07-10T09:18:14.818405+00:00
+03d4ad47-1645-4c27-8eb2-cd14b24851db,Vikram Singh,vikrams.g141501@gov.in,SIO,Group C,2026-07-10T09:18:11.385342+00:00
+ad939383-9c5e-4bf9-bf1b-ca434f430319,Vineet Kumar Upadhyay,vineetku.g141501@gov.in,SIO,Group C,2026-07-10T09:18:11.966088+00:00
+f1172bbb-3086-4176-9f24-56e0c78a51d8,Yogesh Gunaji Loke,yogesh.loke@gov.in,ADC,,2026-07-10T09:12:24.562625+00:00
+19648d13-2481-40cf-88f2-5f6ac4756cb9,Yogesh Mishra,yogeshm.g149201@gov.in,SIO,Group C,2026-07-10T09:18:11.096402+00:00

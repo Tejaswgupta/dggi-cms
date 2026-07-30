@@ -42,6 +42,7 @@ from datetime import date, datetime
 
 import openpyxl
 from dotenv import load_dotenv
+
 from supabase import create_client
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -302,8 +303,6 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
         issue_parts = []
         if clean(row[13]):
             issue_parts.append(clean(row[13]))
-        if ir_no:
-            issue_parts.append(f"IR No: {ir_no}")
 
         payload = {
             "taxpayer_name": taxpayer_name,

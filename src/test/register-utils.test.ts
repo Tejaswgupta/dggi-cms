@@ -149,20 +149,16 @@ describe("generateWorkspaceRecordId", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  const makeSupabase = (count: number) => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          count,
-          error: null,
-        }),
-      }),
+  const makeSupabase = (returnId: string | null, rpcError?: string) => ({
+    rpc: (_fn: string, _args: unknown) => ({
+      data: returnId,
+      error: rpcError ? { message: rpcError } : null,
     }),
   });
 
-  it("generates ID with padded count+1 and current FY", async () => {
+  it("returns the ID string from the RPC", async () => {
     vi.setSystemTime(new Date("2025-06-01")); // FY 25-26
-    const supabase = makeSupabase(0);
+    const supabase = makeSupabase("ARR/001/25-26");
     const id = await generateWorkspaceRecordId(
       supabase as any,
       "dggi_arrest_records",
@@ -172,9 +168,9 @@ describe("generateWorkspaceRecordId", () => {
     expect(id).toBe("ARR/001/25-26");
   });
 
-  it("increments correctly when records exist", async () => {
+  it("returns the ID for a higher sequence number", async () => {
     vi.setSystemTime(new Date("2025-06-01"));
-    const supabase = makeSupabase(4);
+    const supabase = makeSupabase("SCN/005/25-26");
     const id = await generateWorkspaceRecordId(
       supabase as any,
       "dggi_scn_records",
@@ -184,29 +180,20 @@ describe("generateWorkspaceRecordId", () => {
     expect(id).toBe("SCN/005/25-26");
   });
 
-  it("uses custom separator when provided", async () => {
+  it("passes the custom separator to the RPC", async () => {
     vi.setSystemTime(new Date("2025-06-01"));
-    const supabase = makeSupabase(2);
-    const id = await generateWorkspaceRecordId(
-      supabase as any,
-      "dggi_arrest_records",
-      "ARR",
-      "ws-1",
-      { separator: "/" },
-    );
-    expect(id).toBe("ARR/003/25-26");
+    const rpcSpy = vi.fn().mockReturnValue({ data: "ARR/003/25-26", error: null });
+    const supabase = { rpc: rpcSpy };
+    await generateWorkspaceRecordId(supabase as any, "dggi_arrest_records", "ARR", "ws-1", {
+      separator: "/",
+    });
+    expect(rpcSpy).toHaveBeenCalledWith("next_record_id", expect.objectContaining({ p_separator: "/" }));
   });
 
-  it("throws when supabase returns an error", async () => {
-    const supabase = {
-      from: () => ({
-        select: () => ({
-          eq: () => ({ count: null, error: { message: "DB down" } }),
-        }),
-      }),
-    };
+  it("throws when the RPC returns an error", async () => {
+    const supabase = makeSupabase(null, "DB down");
     await expect(
       generateWorkspaceRecordId(supabase as any, "table", "PRE", "ws-1"),
-    ).rejects.toThrow("Failed to fetch record count: DB down");
+    ).rejects.toThrow("Failed to generate record ID: DB down");
   });
 });

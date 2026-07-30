@@ -88,6 +88,7 @@ import {
 import { type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
+  generateClosureRecordId,
   generateWorkspaceRecordId,
   REGISTER_PREFIXES,
 } from "./register-utils";
@@ -3660,14 +3661,10 @@ const DGGIComponent = () => {
     );
 
     if (shouldWriteClosureEntry) {
-      const closureRecordId = await generateWorkspaceRecordId(
+      const closureRecordId = await generateClosureRecordId(
         supabase,
-        "dggi_closure_records",
-        isIrRecord
-          ? REGISTER_PREFIXES.CLOSURE_IR
-          : REGISTER_PREFIXES.CLOSURE_NON_IR,
         workspaceId,
-        { filter: { is_ir: isIrRecord } },
+        dialogDraft.closure_by as string,
       );
       const { error: closureErr } = await supabase
         .from("dggi_closure_records")
@@ -4070,12 +4067,10 @@ const DGGIComponent = () => {
         );
 
         // Write closure entry for the NON-IR.
-        const closureRecordId = await generateWorkspaceRecordId(
+        const closureRecordId = await generateClosureRecordId(
           supabase,
-          "dggi_closure_records",
-          REGISTER_PREFIXES.CLOSURE_NON_IR,
           workspaceId,
-          { filter: { is_ir: false } },
+          sourceDraft.closure_by as string,
         );
         const { error: closureErr } = await supabase
           .from("dggi_closure_records")
