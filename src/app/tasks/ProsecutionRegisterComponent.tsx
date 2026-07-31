@@ -69,7 +69,7 @@ const EMPTY_ARREST: Omit<ArrestCaseRecord, "id"> = {
 
 interface NonArrestRecord {
   id: string; record_id: string; linked_case_id: string;
-  person_name: string; age: string; date_of_arrest: string;
+  person_name: string; age: string; date_of_prosecution_sanction_order: string;
   amount_evaded_crore: string; entity_name: string; gstin: string; brief_modus_operandi: string;
   prosecution_complaint_status: string; date_of_filing: string; reasons_not_filed: string;
   sio: string; sio_name: string; group: string;
@@ -80,7 +80,7 @@ const NON_ARREST_COLS: RegisterColumn[] = [
   { key: "linked_case_id", label: "Linked Case", type: "caselink", width: "180px" },
   { key: "person_name", label: "Accused Person", type: "text", width: "170px" },
   { key: "age", label: "Age", type: "text", width: "80px" },
-  { key: "date_of_arrest", label: "Date of Detection", type: "datepicker", width: "150px" },
+  { key: "date_of_prosecution_sanction_order", label: "Date of Prosecution Sanction Order", type: "datepicker", width: "220px" },
   { key: "amount_evaded_crore", label: "Amount Evaded (Rs.)", type: "rupees", width: "160px" },
   { key: "entity_name", label: "Entity Name", type: "text", width: "170px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
@@ -94,7 +94,7 @@ const NON_ARREST_COLS: RegisterColumn[] = [
 
 const EMPTY_NON_ARREST: Omit<NonArrestRecord, "id"> = {
   record_id: "", linked_case_id: "", person_name: "", age: "",
-  date_of_arrest: "", amount_evaded_crore: "", entity_name: "",
+  date_of_prosecution_sanction_order: "", amount_evaded_crore: "", entity_name: "",
   gstin: "", brief_modus_operandi: "", prosecution_complaint_status: "", date_of_filing: "",
   reasons_not_filed: "", sio: "", sio_name: "", group: "",
 };
