@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### 2026-07-31
+
+#### Prosecution Register — Rename "Date of Detection" to "Date of Prosecution Sanction Order" (Non-Arrest Cases)
+- Renamed the `date_of_arrest` column on `dggi_prosecution_non_arrest_records` to `date_of_prosecution_sanction_order` via DB migration
+- Updated Annexure II (Non-Arrest Cases) column label from "Date of Detection" to "Date of Prosecution Sanction Order" with an adjusted width
+- `ArrestCaseRecord` (Annexure I) retains `date_of_arrest` / "Date of Arrest" — unchanged
+
+#### Prosecution Data — Bulk Ingest (`scripts/ingest_prosecution_data.py`)
+- Ingested 53 arrest prosecution records (ARR/005–057/26-27 + PRA/002–054/26-27) and 25 non-arrest prosecution records (PRN/033–057/26-27) from `Prosecution List DGGI MZU_Updated.xlsx`
+- Fixed `amount_evaded_crore` in non-arrest sheet: was using `clean_rupees` (pass-through), now correctly uses `lakhs_to_rupees` (×1,00,000) — consistent with arrest sheet
+- Fixed `prosecution_complaint_status` date formatting: openpyxl `datetime` objects were stored as `"YYYY-MM-DD HH:MM:SS"`; `clean()` now short-circuits on `datetime`/`date` instances and returns ISO date string (`"YYYY-MM-DD"`)
+- Added `_sync_sequences()` post-ingest step: upserts `record_id_sequences` for ARR, PRA, PRN so subsequent app inserts via `next_record_id()` continue from the correct counter instead of restarting at 001
+
 ### 2026-06-23
 
 #### SIO Selector — Group Filtering (all registers)
