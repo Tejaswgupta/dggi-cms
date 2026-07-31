@@ -174,7 +174,7 @@ def parse_amount(val) -> str | None:
 # Upsert: SCN No. → insert
 # ---------------------------------------------------------------------------
 
-def upsert_scn_record(
+def insert_scn_record(
     sb,
     workspace_id: str,
     sr_no: int,
@@ -186,25 +186,6 @@ def upsert_scn_record(
     dry_run: bool = False,
 ) -> str:
     try:
-        # 1. Match on SCN No. vs record_id
-        if scn_no:
-            res = (
-                sb.table("dggi_scn_records")
-                .select("id,record_id")
-                .eq("workspace_id", workspace_id)
-                .eq("record_id", scn_no)
-                .execute()
-            )
-            if res.data:
-                row = res.data[0]
-                if dry_run:
-                    print(f"    → UPDATE (scn_no)  existing record_id={row['record_id']!r}  db_id={row['id']}")
-                else:
-                    sb.table("dggi_scn_records").update(payload).eq("id", row["id"]).execute()
-                log.append({"action": "update", "match_by": "scn_no", "sr_no": sr_no, "record_id": row["record_id"], "db_id": row["id"], "noticee_name": payload.get("noticee_name")})
-                return "updated"
-
-        # 2. Insert — use scn_no as record_id (fallback to sheet_abbr-{sr_no:03d})
         new_record_id = scn_no or f"{sheet_abbr}-{sr_no:03d}"
         insert_payload = {**payload, "workspace_id": workspace_id, "record_id": new_record_id}
         if dry_run:
@@ -256,7 +237,7 @@ def resolve_officer(raw: str | None, user_cache: dict) -> tuple:
 
 def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, user_cache: dict, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
-    inserted = updated = skipped_count = 0
+    inserted = skipped_count = 0
 
     # Rows 0–2 are header / sub-header / column-number rows; data starts at index 3
     for row in rows[3:]:
@@ -280,7 +261,6 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, u
         final_group = group_val or user_group
 
         payload = {
-            "scn_no": scn_no,
             "date_of_scn": parse_date(row[2]),
             "noticee_name": taxpayer_name,
             "gstin_pan": clean(row[4]),
@@ -309,19 +289,16 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, u
                 f" | scn_no={scn_no} | sheet={sheet_name.strip()!r}"
             )
 
-        result = upsert_scn_record(
+        result = insert_scn_record(
             sb, workspace_id, sr_no, scn_no, sheet_abbr, payload, skipped, log, dry_run
         )
         if result == "inserted":
             inserted += 1
-        elif result == "updated":
-            updated += 1
         else:
             skipped_count += 1
 
     print(
         f"\n[{sheet_name.strip()}]  {'Would insert' if dry_run else 'Inserted'}: {inserted}"
-        f" | {'Would update' if dry_run else 'Updated'}: {updated}"
         f" | Skipped: {skipped_count}"
     )
 

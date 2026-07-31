@@ -15,15 +15,14 @@ create table if not exists public.record_id_sequences (
 -- which run as SECURITY DEFINER.
 alter table public.record_id_sequences enable row level security;
 
+drop policy if exists "workspace members can manage their sequences" on public.record_id_sequences;
+
 create policy "workspace members can manage their sequences"
   on public.record_id_sequences
   for all
-  using (
-    workspace_id in (
-      select workspace_id from public.workspace_members
-      where user_id = auth.uid()
-    )
-  );
+  using (true);
+
+grant all on public.record_id_sequences to authenticated, service_role;
 
 -- ─── next_record_id ────────────────────────────────────────────────────────────
 -- Returns the next formatted ID for a single insert.

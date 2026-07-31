@@ -92,6 +92,10 @@ def parse_date(val) -> str | None:
 def clean(val) -> str | None:
     if val is None:
         return None
+    if isinstance(val, datetime):
+        return val.date().isoformat()
+    if isinstance(val, date):
+        return val.isoformat()
     s = str(val).strip()
     if s == "-" or s.upper() == "NA" or s == "":
         return None
@@ -311,7 +315,7 @@ def insert_non_arrest_prosecution(
         "sio_name": clean(row[2]),
         "entity_name": clean(row[6]),
         "gstin": clean(row[8]),
-        "amount_evaded_crore": clean_rupees(row[9]),
+        "amount_evaded_crore": lakhs_to_rupees(row[9]),
         "person_name": person_name,
         "age": clean(row[12]),
         "date_of_arrest": parse_date(row[13]),
@@ -416,6 +420,49 @@ def process_non_arrest_sheet(ws, sheet_name: str, sb, workspace_id: str, skipped
 
 
 # ---------------------------------------------------------------------------
+# Post-ingest: sync record_id_sequences so app inserts continue from the right value
+# ---------------------------------------------------------------------------
+
+def _sync_sequences(sb, workspace_id: str):
+    """Upsert record_id_sequences for ARR, PRA, PRN so next app insert doesn't collide."""
+    import re
+
+    table_prefix_map = [
+        ("dggi_arrest_records", "ARR"),
+        ("dggi_prosecution_arrest_records", "PRA"),
+        ("dggi_prosecution_non_arrest_records", "PRN"),
+    ]
+
+    for table, prefix in table_prefix_map:
+        res = (
+            sb.table(table)
+            .select("record_id")
+            .eq("workspace_id", workspace_id)
+            .like("record_id", f"{prefix}/%")
+            .execute()
+        )
+        by_fy: dict[str, int] = {}
+        for r in res.data:
+            m = re.match(rf"{re.escape(prefix)}/(\d+)/(.+)", r["record_id"] or "")
+            if m:
+                fy = m.group(2)
+                by_fy[fy] = max(by_fy.get(fy, 0), int(m.group(1)))
+
+        for fy, max_seq in by_fy.items():
+            next_val = max_seq + 1
+            sb.table("record_id_sequences").upsert(
+                {
+                    "workspace_id": workspace_id,
+                    "prefix": prefix,
+                    "fy": fy,
+                    "next_val": next_val,
+                },
+                on_conflict="workspace_id,prefix,fy",
+            ).execute()
+            print(f"  Synced sequence {prefix}/{fy} → next_val={next_val}")
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -481,6 +528,9 @@ def main():
             print(f"\nWould skip {len(skipped)} rows (errors during DB lookup).")
     else:
         print("\nNo rows skipped.")
+
+    if not dry_run:
+        _sync_sequences(sb, workspace_id)
 
     print("\nDry run complete — no data written." if dry_run else "\nDone.")
 
