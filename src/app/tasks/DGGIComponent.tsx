@@ -145,6 +145,7 @@ export interface DGGIRecord {
   taxpayer_name: string;
   gstins: string;
   file_no: string;
+  legacy_non_ir_no: string;
   date_of_initiation: string;
   intel_approved_date: string;
   mode_of_initiation: ModeOfInitiation | "";
@@ -232,6 +233,7 @@ export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   taxpayer_name: "",
   gstins: "",
   file_no: "",
+  legacy_non_ir_no: "",
   date_of_initiation: today(),
   intel_approved_date: "",
   mode_of_initiation: "",
@@ -492,6 +494,13 @@ const NON_IR_COLUMNS: ColDef[] = [
   {
     key: "record_id",
     label: "NON-IR No.",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
+  {
+    key: "legacy_non_ir_no",
+    label: "No. in Register",
     type: "text",
     width: "140px",
     readOnly: true,

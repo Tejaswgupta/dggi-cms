@@ -1,843 +1,770 @@
 [
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 1,
     "record_id": "1/GST/2025-26",
-    "db_id": "891c7929-13aa-49d2-a542-ac7fa9b6b3a4"
+    "db_id": "05889190-b76f-4832-b8f8-24f481619d01"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 2,
     "record_id": "2/GST/2025-26",
-    "db_id": "66e8b671-1d4d-4fb4-a5b7-2005a25cba73"
+    "db_id": "8afb367b-f495-4d35-b559-891e0836870f"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 4,
     "record_id": "3/GST/2025-26",
-    "db_id": "e3ecaebc-4ada-40eb-b58b-f52016617cdf"
+    "db_id": "d3cfe5b0-8535-485f-ab06-58b5fbb5f354"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 5,
     "record_id": "4/GST/2025-26",
-    "db_id": "791f29c8-22b2-45c0-a0ae-c47323d9113c"
+    "db_id": "0b9b13b4-d66e-46df-9d57-0f213dc6f0e4"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 6,
     "record_id": "5/GST/2025-26",
-    "db_id": "4cd2d751-16e8-49fd-804d-14478b1bb98f"
+    "db_id": "9f3ce5d9-77c5-400b-b05a-e749f4e757e1"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 7,
     "record_id": "6/GST/2025-26",
-    "db_id": "a68473ef-7fe0-4327-a99c-38a03996d5cc"
+    "db_id": "4727e10e-2b4a-4c18-a90f-e9fcc55355a8"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 3,
     "record_id": "7/GST/2025-26",
-    "db_id": "543d3a92-6111-4486-8727-e767cf3245b8"
+    "db_id": "4222eed4-81c1-4e0c-a3b4-3ec48bd0f9fb"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 8,
     "record_id": "8/GST/2025-26",
-    "db_id": "b82d8907-4b17-4296-a6fd-41852d1adae8"
+    "db_id": "84aebc5f-1379-4aa9-aeff-7ec9c9655504"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 9,
     "record_id": "9/GST/2025-26",
-    "db_id": "df4fe05e-2f87-4f8c-a06b-8b86fee5fc01"
+    "db_id": "2ceaa0f1-b8f7-4a4d-83f8-39c7066e14b4"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 10,
     "record_id": "10/GST/2025-26",
-    "db_id": "6595cf66-76f4-43a5-b448-b2d7d95c9d6e"
+    "db_id": "5e646c46-d781-48c5-baec-0369c24c5a37"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 11,
     "record_id": "11/GST/2025-26",
-    "db_id": "11b7458c-de5f-4e04-ad35-b4110e76b4ed"
+    "db_id": "8b4fda63-b58c-4f3b-b012-fc93259239f9"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 12,
     "record_id": "12/GST/2025-26",
-    "db_id": "4baaea1a-03b8-4a01-b9fd-e3bba37592ee"
+    "db_id": "8a8f7095-71d3-4e2a-9af2-b4d3d924a925"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 13,
     "record_id": "13/GST/2025-26",
-    "db_id": "0d1dfeef-8036-4998-82ad-f43d43ef86c9"
+    "db_id": "3cadb906-403b-4380-a51f-930e828cb5ae"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 14,
     "record_id": "14/GST/2025-26",
-    "db_id": "b242c1d2-7d97-443e-8fe6-4eda8ad8781f"
+    "db_id": "c6109f04-d84f-4fde-8e09-c57abe561b99"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 15,
     "record_id": "15/GST/2025-26",
-    "db_id": "8fdde1d3-eb0a-488f-a4ef-e53ba46ad987"
+    "db_id": "909c34d8-c96f-4540-be04-885d65008d1e"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 34,
     "record_id": "16/GST/2025-26",
-    "db_id": "8695bc15-af24-4511-8a36-38c93dd1bceb"
+    "db_id": "1df0471a-2a71-4be9-8eca-5f7d9c933790"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 16,
     "record_id": "17/GST/2025-26",
-    "db_id": "ef0ed723-a716-4e0b-bc91-d443c09e5f9a"
+    "db_id": "ff1e8727-2522-4a44-83b1-dfb23e1eba1f"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 17,
     "record_id": "18/GST/2025-26",
-    "db_id": "f0d62084-56c1-4b6f-8709-ccc71f413b4c"
+    "db_id": "1192af44-2e16-4d57-bdcf-d451ee47f10b"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 18,
     "record_id": "19/GST/2025-26",
-    "db_id": "30d3a74f-84e4-4b03-b0e7-a05e2ae63e31"
+    "db_id": "8c36ca66-9d9b-4258-9d52-db19b12588f4"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 19,
     "record_id": "20/GST/2025-26",
-    "db_id": "bab6f775-c826-4604-a984-d5cdd8cef446"
+    "db_id": "e85b9c00-61de-4985-b38f-43bf8e8a8302"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 20,
     "record_id": "21/GST/2025-26",
-    "db_id": "f7cf8068-6482-48b6-bfa1-0deea8498f66"
+    "db_id": "4667fc7e-be5d-473e-b2e1-326dc43ee297"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 21,
     "record_id": "22/GST/2025-26",
-    "db_id": "4fef239f-9598-4c8f-bc75-3bc7f662e101"
+    "db_id": "9fd75580-4b00-4419-816c-83275b4ab1ab"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 22,
     "record_id": "23/GST/2025-26",
-    "db_id": "91f1d942-e329-463b-ab68-b3b0aa7804ae"
+    "db_id": "f9d5f68d-353b-4f11-a1fc-439029196800"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 23,
     "record_id": "24/GST/2025-26",
-    "db_id": "d1c5bd8a-7390-41ca-9959-3f042f2b95ab"
+    "db_id": "3771ba69-dec8-4631-b40f-61ea18a2118e"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 24,
     "record_id": "25/GST/2025-26",
-    "db_id": "3a1a7ea9-9e6c-430c-bb3b-d284b7a83a1a"
+    "db_id": "7f8edab6-0ba0-465f-8b1d-98358872ec99"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 25,
     "record_id": "26/GST/2025-26",
-    "db_id": "9d632c75-308d-4d2e-97cd-bf0eaa599a85"
+    "db_id": "67574a75-ccc7-461f-82f2-6641c67d1b61"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 26,
     "record_id": "27/GST/2025-26",
-    "db_id": "c980c1b3-3246-47ea-a558-567c01e1ab10"
+    "db_id": "8670333b-0beb-437b-870f-44463b744a16"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 27,
     "record_id": "28/GST/2025-26",
-    "db_id": "0646679b-1472-42a9-8895-a67907ab54bc"
+    "db_id": "452d4ece-520b-435b-a2ff-20214149e380"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 28,
     "record_id": "29/GST/2025-26",
-    "db_id": "2a0440a3-03c5-4ea9-9b39-1f8f26f8c460"
+    "db_id": "1d8a471b-4798-4005-9e69-bd19478717d8"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 29,
     "record_id": "30/GST/2025-26",
-    "db_id": "fecafe52-4144-4c1c-9bb6-22a6a75291ef"
+    "db_id": "56cd085e-1a03-48b9-a1ad-1be01ba7474b"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 30,
     "record_id": "31/GST/2025-26",
-    "db_id": "7da39d78-42df-4837-ae84-eacc6528a618"
+    "db_id": "5d3ae0a6-be4b-46bb-ab2b-88dcc5604a99"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 31,
     "record_id": "32/GST/2025-26",
-    "db_id": "1ad10229-9011-4ba2-8851-efd85de8c812"
+    "db_id": "4da92b98-d6eb-4909-b69c-4c3cff5f81e9"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 32,
     "record_id": "33/GST/2025-26",
-    "db_id": "999f91c1-6216-46f0-8fa8-f794fa1dbcf6"
+    "db_id": "a80ed5e8-ca67-4fdd-b8c4-c33fd940875d"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 33,
     "record_id": "34/GST/2025-26",
-    "db_id": "5568741c-fd00-412e-b709-4e8094cdb305"
+    "db_id": "46229766-187c-4eaf-a82f-1d0d8c0be395"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 35,
     "record_id": "35/GST/2025-26",
-    "db_id": "3d676553-ace3-4b87-8122-d2e9b2863350"
+    "db_id": "a28d0b58-f1fc-4c9c-9b77-ecec52207604"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 36,
     "record_id": "36/GST/2025-26",
-    "db_id": "47e391df-efbf-476d-a7a9-05a869c057a0"
+    "db_id": "7edc6fce-7cc1-4a49-88a7-c9b24bfd8f09"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 37,
     "record_id": "37/GST/2025-26",
-    "db_id": "2f2831c4-662b-4460-b86c-77ecb9eb0b16"
+    "db_id": "5cb08318-f4b6-4098-9ffa-5ce2b960896d"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 38,
     "record_id": "38/GST/2025-26",
-    "db_id": "578f13cf-7225-4dbc-a123-190fafc3d7ac"
+    "db_id": "43e09c29-6e60-40ba-a102-31dc2740d6db"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 39,
     "record_id": "39/GST/2025-26",
-    "db_id": "3c23b02c-1377-4855-8bdd-e4576ff62232"
+    "db_id": "12b47870-8c3d-45c0-8056-689449ac3691"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 40,
     "record_id": "40/GST/2025-26",
-    "db_id": "bb6c25ff-2d0a-473d-8ad2-bb760ebccc74"
+    "db_id": "aef0948c-efd2-4edb-8902-a82efa3c5ee3"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 41,
     "record_id": "41/GST/2025-26",
-    "db_id": "7cd1c457-5e5d-4f68-ba19-57a4de70a4c8"
+    "db_id": "ad233d19-3bd0-4a68-ac57-5cfa5caa70f4"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 42,
     "record_id": "42/GST/2025-26",
-    "db_id": "fa2bdb43-2c26-4635-957a-1226e622f625"
+    "db_id": "0b0c3103-6021-42b5-ae63-01bcbb52fc70"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 43,
     "record_id": "43/GST/2025-26",
-    "db_id": "f7d8c013-5945-41a0-990d-344647ae9390"
+    "db_id": "966f9693-daae-441c-8b5a-fb8b404b0abb"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 44,
     "record_id": "44/GST/2025-26",
-    "db_id": "e0a98a3a-1faa-4879-8de2-2088c26818b0"
+    "db_id": "2c79452c-3e03-43ef-bfba-af51103fc5d4"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 45,
     "record_id": "45/GST/2025-26",
-    "db_id": "5527faf4-a546-4140-92cf-da6855f5d84f"
+    "db_id": "cb1c4150-dae7-49ed-8e04-6b7ebf50bc3d"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 46,
     "record_id": "46/GST/2025-26",
-    "db_id": "759db474-b6f2-4ffb-8bd0-b39a050811ca"
+    "db_id": "2c2359c1-4d70-4a59-bd4d-944773cc3eeb"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 47,
     "record_id": "47/GST/2025-26",
-    "db_id": "31df59b2-ec6b-4337-ae50-084238cd7e20"
+    "db_id": "e414125e-d145-4527-b9a9-d7e1fbdc472a"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 48,
     "record_id": "48/GST/2025-26",
-    "db_id": "561b7311-c0a3-4c0a-9f54-bc60ae692cab"
+    "db_id": "e3f946dc-7192-4117-b3f6-05c39e9feb9e"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 49,
     "record_id": "49/GST/2025-26",
-    "db_id": "bdad0fb8-0a96-47fa-9168-00c646f663a0"
+    "db_id": "a24c0f27-9d68-4280-8118-a146eb05e0f3"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 53,
     "record_id": "50/GST/2025-26",
-    "db_id": "38401ceb-5475-4be6-8bfb-7728fcde8ad9"
+    "db_id": "99195d30-a458-4c7c-a1f4-b3aaf2c14b93"
   },
   {
     "action": "insert",
     "sr_no": 50,
     "record_id": "51/GST/2025-26",
-    "db_id": "0bbd97d4-3306-4e5e-a573-eff5afeb0c86"
+    "db_id": "e09e4e4e-69d3-40fe-90bb-bd727965db4f"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 51,
     "record_id": "52/GST/2025-26",
-    "db_id": "066fe79e-e52e-4bcd-8612-6cc90b0b2948"
+    "db_id": "3c6ae9f2-f51a-4e22-8135-3833375ffb68"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 52,
     "record_id": "53/GST/2025-26",
-    "db_id": "c5344b77-0cc4-447f-90a4-a8ab305b0ffd"
+    "db_id": "059c180e-d537-4b22-be47-7f752e954711"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 54,
     "record_id": "54/GST/2025-26",
-    "db_id": "2d4f52e9-6cbb-4b95-aef4-cc1c67299229"
+    "db_id": "57c56d5d-55e3-4630-a319-b33b979baf2c"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 55,
     "record_id": "55/GST/2025-26",
-    "db_id": "5e75a95e-6685-4b4b-b433-97d396860fb3"
+    "db_id": "db1d71ac-71d0-4294-a629-03cc0229f865"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 56,
     "record_id": "1/GST/2026-27",
-    "db_id": "ec6795a8-04e4-4867-b988-cc24e7e3a94c"
+    "db_id": "fbe2ddd5-d360-4c88-9281-812868bb5d78"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 57,
     "record_id": "2/GST/2026-27",
-    "db_id": "65cfede2-71e5-4201-b4de-65eaba3cf2ab"
+    "db_id": "12ed074c-d23c-4f03-b5c0-5cd4e9e01c76"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 58,
     "record_id": "3/GST/2026-27",
-    "db_id": "639a1f5f-2bf9-4f3a-913f-05b777142352"
+    "db_id": "7864dc04-cd6d-40f3-9880-7f9a14dc38a3"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 59,
     "record_id": "4/GST/2026-27",
-    "db_id": "c69ce9e6-4ff5-431a-802b-a87ce9857ae4"
+    "db_id": "ddcfb859-a04a-405a-8bcd-f56ae9620617"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 60,
     "record_id": "5/GST/2026-27",
-    "db_id": "1fe0d874-b214-4188-b029-5bb84b90b17d"
+    "db_id": "bd187229-563b-4c76-ab62-03db46f595a5"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 61,
     "record_id": "6/GST/2026-27",
-    "db_id": "2119fb2f-b902-496c-9ce3-5aab0db63a09"
+    "db_id": "5f483230-53ec-40cc-9bad-18f04cd33f84"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 62,
     "record_id": "7/GST/2026-27",
-    "db_id": "ab0d89f9-9a6c-4667-846f-6cd92534098e"
+    "db_id": "0105526f-2626-4b96-939f-148350fb066a"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 63,
     "record_id": "8/GST/2026-27",
-    "db_id": "41e83282-93af-47ac-a511-2ea28f692c81"
+    "db_id": "e779394d-2210-4e9e-b816-acf3e570ae9c"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 64,
     "record_id": "9/GST/2026-27",
-    "db_id": "5eaec1cd-0273-4262-93c3-63d20efa0692"
+    "db_id": "c27e81df-8224-415a-97bb-0def92df4b0c"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 65,
     "record_id": "10/GST/2026-27",
-    "db_id": "316c1fa7-5870-418a-91b9-a9bcfed27f4e"
+    "db_id": "862d926f-eba3-4053-aaff-0c1c73e9e6d9"
   },
   {
     "action": "insert",
     "sr_no": 66,
     "record_id": "11/GST/2026-27",
-    "db_id": "6bd33e39-bc62-4532-ae5e-547d179e0e61"
+    "db_id": "bcf13b51-361b-4cb2-9fa2-64e91d7740d3"
   },
   {
     "action": "insert",
     "sr_no": 67,
     "record_id": "12/GST/2026-27",
-    "db_id": "57e591ed-3990-4752-b609-52469007e3da"
+    "db_id": "c22b50d8-18c3-4632-acab-d4313afd9c89"
   },
   {
     "action": "insert",
     "sr_no": 68,
     "record_id": "13/GST/2026-27",
-    "db_id": "07990986-e76f-4f52-add0-90d1c340a6b0"
+    "db_id": "c3897193-e56a-4db7-8ff9-ecbae919ee39"
   },
   {
     "action": "insert",
     "sr_no": 69,
     "record_id": "14/GST/2026-27",
-    "db_id": "e6dbd81f-b117-4c12-8ab4-ca67f9ea4a15"
+    "db_id": "2ae71d08-9cbf-459e-9bc6-302ece2e54dc"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 70,
     "record_id": "15/GST/2026-27",
-    "db_id": "ea323ebf-9000-4498-8f4a-1da31d5d9815"
+    "db_id": "728efb4f-890d-45a2-9c22-5fa1ec153c2f"
   },
   {
     "action": "insert",
     "sr_no": 71,
     "record_id": "16/GST/2026-27",
-    "db_id": "ca028174-7ec1-475b-a83f-a648538f3b65"
+    "db_id": "39762f2a-2ded-43f1-b4e5-0e8349be27bf"
   },
   {
     "action": "insert",
     "sr_no": 72,
     "record_id": "17/GST/2026-27",
-    "db_id": "cc44c56b-8f87-4fb7-800b-35f5096d9239"
+    "db_id": "d0d94437-0e7f-43dc-8cf0-edb3c8232802"
   },
   {
     "action": "insert",
     "sr_no": 73,
     "record_id": "18/GST/2026-27",
-    "db_id": "890ad5fe-6185-443d-a609-e29c00f1c2e2"
+    "db_id": "1f68a866-a662-4850-a973-29bfb6a8c158"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 74,
     "record_id": "19/GST/2026-27",
-    "db_id": "ba1e7c64-cd88-412d-89da-8b2a37351f42"
+    "db_id": "ae1332c2-a634-4ebe-aea4-6cda5b69a486"
   },
   {
     "action": "insert",
     "sr_no": 75,
     "record_id": "20/GST/2026-27",
-    "db_id": "4da12c08-d9f0-41d6-8d67-0e23e54fe896"
+    "db_id": "4fafd480-ed06-498f-8d84-299941bcae6f"
   },
   {
     "action": "insert",
     "sr_no": 76,
     "record_id": "21/GST/2026-27",
-    "db_id": "3cc52926-2f6a-493e-b09b-c3e3ab6b4129"
+    "db_id": "6a3a1c95-8874-4ab3-821d-7108211f39b5"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 77,
     "record_id": "22/GST/2026-27",
-    "db_id": "c9a260eb-8a2b-49f3-b742-37c163272f5b"
+    "db_id": "481d07d9-b042-49a2-8837-901259a5f645"
   },
   {
     "action": "insert",
     "sr_no": 78,
     "record_id": "23/GST/2026-27",
-    "db_id": "ad40f305-bf9e-4a04-bb47-d0e43682ca8b"
+    "db_id": "e1a505f9-3ff7-4d80-8a91-afbc468c7ba1"
   },
   {
     "action": "insert",
     "sr_no": 79,
     "record_id": "24/GST/2026-27",
-    "db_id": "7bffdbe9-672c-4c80-bd22-05741d800fc3"
+    "db_id": "35eff7fb-7386-443e-bc3a-13f2be621fab"
   },
   {
     "action": "insert",
     "sr_no": 80,
     "record_id": "25/GST/2026-27",
-    "db_id": "b0bf49c4-8c31-45b6-8d3e-9fd941472e8f"
+    "db_id": "976968d1-3d39-4894-b989-5f6eb1e135e0"
   },
   {
     "action": "insert",
     "sr_no": 81,
     "record_id": "26/GST/2026-27",
-    "db_id": "c866b1a5-feaf-415c-8941-9c767222fe3e"
+    "db_id": "edec4de1-c4b8-4963-ba5a-eddd1c0a4e0e"
   },
   {
     "action": "insert",
     "sr_no": 82,
     "record_id": "27/GST/2026-27",
-    "db_id": "d83b7027-6e91-49d6-8a97-1c8bd0a31f33"
+    "db_id": "6bfb54c0-3fb1-4722-be43-c1f3647985b9"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 83,
     "record_id": "28/GST/2026-27",
-    "db_id": "9b5e2f05-3f46-4369-ae02-602e87e0b384"
+    "db_id": "47985a85-0ffc-49f7-9a4c-7935de6cf524"
   },
   {
     "action": "insert",
     "sr_no": 84,
     "record_id": "29/GST/2026-27",
-    "db_id": "c3fcf9db-e833-4068-b8ab-6a65d13b089f"
+    "db_id": "3a1be680-e9ff-4f12-8c17-64b97e19f6ca"
   },
   {
     "action": "insert",
     "sr_no": 85,
     "record_id": "30/GST/2026-27",
-    "db_id": "89a00680-4b34-45a7-a6fc-27e316d525fe"
+    "db_id": "d2dd7a7a-b847-47c4-b92d-b6a8be780cc8"
   },
   {
     "action": "insert",
     "sr_no": 86,
     "record_id": "31/GST/2026-27",
-    "db_id": "e2219cfe-2dc3-4c57-96c0-0147af8be0b7"
+    "db_id": "a6cceeb7-6686-4ef0-b322-9a0fb230b574"
   },
   {
     "action": "insert",
     "sr_no": 87,
     "record_id": "32/GST/2026-27",
-    "db_id": "00a19b8f-ef22-4d5d-8c04-6b7abd246fa5"
+    "db_id": "866688b6-ae5b-4f3a-8b0d-f300e3c6089e"
   },
   {
     "action": "insert",
     "sr_no": 88,
     "record_id": "33/GST/2026-27",
-    "db_id": "98f63475-7a01-4291-8a01-30000a940284"
+    "db_id": "b85f181b-ac82-423e-ba95-dd9d996b3088"
   },
   {
     "action": "insert",
     "sr_no": 89,
     "record_id": "34/GST/2026-27",
-    "db_id": "53dc9bc9-0c04-4a65-8ead-2c91af578bae"
+    "db_id": "6746b5f6-35a0-4407-8293-b1d5c906c95a"
   },
   {
     "action": "insert",
     "sr_no": 90,
     "record_id": "35/GST/2026-27",
-    "db_id": "b2384393-d507-47a5-aa49-53ad9aa76cb2"
+    "db_id": "d09be55d-fa58-424e-bf03-959411420d1e"
   },
   {
     "action": "insert",
     "sr_no": 91,
     "record_id": "36/GST/2026-27",
-    "db_id": "26caf7a9-c500-4426-a381-7402da50216c"
+    "db_id": "118ca3b6-0069-405e-af41-146beeeb8427"
   },
   {
     "action": "insert",
     "sr_no": 92,
     "record_id": "37/GST/2026-27",
-    "db_id": "3527414a-dd23-4671-a00b-cff079556ed4"
+    "db_id": "53d29a85-8383-4c87-8f58-16b34f4cc35d"
   },
   {
     "action": "insert",
     "sr_no": 93,
     "record_id": "38/GST/2026-27",
-    "db_id": "dfc8afd6-d4b1-4699-bfc0-2cb81f8965ca"
+    "db_id": "e84a00fd-7f09-4c75-9a8e-1695f793f445"
   },
   {
     "action": "insert",
     "sr_no": 94,
     "record_id": "39/GST/2026-27",
-    "db_id": "8d9d710a-9e1f-42bc-9fa8-8eb59e37e80d"
+    "db_id": "d39a54b0-bb68-4c02-9d46-992876e76fc1"
   },
   {
     "action": "insert",
     "sr_no": 95,
     "record_id": "40/GST/2026-27",
-    "db_id": "38f672ed-d370-4427-92f6-76fe5e03b153"
+    "db_id": "aefedb64-8ddd-48f8-8e3b-38773171106e"
   },
   {
     "action": "insert",
     "sr_no": 96,
     "record_id": "41/GST/2026-27",
-    "db_id": "a23d06ec-52cf-4c80-b120-365de7476cea"
+    "db_id": "f594a263-e9d5-4bea-8981-73ffe67ef6e5"
   },
   {
     "action": "insert",
     "sr_no": 97,
     "record_id": "42/GST/2026-27",
-    "db_id": "48f4990a-f156-497c-b4c9-bff87c6121d6"
+    "db_id": "125d2d9d-72ec-4232-9eaa-129f5e6e8140"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 98,
     "record_id": "43/GST/2026-27",
-    "db_id": "5a13a50b-883a-4664-955e-04c65101bdf9"
+    "db_id": "83c063a3-7fde-48c0-ae9a-1b28ad556344"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 99,
     "record_id": "44/GST/2026-27",
-    "db_id": "37e2332c-88d0-4c7d-86ed-4aa47d24cff8"
+    "db_id": "a01c26e9-8947-4005-bf71-3e580853a349"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 100,
     "record_id": "45/GST/2026-27",
-    "db_id": "c031bc5b-98c4-420a-9852-092129ffb125"
+    "db_id": "94e91b4d-ea86-482c-8326-f20d5d96cf9d"
   },
   {
     "action": "insert",
     "sr_no": 101,
     "record_id": "46/GST/2026-27",
-    "db_id": "c9a8febe-fd72-483f-9a50-8dfa7ed2ec93"
+    "db_id": "75c48d46-2eb1-4056-aa12-ef681a2d2391"
   },
   {
     "action": "insert",
     "sr_no": 102,
     "record_id": "47/GST/2026-27",
-    "db_id": "79ddeab2-3734-4249-8a9b-d9ca9bbf0ab1"
+    "db_id": "3f33bf9c-2352-4e5c-be02-dd6422ad88b1"
   },
   {
     "action": "insert",
     "sr_no": 103,
     "record_id": "48/GST/2026-27",
-    "db_id": "dcb506a1-ceaf-4d20-8eeb-63ec4ae41910"
+    "db_id": "0017366f-17f5-4daf-b8d1-0152f3739183"
   },
   {
     "action": "insert",
     "sr_no": 104,
     "record_id": "49/GST/2026-27",
-    "db_id": "a0051e9a-11b8-44ac-8fdc-cd419175d1d7"
+    "db_id": "167472bf-cc6f-455d-8fbb-4dc2b7c800f6"
   },
   {
     "action": "insert",
     "sr_no": 105,
     "record_id": "50/GST/2026-27",
-    "db_id": "216a3c7c-2ce5-4b44-ac72-ce55f11d7d3d"
+    "db_id": "b8632382-f614-4367-87d8-bcfdccd626c3"
   },
   {
     "action": "insert",
     "sr_no": 106,
     "record_id": "51/GST/2026-27",
-    "db_id": "74d8410b-b367-47ba-8b47-e67152405e2d"
+    "db_id": "f16110e3-ddad-41dd-9bd0-01da1c7e0a18"
   },
   {
     "action": "insert",
     "sr_no": 107,
     "record_id": "52/GST/2026-27",
-    "db_id": "6e4011e6-1462-4b02-9187-a0e5f2ecac4c"
+    "db_id": "30c4a886-3a25-42a1-a449-c04ae3830adf"
   },
   {
     "action": "insert",
     "sr_no": 108,
     "record_id": "53/GST/2026-27",
-    "db_id": "851b4eff-6198-4659-a114-b1fb89893cf4"
+    "db_id": "8ad922c1-f2f4-4137-b3a8-826970982da0"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 109,
     "record_id": "54/GST/2026-27",
-    "db_id": "366065ad-abfd-421c-9a8e-2417daa9c84c"
+    "db_id": "9e035b88-86df-4783-81cd-7fae52edb71d"
   },
   {
     "action": "insert",
     "sr_no": 110,
     "record_id": "55/GST/2026-27",
-    "db_id": "6212df35-59ed-4d48-845b-1e3bdc2a4747"
+    "db_id": "21d13dbc-93fd-4049-871b-86a7d126f759"
   },
   {
     "action": "insert",
     "sr_no": 111,
     "record_id": "56/GST/2026-27",
-    "db_id": "b893bad9-96f6-44bc-b46d-746deb876d30"
+    "db_id": "05abaccc-e618-4a46-8b70-f0e4cf7f3f80"
   },
   {
     "action": "insert",
     "sr_no": 112,
     "record_id": "57/GST/2026-27",
-    "db_id": "7c7ca427-3993-4b1c-90eb-c7493d2c2780"
+    "db_id": "8779b5b6-48fe-461c-a7b7-2c53b889e6b8"
   },
   {
     "action": "insert",
     "sr_no": 113,
     "record_id": "58/GST/2026-27",
-    "db_id": "f558d877-12be-489a-89c9-d4b74a789ac6"
+    "db_id": "a868e07a-fdbe-43d1-a060-33681bcdf3ac"
   },
   {
     "action": "insert",
     "sr_no": 114,
     "record_id": "59/GST/2026-27",
-    "db_id": "4452579f-9773-49d7-9ba4-cd3cb65160dc"
+    "db_id": "1b05473d-01a1-4ada-b554-4475e161a7f4"
   },
   {
     "action": "insert",
     "sr_no": 115,
     "record_id": "60/GST/2026-27",
-    "db_id": "be7465b1-64ad-488e-bfc2-663ee57920db"
+    "db_id": "858c5433-179d-43d5-886c-3f8dc8c63406"
   },
   {
     "action": "insert",
     "sr_no": 116,
     "record_id": "61/GST/2026-27",
-    "db_id": "7db33265-4f4e-414b-82c2-00325382ce0f"
+    "db_id": "1bc54b7b-5a3d-491f-bd04-3f93c0e83bea"
   },
   {
     "action": "insert",
     "sr_no": 117,
     "record_id": "62/GST/2026-27",
-    "db_id": "592e021b-64b2-44b3-9850-10cf25c0d70e"
+    "db_id": "6e95c406-10a6-48d6-9e86-7f473b371e49"
   },
   {
     "action": "insert",
     "sr_no": 118,
     "record_id": "63/GST/2026-27",
-    "db_id": "00e86640-e40d-41d3-a2e7-294a76f50c88"
+    "db_id": "6e866c21-420e-484f-b8eb-f11aab80f4ad"
   },
   {
     "action": "insert",
     "sr_no": 119,
     "record_id": "64/GST/2026-27",
-    "db_id": "d62f8757-0997-4a55-95b1-d3640985476f"
+    "db_id": "a73deb93-7f82-47a5-a9e7-dddbd5e6176c"
   },
   {
     "action": "insert",
     "sr_no": 120,
     "record_id": "65/GST/2026-27",
-    "db_id": "081c1da1-666c-4cd9-a04a-f71c872b9b55"
+    "db_id": "38be8d4a-e849-491e-9d48-6095262b661c"
   },
   {
-    "action": "skip",
-    "reason": "record_id exists",
+    "action": "insert",
     "sr_no": 121,
     "record_id": "66/GST/2026-27",
-    "db_id": "0668ed87-703b-4f8c-877d-19662c84d54a"
+    "db_id": "e5df68bf-9b79-4645-865a-95dabdec02d4"
   },
   {
     "action": "insert",
     "sr_no": 122,
     "record_id": "67/GST/2026-27",
-    "db_id": "2e79efc8-afd2-448a-abda-8f08f7907872"
+    "db_id": "26bf66ec-c70b-4604-a6a4-f9072b0e0caa"
   },
   {
     "action": "insert",
     "sr_no": 123,
     "record_id": "68/GST/2026-27",
-    "db_id": "51e6bb4e-f288-47b8-9d4d-5075eed3e7a3"
+    "db_id": "15f47273-0549-4da0-9880-2fdcbb730b37"
   },
   {
     "action": "insert",
     "sr_no": 124,
     "record_id": "69/GST/2026-27",
-    "db_id": "2eba469f-9549-4f03-86f0-9cf4d00f2ee1"
+    "db_id": "01edc757-b19a-4927-9483-f0b75bbce3f8"
   },
   {
     "action": "insert",
     "sr_no": 125,
     "record_id": "70/GST/2026-27",
-    "db_id": "8bf68ba6-45b8-4978-8e2b-2c3cd8a8726b"
+    "db_id": "6189a114-fa5e-47a1-9399-af7c4d7e2793"
   },
   {
     "action": "insert",
     "sr_no": 126,
     "record_id": "71/GST/2026-27",
-    "db_id": "6e7ff5ae-a574-4654-856e-12e69ca66aa8"
+    "db_id": "4a4bd23e-ef48-4d50-9eb8-275052879c1b"
   },
   {
     "action": "insert",
     "sr_no": 127,
     "record_id": "72/GST/2026-27",
-    "db_id": "146c72fd-0e19-4c60-8189-4a4fe932859b"
+    "db_id": "dd59c851-dc72-44b6-babd-73ac9898641a"
   },
   {
     "action": "insert",
     "sr_no": 128,
     "record_id": "73/GST/2026-27",
-    "db_id": "6db8a369-3287-40fd-adcb-a8d5f54c32c1"
+    "db_id": "40d648d9-f8ca-4cdb-b4bc-b48b90ec42a7"
   }
 ]

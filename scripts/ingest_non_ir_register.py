@@ -5,8 +5,8 @@ Source: 'NON_IR_Register_DGGI_MZU_upto_09_July_2026.xlsx'
         Sheet: 'final with random allott of cas'  (128 rows)
 
 Column mapping:
-  Col 0  Sr No            → sr_no (skip validation key)
-  Col 1  File Number      → legacy_non_ir_no (original register number; dedup key)
+  Col 0  Sr No            → legacy_non_ir_no (original register serial number)
+  Col 1  File Number      → file_no
   Col 2  Date of NON-IR   → date_of_non_ir (used for sequencing)
   Col 3  Officer Name     → sio_name
   Col 4  Group Name       → group ("A" → "Group A", etc.)
@@ -210,7 +210,8 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
     for rec in assigned:
         payload = {
             "record_id": rec["record_id"],
-            "file_no": rec["legacy_no"],  # Store original register number in file_no (for now, until DB schema adds legacy_non_ir_no column)
+            "legacy_non_ir_no": str(rec["sr_no"]) if rec["sr_no"] is not None else None,
+            "file_no": rec["legacy_no"],
             "date_of_non_ir": rec["date"],
             "sio_name": rec["officer"],
             "group": rec["group"],
@@ -273,6 +274,26 @@ def main():
         raise SystemExit(f"No user found for {WORKSPACE_OWNER_EMAIL}")
     workspace_id = res.data[0]["workspace_id"]
     print(f"Workspace: {workspace_id}")
+
+    # Delete all existing NON-IR records before re-ingesting
+    if dry_run:
+        count_res = (
+            sb.table("dggi_records")
+            .select("id", count="exact")
+            .eq("workspace_id", workspace_id)
+            .eq("is_ir", False)
+            .execute()
+        )
+        print(f"[DRY RUN] Would delete {count_res.count} NON-IR records.\n")
+    else:
+        del_res = (
+            sb.table("dggi_records")
+            .delete()
+            .eq("workspace_id", workspace_id)
+            .eq("is_ir", False)
+            .execute()
+        )
+        print(f"Deleted {len(del_res.data)} existing NON-IR records.\n")
 
     skipped = []
     log = []

@@ -79,9 +79,10 @@ interface Filters {
   search: string;
   dateFrom: string;
   dateTo: string;
+  closureBy: string;
 }
 
-const EMPTY_FILTERS: Filters = { search: "", dateFrom: "", dateTo: "" };
+const EMPTY_FILTERS: Filters = { search: "", dateFrom: "", dateTo: "", closureBy: "" };
 
 type ColDef = {
   key: keyof Omit<ClosureRecord, "id" | "is_ir">;
@@ -304,6 +305,10 @@ const ClosureRegisterComponent = () => {
   const nonIrTotal = records.filter((r) => !r.is_ir).length;
   const irTotal = records.filter((r) => r.is_ir).length;
 
+  const closureByOptions = Array.from(
+    new Set(records.filter((r) => r.is_ir === isIr && r.closure_by).map((r) => r.closure_by))
+  ).sort();
+
   const tableRecords = records
     .filter((r) => {
       if (r.is_ir !== isIr) return false;
@@ -323,6 +328,7 @@ const ClosureRegisterComponent = () => {
         )
           return false;
       }
+      if (filters.closureBy && r.closure_by !== filters.closureBy) return false;
       if (filters.dateFrom && r.due_date && r.due_date < filters.dateFrom)
         return false;
       if (filters.dateTo && r.due_date && r.due_date > filters.dateTo)
@@ -475,7 +481,17 @@ const ClosureRegisterComponent = () => {
               placeholder="To date"
               onChange={(v) => setFilter("dateTo", v)}
             />
-            {(filters.search || filters.dateFrom || filters.dateTo) && (
+            <select
+              value={filters.closureBy}
+              onChange={(e) => setFilter("closureBy", e.target.value)}
+              className="h-9 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] focus:outline-none"
+            >
+              <option value="">All Closure Types</option>
+              {closureByOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {(filters.search || filters.dateFrom || filters.dateTo || filters.closureBy) && (
               <button
                 onClick={() => setFilters({ ...EMPTY_FILTERS })}
                 className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"
