@@ -311,11 +311,14 @@ const ClosureRegisterComponent = () => {
         const q = filters.search.toLowerCase();
         if (
           ![
+            r.record_id,
             r.source_record_id,
             r.taxpayer_name,
             r.file_no,
             r.gstins,
             r.closure_by,
+            r.closure_reason,
+            r.transferred_to,
           ].some((v) => v?.toLowerCase().includes(q))
         )
           return false;

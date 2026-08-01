@@ -23,7 +23,7 @@
           "reminder_days_before": [30, 14, 7, 3, 1],
           "critical_days": 5,
           "warning_days": 14,
-          "skip_if_not_null": ["adg_putup_date", "date_of_non_ir"]
+          "skip_if_not_null": ["group_allocation_date", "date_of_non_ir"]
         },
         {
           "rule_id": "non_ir_creation_deadline",
@@ -50,7 +50,7 @@
           "reminder_days_before": [30, 14, 7, 3, 1],
           "critical_days": 5,
           "warning_days": 14,
-          "skip_if_not_null": ["adg_putup_date", "date_of_non_ir"]
+          "skip_if_not_null": ["group_allocation_date", "date_of_non_ir"]
         },
         {
           "rule_id": "non_ir_creation_deadline",

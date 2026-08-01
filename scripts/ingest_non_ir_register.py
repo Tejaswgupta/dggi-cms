@@ -6,16 +6,21 @@ Source: 'NON_IR_Register_DGGI_MZU_upto_09_July_2026.xlsx'
 
 Column mapping:
   Col 0  Sr No            → sr_no (skip validation key)
-  Col 1  File Number      → file_no (dedup key)
-  Col 2  Date of NON-IR   → date_of_non_ir
+  Col 1  File Number      → legacy_non_ir_no (original register number; dedup key)
+  Col 2  Date of NON-IR   → date_of_non_ir (used for sequencing)
   Col 3  Officer Name     → sio_name
-  Col 4  Group Name       → group (stored as-is, e.g. "A", "B" → "Group A", "Group B")
+  Col 4  Group Name       → group ("A" → "Group A", etc.)
   Col 5  E-Mail ID        → (skipped)
 
+record_id generation (FY-based, date-sequenced):
+  - Extract FY from date (e.g. 2026-07-03 → "2026-27")
+  - Sort all records by date within each FY
+  - Assign sequential numbers: 1/GST/2026-27, 2/GST/2026-27, etc.
+  - Sequence resets for each FY
+
 Dedup strategy:
-  1. Match on file_no in DB → skip (already present)
-  2. No match → insert as closed non-IR (closure_by="Closed", latest_status="Closed")
-     with sequential NIR-NNN record_id
+  1. Match on legacy_non_ir_no in DB → skip (already present)
+  2. No match → insert as open/pending non-IR (no closure_by, no latest_status)
 
 NOTE: Does NOT touch dggi_closure_records.
 
@@ -85,22 +90,17 @@ def clean(val) -> str | None:
 # Sequential NON-IR record_id generator
 # ---------------------------------------------------------------------------
 
-def next_non_ir_seq(sb, workspace_id: str) -> int:
-    import re
-    res = (
-        sb.table("dggi_records")
-        .select("record_id")
-        .eq("workspace_id", workspace_id)
-        .eq("is_ir", False)
-        .like("record_id", "NIR-%")
-        .execute()
-    )
-    max_seq = 0
-    for r in res.data:
-        m = re.match(r"NIR-(\d+)$", r["record_id"] or "")
-        if m:
-            max_seq = max(max_seq, int(m.group(1)))
-    return max_seq + 1
+def fy_from_date(date_str: str | None) -> str:
+    """'2026-07-03' → '2026-27'; '2025-03-15' → '2024-25'"""
+    if not date_str:
+        from datetime import date
+        now = date.today()
+        year = now.year if now.month >= 4 else now.year - 1
+    else:
+        year = int(date_str[:4])
+        month = int(date_str[5:7])
+        year = year if month >= 4 else year - 1
+    return f"{year}-{year + 1 - 2000:02d}"
 
 
 # ---------------------------------------------------------------------------
@@ -116,30 +116,32 @@ def upsert_record(
     log: list,
     dry_run: bool = False,
 ) -> str:
-    file_no = payload.get("file_no")
+    legacy_no = payload.get("legacy_non_ir_no")
     record_id = payload["record_id"]
+    file_no = payload.get("file_no")
     try:
-        # 1. Skip if file_no already exists in DB
-        if file_no:
+        # 1. Skip if record_id already exists as non-IR
+        if record_id:
             res = (
                 sb.table("dggi_records")
-                .select("id,record_id,file_no")
+                .select("id,record_id")
                 .eq("workspace_id", workspace_id)
-                .eq("file_no", file_no)
+                .eq("is_ir", False)
+                .eq("record_id", record_id)
                 .execute()
             )
             if res.data:
                 row = res.data[0]
                 if dry_run:
-                    print(f"    → SKIP (exists by file_no)  record_id={row['record_id']!r}  db_id={row['id']}")
-                log.append({"action": "skip", "reason": "file_no exists", "sr_no": sr_no,
-                            "record_id": row["record_id"], "db_id": row["id"]})
+                    print(f"    → SKIP (exists by record_id)  record_id={row['record_id']!r}")
+                log.append({"action": "skip", "reason": "record_id exists", "sr_no": sr_no,
+                            "record_id": record_id, "db_id": row["id"]})
                 return "skipped"
 
         # 2. Insert as closed non-IR
         insert_payload = {**payload, "workspace_id": workspace_id}
         if dry_run:
-            print(f"    → INSERT  record_id={record_id!r}  file_no={file_no!r}")
+            print(f"    → INSERT  record_id={record_id!r}")
             inserted_id = None
         else:
             insert_res = sb.table("dggi_records").insert(insert_payload).execute()
@@ -148,7 +150,10 @@ def upsert_record(
         return "inserted"
 
     except Exception as e:
-        skipped.append({"sr_no": sr_no, "record_id": record_id, "file_no": file_no, "reason": str(e)})
+        error_msg = str(e)
+        skipped.append({"sr_no": sr_no, "record_id": record_id, "legacy_no": legacy_no, "reason": error_msg})
+        if dry_run:
+            print(f"    → ERROR  {error_msg}")
         return "skipped"
 
 
@@ -156,13 +161,11 @@ def upsert_record(
 # Sheet processor
 # ---------------------------------------------------------------------------
 
-def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log: list, dry_run: bool = False):
+def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
 
-    # row[0] is the header row; data starts at row[1]
-    seq = start_seq
-    inserted = skipped_count = 0
-
+    # Parse all rows
+    raw_records = []
     for row in rows[1:]:
         if row[0] is None:
             continue
@@ -171,35 +174,59 @@ def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log:
         except (ValueError, TypeError):
             continue
 
-        file_no = clean(row[1])
+        legacy_no = clean(row[1])
         nir_date = parse_date(row[2])
         officer_name = clean(row[3])
         group_raw = clean(row[4])
         group_val = f"Group {group_raw}" if group_raw else None
 
-        record_id = f"NIR-{seq:03d}"
-        seq += 1
-
-        payload = {
-            "record_id": record_id,
-            "file_no": file_no,
-            "date_of_non_ir": nir_date,
-            "sio_name": officer_name,
+        raw_records.append({
+            "sr_no": sr_no,
+            "legacy_no": legacy_no,
+            "date": nir_date,
+            "officer": officer_name,
             "group": group_val,
+        })
+
+    # Group by FY and sort by date within each FY
+    from collections import defaultdict
+    by_fy = defaultdict(list)
+    for rec in raw_records:
+        fy = fy_from_date(rec["date"])
+        by_fy[fy].append(rec)
+
+    # Sort each FY by date, assign sequential record_ids
+    assigned = []
+    for fy in sorted(by_fy.keys()):
+        recs = by_fy[fy]
+        # Sort by date (None dates go last)
+        recs.sort(key=lambda r: (r["date"] is None, r["date"]))
+        for seq, rec in enumerate(recs, 1):
+            rec["record_id"] = f"{seq}/GST/{fy}"
+            assigned.append(rec)
+
+    # Upsert in order
+    inserted = skipped_count = 0
+    for rec in assigned:
+        payload = {
+            "record_id": rec["record_id"],
+            "file_no": rec["legacy_no"],  # Store original register number in file_no (for now, until DB schema adds legacy_non_ir_no column)
+            "date_of_non_ir": rec["date"],
+            "sio_name": rec["officer"],
+            "group": rec["group"],
             "is_ir": False,
-            "closure_by": "Closed",
-            "latest_status": "Closed",
+            # Leave as open/pending - no closure_by, no latest_status
         }
         # Drop None values except record_id
         payload = {k: v for k, v in payload.items() if v is not None or k == "record_id"}
 
         if dry_run:
             print(
-                f"  [#{sr_no:03d}] file_no={file_no!r} | date={nir_date}"
-                f" | group={group_val!r} | sio={officer_name!r} → {record_id}"
+                f"  [#{rec['sr_no']:03d}] legacy_no={rec['legacy_no']!r} | date={rec['date']}"
+                f" | group={rec['group']!r} | sio={rec['officer']!r} → {rec['record_id']}"
             )
 
-        result = upsert_record(sb, workspace_id, sr_no, payload, skipped, log, dry_run)
+        result = upsert_record(sb, workspace_id, rec["sr_no"], payload, skipped, log, dry_run)
         if result == "inserted":
             inserted += 1
         else:
@@ -247,12 +274,9 @@ def main():
     workspace_id = res.data[0]["workspace_id"]
     print(f"Workspace: {workspace_id}")
 
-    start_seq = next_non_ir_seq(sb, workspace_id)
-    print(f"Next NIR sequence starts at: {start_seq}\n")
-
     skipped = []
     log = []
-    process_sheet(wb[SHEET_NAME], sb, workspace_id, start_seq, skipped, log, dry_run)
+    process_sheet(wb[SHEET_NAME], sb, workspace_id, skipped, log, dry_run)
 
     if log:
         with open(LOG_JSON, "w") as f:

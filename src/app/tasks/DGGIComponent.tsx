@@ -517,12 +517,6 @@ const NON_IR_COLUMNS: ColDef[] = [
     options: SOURCE_OPTIONS,
     width: "120px",
   },
-  {
-    key: "taxpayer_name",
-    label: "Taxpayer Name",
-    type: "text",
-    width: "150px",
-  },
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   {
@@ -1204,7 +1198,6 @@ interface RapidRecord {
   date_of_action_taken: string;
   status: string;
   ir_date: string;
-  adg_putup_date: string;
 }
 
 interface STRRecord {
@@ -1270,7 +1263,7 @@ function CreateFromIntelDialog({
       const { data } = await supabase
         .from("dggi_intel_rapid_records")
         .select(
-          "id, record_id, rapid_id, file_no_ref_id, received_against_entity, assigned_group, date_of_action_taken, status, ir_date, adg_putup_date",
+          "id, record_id, rapid_id, file_no_ref_id, received_against_entity, assigned_group, date_of_action_taken, status, ir_date",
         )
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false });
@@ -1319,7 +1312,7 @@ function CreateFromIntelDialog({
       : "Group A") as GroupName,
     intel_source: "Int",
     date_of_initiation: r.ir_date ?? today(),
-    intel_approved_date: r.adg_putup_date ?? "",
+    intel_approved_date: "",
     intelligence_action_date: r.date_of_action_taken ?? "",
     is_ir: true,
   });
@@ -1368,7 +1361,6 @@ function CreateFromIntelDialog({
     },
     { label: "File No / Ref ID", field: "file_no_ref_id" as keyof RapidRecord },
     { label: "Assigned Group", field: "assigned_group" as keyof RapidRecord },
-    { label: "ADG Putup Date", field: "adg_putup_date" as keyof RapidRecord },
     { label: "IR Date", field: "ir_date" as keyof RapidRecord },
   ];
 
@@ -1595,7 +1587,6 @@ function CreateFromIntelDialog({
                 </div>
                 <div className="grid grid-cols-2 divide-x divide-[#EDEDEA]">
                   {[
-                    ["Taxpayer Name", confirmDraft.taxpayer_name],
                     ["File No.", confirmDraft.file_no],
                     ["GSTINs", confirmDraft.gstins],
                     ["Group", confirmDraft.group],
