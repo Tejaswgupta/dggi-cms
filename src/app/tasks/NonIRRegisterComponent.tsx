@@ -277,6 +277,7 @@ const NonIRRegisterComponent = () => {
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, visibleColumns, "Non_IR_Register", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 
@@ -287,6 +288,10 @@ const NonIRRegisterComponent = () => {
   const renderCell = (value: string, col: RegisterColumn) => {
     if (col.type === "usercombobox")
       return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+    if (col.type === "datepicker" && value) {
+      const [y, m, d] = value.split("-");
+      return <span>{d && m && y ? `${d}-${m}-${y}` : value}</span>;
+    }
     return <span>{value || "—"}</span>;
   };
 

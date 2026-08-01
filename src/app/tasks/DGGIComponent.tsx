@@ -4153,6 +4153,7 @@ const DGGIComponent = () => {
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, visibleColumns, "DGGI", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 

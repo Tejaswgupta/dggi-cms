@@ -1392,13 +1392,67 @@ const ProvisionalAttachmentComponent = () => {
     setFilters((prev) => ({ ...prev, [key]: val }));
   };
 
-  const handleExport = () =>
+  const handleExport = async () => {
+    if (!authCtx.current) return;
+    const { wid, role, groups, uid } = authCtx.current;
+    const flt: Filters = { ...filters, search: debouncedSearch };
+    const sortField = sortCol ?? "created_at";
+
+    // Fetch all matching batches (no pagination limit)
+    const { data: batchRows, error: rpcErr } = await supabase.rpc(
+      "dggi_provisional_attachment_batch_page",
+      {
+        p_workspace_id: wid,
+        p_role: role,
+        p_groups: groups,
+        p_uid: uid,
+        p_search: flt.search ?? "",
+        p_date_from: flt.dateFrom ?? "",
+        p_date_to: flt.dateTo ?? "",
+        p_sort_col: sortField,
+        p_sort_asc: sortDir === "asc",
+        p_limit: 10000,
+        p_offset: 0,
+      },
+    );
+    if (rpcErr) { toast.error("Export failed"); return; }
+
+    const rows = (batchRows ?? []) as any[];
+    const pageBatches = (flt.alarmOnly
+      ? rows.filter((r) => {
+          const { daysToExpiry, daysToScnDue } = computedDates(
+            r.date_of_attachment ?? "",
+            r.date_of_scn_issuance ?? "",
+            r.date_of_release ?? "",
+          );
+          return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
+        })
+      : rows
+    ).map((r: any) => ({ batchId: r.batch_key, isFallback: r.is_fallback }));
+
+    if (pageBatches.length === 0) { toast.success("No records to export"); return; }
+
+    const realBatchIds = pageBatches.filter((b) => !b.isFallback).map((b) => b.batchId);
+    const fallbackIds = pageBatches.filter((b) => b.isFallback).map((b) => b.batchId);
+    const queries: Promise<{ data: any[] | null; error: any }>[] = [];
+    if (realBatchIds.length > 0)
+      queries.push(supabase.from("dggi_provisional_attachment_records").select("*").eq("workspace_id", wid).in("attachment_batch_id", realBatchIds).order(sortField, { ascending: sortDir === "asc" }) as any);
+    if (fallbackIds.length > 0)
+      queries.push(supabase.from("dggi_provisional_attachment_records").select("*").eq("workspace_id", wid).in("id", fallbackIds).order(sortField, { ascending: sortDir === "asc" }) as any);
+
+    const results = await Promise.all(queries);
+    const fetchError = results.find((r) => r.error)?.error;
+    if (fetchError) { toast.error("Export failed"); return; }
+
+    const allRecords = results.flatMap((r) => r.data ?? []);
     exportRegisterToExcel(
-      tableRecords,
+      allRecords,
       COLUMNS,
       "Provisional_Attachment",
       (msg) => toast.success(msg),
+      workspaceUsers,
     );
+  };
 
   // ── Batch grouping ─────────────────────────────────────────────────────────
 

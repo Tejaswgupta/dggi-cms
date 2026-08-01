@@ -362,6 +362,7 @@ const AlertCircularRegisterComponent = () => {
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Alert_Circular", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 

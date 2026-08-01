@@ -7,7 +7,7 @@ export interface ExcelColumn<T = any> {
   key: keyof T;
   label: string;
   type?: "text" | "date" | "number";
-  format?: (value: any) => string | number;
+  format?: (value: any, row: T) => string | number;
 }
 
 /**
@@ -59,7 +59,7 @@ export const exportToExcel = <T extends Record<string, any>>(
 
       // Apply custom format if provided
       if (col.format) {
-        transformedRow[col.label] = col.format(value);
+        transformedRow[col.label] = col.format(value, row);
       }
       // Apply default formatting based on type
       else if (col.type === "date") {
@@ -124,7 +124,7 @@ export const exportMultipleSheets = <T extends Record<string, any>>(
       columns.forEach((col) => {
         const value = row[col.key];
         if (col.format) {
-          transformedRow[col.label] = col.format(value);
+          transformedRow[col.label] = col.format(value, row);
         } else if (col.type === "date") {
           transformedRow[col.label] = formatDateForExcel(value);
         } else if (col.type === "number") {

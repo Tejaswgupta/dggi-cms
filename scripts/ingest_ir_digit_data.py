@@ -37,6 +37,7 @@ Usage:
 import csv
 import json
 import os
+import re
 import sys
 from datetime import date, datetime
 
@@ -63,8 +64,6 @@ SHEET_NAME = "30062026"
 SKIPPED_CSV = os.path.join(os.path.dirname(__file__), "ingest_ir_digit_skipped.csv")
 LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_ir_digit_log.json")
 
-CLOSED_STATUS = "Closure Report Filed"
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -80,7 +79,7 @@ def parse_date(val) -> str | None:
     s = str(val).strip()
     if not s:
         return None
-    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:
@@ -107,33 +106,6 @@ def str_amount(val) -> str | None:
         return s if s else None
 
 
-def fy_short(date_str: str | None) -> str:
-    """'2026-05-01' → '26-27'"""
-    if not date_str:
-        return "26-27"
-    year, month = int(date_str[:4]), int(date_str[5:7])
-    s = year if month >= 4 else year - 1
-    return f"{str(s)[2:]}-{str(s + 1)[2:]}"
-
-
-def next_cir_seq(sb, workspace_id: str, fy: str) -> int:
-    import re
-    res = (
-        sb.table("dggi_closure_records")
-        .select("record_id")
-        .eq("workspace_id", workspace_id)
-        .eq("is_ir", True)
-        .like("record_id", f"CIR/%/{fy}")
-        .execute()
-    )
-    max_seq = 0
-    for r in res.data:
-        m = re.match(r"CIR/(\d+)/", r["record_id"] or "")
-        if m:
-            max_seq = max(max_seq, int(m.group(1)))
-    return max_seq + 1
-
-
 def strip_digit_prefix(digit_id: str | None) -> str | None:
     """'DIGIT-20260401132436-258' → '20260401132436-258' (how DB stores it)"""
     if not digit_id:
@@ -143,8 +115,18 @@ def strip_digit_prefix(digit_id: str | None) -> str | None:
     return digit_id
 
 
+def _is_real_digit_id(val: str | None) -> bool:
+    """Return True only for numeric-format DIGIT IDs like '20251103132254-640'."""
+    if not val:
+        return False
+    s = val.strip()
+    if s.lower() in ("ok", "not in digit", ""):
+        return False
+    return bool(re.match(r"^\d{10,}-\d+$", s)) or bool(re.match(r"^DIGIT-\d", s, re.IGNORECASE))
+
+
 # ---------------------------------------------------------------------------
-# Upsert: digit_id → IR No (record_id) → insert
+# Upsert: IR No (record_id) → digit_id → insert
 # ---------------------------------------------------------------------------
 
 def upsert_ir_record(
@@ -153,10 +135,7 @@ def upsert_ir_record(
     sr_no: int,
     digit_id_raw: str | None,
     ir_no: str | None,
-    ir_date: str | None,
     payload: dict,
-    is_closed: bool,
-    cir_seq_cache: dict,
     skipped: list,
     log: list,
     dry_run: bool = False,
@@ -173,18 +152,14 @@ def upsert_ir_record(
             )
             if res.data:
                 row = res.data[0]
-                final_record_id = row["record_id"]
-                update_payload = {**payload, **({"closure_by": CLOSED_STATUS} if is_closed else {})}
                 if dry_run:
-                    print(f"    → UPDATE (ir_no)  existing record_id={final_record_id!r}  db_id={row['id']}" + (" [CLOSED]" if is_closed else ""))
+                    print(f"    → UPDATE (ir_no)  existing record_id={row['record_id']!r}  db_id={row['id']}")
                 else:
-                    sb.table("dggi_records").update(update_payload).eq("id", row["id"]).execute()
-                log.append({"action": "update", "match_by": "ir_no", "sr_no": sr_no, "excel_ir_no": ir_no, "existing_record_id": final_record_id, "db_id": row["id"], "digit_id": digit_id_raw, "taxpayer_name": payload.get("taxpayer_name"), "closed": is_closed})
-                if is_closed:
-                    _insert_closure(sb, workspace_id, final_record_id, ir_date, payload, cir_seq_cache, log, dry_run)
+                    sb.table("dggi_records").update(payload).eq("id", row["id"]).execute()
+                log.append({"action": "update", "match_by": "ir_no", "sr_no": sr_no, "excel_ir_no": ir_no, "existing_record_id": row["record_id"], "db_id": row["id"], "digit_id": digit_id_raw, "taxpayer_name": payload.get("taxpayer_name")})
                 return "updated"
 
-        # 2. Match on digit_id (strip "DIGIT-" prefix before comparing)
+        # 2. Match on digit_id
         digit_id_db = strip_digit_prefix(digit_id_raw)
         if digit_id_db:
             res = (
@@ -196,29 +171,23 @@ def upsert_ir_record(
             )
             if res.data:
                 row = res.data[0]
-                final_record_id = row["record_id"]
-                update_payload = {**payload, **({"closure_by": CLOSED_STATUS} if is_closed else {})}
                 if dry_run:
-                    print(f"    → UPDATE (digit_id)  existing record_id={final_record_id!r}  db_id={row['id']}" + (" [CLOSED]" if is_closed else ""))
+                    print(f"    → UPDATE (digit_id)  existing record_id={row['record_id']!r}  db_id={row['id']}")
                 else:
-                    sb.table("dggi_records").update(update_payload).eq("id", row["id"]).execute()
-                log.append({"action": "update", "match_by": "digit_id", "sr_no": sr_no, "excel_ir_no": ir_no, "existing_record_id": final_record_id, "db_id": row["id"], "digit_id": digit_id_raw, "taxpayer_name": payload.get("taxpayer_name"), "closed": is_closed})
-                if is_closed:
-                    _insert_closure(sb, workspace_id, final_record_id, ir_date, payload, cir_seq_cache, log, dry_run)
+                    sb.table("dggi_records").update(payload).eq("id", row["id"]).execute()
+                log.append({"action": "update", "match_by": "digit_id", "sr_no": sr_no, "excel_ir_no": ir_no, "existing_record_id": row["record_id"], "db_id": row["id"], "digit_id": digit_id_raw, "taxpayer_name": payload.get("taxpayer_name")})
                 return "updated"
 
         # 3. Insert — use ir_no as record_id (fallback to DIGIT-{sr_no:03d} if missing)
         new_record_id = ir_no or f"DIGIT-{sr_no:03d}"
-        insert_payload = {**payload, "workspace_id": workspace_id, "record_id": new_record_id, **({"closure_by": CLOSED_STATUS} if is_closed else {})}
+        insert_payload = {**payload, "workspace_id": workspace_id, "record_id": new_record_id}
         if dry_run:
-            print(f"    → INSERT  new record_id={new_record_id!r}" + (" [CLOSED]" if is_closed else ""))
+            print(f"    → INSERT  new record_id={new_record_id!r}")
             inserted_id = None
         else:
             insert_res = sb.table("dggi_records").insert(insert_payload).execute()
             inserted_id = insert_res.data[0]["id"] if insert_res.data else None
-        log.append({"action": "insert", "sr_no": sr_no, "new_record_id": new_record_id, "db_id": inserted_id, "excel_ir_no": ir_no, "digit_id": digit_id_raw, "taxpayer_name": payload.get("taxpayer_name"), "closed": is_closed})
-        if is_closed:
-            _insert_closure(sb, workspace_id, new_record_id, ir_date, payload, cir_seq_cache, log, dry_run)
+        log.append({"action": "insert", "sr_no": sr_no, "new_record_id": new_record_id, "db_id": inserted_id, "excel_ir_no": ir_no, "digit_id": digit_id_raw, "taxpayer_name": payload.get("taxpayer_name")})
         return "inserted"
 
     except Exception as e:
@@ -226,59 +195,13 @@ def upsert_ir_record(
         return "skipped"
 
 
-def _insert_closure(sb, workspace_id: str, source_record_id: str, ir_date: str | None, payload: dict, cir_seq_cache: dict, log: list, dry_run: bool):
-    fy = fy_short(ir_date)
-    if fy not in cir_seq_cache:
-        cir_seq_cache[fy] = next_cir_seq(sb, workspace_id, fy)
-    cir_record_id = f"CIR/{cir_seq_cache[fy]:03d}/{fy}"
-    cir_seq_cache[fy] += 1
-
-    closure_payload = {
-        "workspace_id": workspace_id,
-        "record_id": cir_record_id,
-        "source_record_id": source_record_id,
-        "is_ir": True,
-        "taxpayer_name": payload.get("taxpayer_name"),
-        "gstins": payload.get("gstins"),
-        "file_no": payload.get("file_no"),
-        "date_of_ir": ir_date,
-        "date_of_initiation": payload.get("date_of_initiation"),
-        "detection_amount": payload.get("detection_amount"),
-        "recovery_itc": payload.get("recovery_itc"),
-        "issue_involved": payload.get("issue_involved"),
-        "latest_status": payload.get("latest_status"),
-        "digit_id": payload.get("digit_id"),
-        "closure_by": CLOSED_STATUS,
-    }
-    closure_payload = {k: v for k, v in closure_payload.items() if v is not None}
-
-    if dry_run:
-        print(f"    → CLOSURE INSERT  cir_record_id={cir_record_id!r}  source={source_record_id!r}")
-    else:
-        sb.table("dggi_closure_records").insert(closure_payload).execute()
-    log.append({"action": "closure_insert", "cir_record_id": cir_record_id, "source_record_id": source_record_id, "taxpayer_name": payload.get("taxpayer_name")})
-
-
 # ---------------------------------------------------------------------------
 # Sheet processor
 # ---------------------------------------------------------------------------
 
-def _is_real_digit_id(val: str | None) -> bool:
-    """Return True only for numeric-format DIGIT IDs like '20251103132254-640'."""
-    if not val:
-        return False
-    s = val.strip()
-    if s.lower() in ("ok", "not in digit", ""):
-        return False
-    # Accept IDs that look like timestamps: digits optionally followed by -digits
-    import re
-    return bool(re.match(r"^\d{10,}-\d+$", s)) or bool(re.match(r"^DIGIT-\d", s, re.IGNORECASE))
-
-
 def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
     inserted = updated = skipped_count = 0
-    cir_seq_cache: dict[str, int] = {}
 
     # Skip row 0 (title) and row 1 (header); data starts at row 2 (index 2)
     for row in rows[2:]:
@@ -296,13 +219,8 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
         ir_date = parse_date(row[4])
         ir_no = clean(row[3])
 
-        # Col 19: DIGIT ID — only use real numeric-format IDs
         digit_id_raw_col19 = clean(row[19])
         digit_id_raw = digit_id_raw_col19 if _is_real_digit_id(digit_id_raw_col19) else None
-
-        issue_parts = []
-        if clean(row[13]):
-            issue_parts.append(clean(row[13]))
 
         payload = {
             "taxpayer_name": taxpayer_name,
@@ -313,24 +231,21 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
             "detection_amount": str_amount(row[8]),
             "recovery_itc": str_amount(row[10]),
             "latest_status": clean(row[14]),
-            "issue_involved": " | ".join(issue_parts) if issue_parts else None,
+            "issue_involved": clean(row[13]),
             "sio_name": clean(row[16]),
             "group": f"Group {clean(row[17])}" if clean(row[17]) else None,
             "is_ir": True,
         }
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        is_closed = clean(row[14]) == CLOSED_STATUS
-
         if dry_run:
             print(
                 f"  [#{sr_no:02d}] {taxpayer_name[:45]!r}"
                 f" | digit_id={digit_id_raw} | ir_no={ir_no}"
-                + (" | CLOSED" if is_closed else "")
             )
 
         result = upsert_ir_record(
-            sb, workspace_id, sr_no, digit_id_raw, ir_no, ir_date, payload, is_closed, cir_seq_cache, skipped, log, dry_run
+            sb, workspace_id, sr_no, digit_id_raw, ir_no, payload, skipped, log, dry_run
         )
         if result == "inserted":
             inserted += 1

@@ -302,11 +302,11 @@ const ProsecutionRegisterComponent = () => {
   const pagedNonArrest = filteredNonArrest.slice((nonArrestSafePage - 1) * PAGE_SIZE, nonArrestSafePage * PAGE_SIZE);
 
   const handleArrestExport = () => {
-    exportRegisterToExcel(filteredArrest, ARREST_COLS, "Prosecution_Arrest", (msg) => toast.success(msg));
+    exportRegisterToExcel(filteredArrest, ARREST_COLS, "Prosecution_Arrest", (msg) => toast.success(msg), workspaceUsers, arrestOptions);
   };
 
   const handleNonArrestExport = () => {
-    exportRegisterToExcel(filteredNonArrest, NON_ARREST_COLS, "Prosecution_Non_Arrest", (msg) => toast.success(msg));
+    exportRegisterToExcel(filteredNonArrest, NON_ARREST_COLS, "Prosecution_Non_Arrest", (msg) => toast.success(msg), workspaceUsers, arrestOptions);
   };
 
   const makeToggleSort = (

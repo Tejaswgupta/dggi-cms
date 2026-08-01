@@ -1123,6 +1123,7 @@ const ArrestRegisterComponent = () => {
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Arrest", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 

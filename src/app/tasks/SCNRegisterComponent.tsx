@@ -772,6 +772,7 @@ const SCNRegisterComponent = () => {
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "SCN", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 

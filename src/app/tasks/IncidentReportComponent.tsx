@@ -336,6 +336,7 @@ const IncidentReportComponent = () => {
       visibleColumns,
       "Incident_Report",
       (msg) => toast.success(msg),
+      workspaceUsers,
     );
   };
 
@@ -350,6 +351,10 @@ const IncidentReportComponent = () => {
           {workspaceUsers.find((u) => u.id === value)?.name || value || "—"}
         </span>
       );
+    if (col.type === "datepicker" && value) {
+      const [y, m, d] = value.split("-");
+      return <span>{d && m && y ? `${d}-${m}-${y}` : value}</span>;
+    }
     return <span>{value || "—"}</span>;
   };
 

@@ -136,7 +136,7 @@ def parse_date(val) -> str | None:
     s = str(val).strip()
     if not s:
         return None
-    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d-%m-%Y"):
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:
@@ -346,6 +346,7 @@ def process_sheet(ws, sheet_name, sb, workspace_id, skipped, log, dry_run):
             "digit_id":         digit_id_db,
             "mode_of_initiation": mode,
             "is_ir":            True,
+            "closure_by":       "Closure Report Filed",
         }
         payload = {k: v for k, v in payload.items() if v is not None}
 

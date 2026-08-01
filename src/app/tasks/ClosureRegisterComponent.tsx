@@ -353,6 +353,7 @@ const ClosureRegisterComponent = () => {
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Closure", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 

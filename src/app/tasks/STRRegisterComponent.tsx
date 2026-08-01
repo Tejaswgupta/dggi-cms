@@ -307,6 +307,7 @@ const STRRegisterComponent = () => {
   const handleExport = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "STR", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 

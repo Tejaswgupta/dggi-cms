@@ -1443,6 +1443,7 @@ const IntelligenceAllocationComponent = () => {
       visibleRapidCols,
       "Intelligence_Rapid",
       (msg) => toast.success(msg),
+      workspaceUsers,
     );
   };
 
@@ -1465,6 +1466,7 @@ const IntelligenceAllocationComponent = () => {
       visibleOtherCols,
       "Intelligence_Other",
       (msg) => toast.success(msg),
+      workspaceUsers,
     );
   };
 
@@ -1478,6 +1480,7 @@ const IntelligenceAllocationComponent = () => {
     );
     exportRegisterToExcel(filtered, visibleStrCols, "STR", (msg) =>
       toast.success(msg),
+      workspaceUsers,
     );
   };
 

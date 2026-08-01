@@ -134,7 +134,7 @@ const DFLRegisterComponent = () => {
   const toggleSort = (col: string) => { if (sortCol === col) setSortDir((d) => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "DFL", (msg) => toast.success(msg));
+    exportRegisterToExcel(tableRecords, COLUMNS, "DFL", (msg) => toast.success(msg), workspaceUsers);
   };
 
   const renderCell = (value: string, type: "text" | "datepicker" | "caselink" | "usercombobox" | "select", storedName?: string) => {

@@ -209,6 +209,7 @@ export const fetchCaseOptions = async (
  * @param columns Column definitions from the component
  * @param registerName Name of the register (e.g., "STR", "DGGI")
  * @param toast Toast notification function
+ * @param users Optional user list for resolving usercombobox UUID values to names
  */
 export const exportRegisterToExcel = <T extends Record<string, any>>(
   records: T[],
@@ -219,11 +220,32 @@ export const exportRegisterToExcel = <T extends Record<string, any>>(
   }>,
   registerName: string,
   toast?: (message: string) => void,
+  users?: Array<{ id: string; name: string }>,
+  arrestOptions?: Array<{ id: string; record_id: string; arrested_name?: string; party_name?: string }>,
 ) => {
   const excelColumns: ExcelColumn<T>[] = columns.map((col) => ({
     key: col.key as keyof T,
     label: col.label,
     type: col.type === "datepicker" || col.type === "date" ? "date" : "text",
+    ...(col.type === "usercombobox"
+      ? {
+          format: (value: string, row: T) =>
+            (users && users.find((u) => u.id === value)?.name) ||
+            (row as any).sio_name ||
+            value ||
+            "",
+        }
+      : col.type === "arrestlink"
+      ? {
+          format: (value: string) => {
+            if (!value) return "";
+            const arrest = arrestOptions?.find((a) => a.id === value);
+            if (!arrest) return value;
+            const name = arrest.arrested_name || arrest.party_name || "";
+            return name ? `${arrest.record_id} — ${name}` : arrest.record_id;
+          },
+        }
+      : {}),
   }));
 
   exportToExcel(records, excelColumns, {

@@ -168,7 +168,7 @@ const ModusOperandiRegisterComponent = () => {
   };
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "Modus_Operandi", (msg) => toast.success(msg));
+    exportRegisterToExcel(tableRecords, COLUMNS, "Modus_Operandi", (msg) => toast.success(msg), workspaceUsers);
   };
 
   const renderRow = (record: ModusOperandiRecord) => (
