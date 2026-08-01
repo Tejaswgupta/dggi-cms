@@ -7,11 +7,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useModalStore } from "@/providers/modal-store-provider";
-import { ModalType } from "@/stores/modal-store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { LayoutTemplate, MoreHorizontal, Trash2 } from "lucide-react";
 import TaskTemplateSelector from "@/components/tasks/TaskTemplateSelector";
 import { useState } from "react";
+import { deleteTaskData } from "@/apiReq/newAPIs/task-new";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/use-toast";
 
 interface TaskInfoOptionsProps {
   taskId: string;
@@ -19,11 +30,18 @@ interface TaskInfoOptionsProps {
 }
 
 function TaskInfoOptions({ taskId, onApplyTemplate }: TaskInfoOptionsProps) {
-  const { onOpen } = useModalStore((s) => s);
   const [templateSelectorOpen, setTemplateSelectorOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
-  const handleTrashClick = () => {
-    onOpen(ModalType.CONFIRM_DELETE_TASK, { taskId: taskId });
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteTaskData(taskId);
+      router.push("/tasks");
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.message || "Failed to delete task", variant: "destructive" });
+    }
   };
 
   return (
@@ -45,12 +63,32 @@ function TaskInfoOptions({ taskId, onApplyTemplate }: TaskInfoOptionsProps) {
               <DropdownMenuSeparator />
             </>
           )}
-          <DropdownMenuItem className="flex gap-2" onClick={handleTrashClick}>
+          <DropdownMenuItem className="flex gap-2" onClick={() => setDeleteDialogOpen(true)}>
             <Trash2 size={16} className="opacity-[0.6]" color="#FC979F" />
             <h2 className="text-[#FC979F]">Delete</h2>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The task and all its data will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#FC979F] hover:bg-[#e8848c] text-white"
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {onApplyTemplate && (
         <TaskTemplateSelector
