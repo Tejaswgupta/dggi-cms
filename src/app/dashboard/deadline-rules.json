@@ -5,8 +5,8 @@
     "dggi_prosecution_arrest_records": "id,record_id,workspace_id,date_of_arrest,arrested_person_name,entity_name,prosecution_complaint_status,bail_status,date_of_filing,group,sio",
     "dggi_prosecution_non_arrest_records": "id,record_id,workspace_id,date_of_order,remarks,group,sio",
     "dggi_seizure_records": "id,record_id,workspace_id,date_of_seizure,entity_name,seized_by:votum_users(name),scn_issued,scn_issue_date,extended_by_commissioner,group,sio",
-    "dggi_intel_rapid_records": "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
-    "dggi_str_records": "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,ir_date,received_against_entity,assigned_group,sio",
+    "dggi_intel_rapid_records": "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,date_of_non_ir,received_against_entity,assigned_group,sio",
+    "dggi_str_records": "id,record_id,workspace_id,group_allocation_date,adg_putup_date,date_of_action_taken,date_of_non_ir,received_against_entity,assigned_group,sio",
     "dggi_records": "id,record_id,workspace_id,created_at,intelligence_action_date,intel_approved_date,taxpayer_name,handling_io_sio:votum_users(name),is_ir,date_of_ir,date_of_non_ir,group,closure_by",
     "dggi_dfl_records": "id,record_id,workspace_id,date_of_request,report_received_date,entity_name,dfl_request_no,group,sio"
   },
@@ -23,18 +23,18 @@
           "reminder_days_before": [30, 14, 7, 3, 1],
           "critical_days": 5,
           "warning_days": 14,
-          "skip_if_not_null": ["adg_putup_date"]
+          "skip_if_not_null": ["adg_putup_date", "date_of_non_ir"]
         },
         {
-          "rule_id": "intel_execution_deadline",
-          "label": "Intelligence Execution deadline (10 days from group allocation)",
-          "legal_reference": "Int. Procedure – Execution",
+          "rule_id": "non_ir_creation_deadline",
+          "label": "NON-IR/IR to be created (10 days from group allocation)",
+          "legal_reference": "Int. Procedure – NON-IR Creation",
           "reference_field": "group_allocation_date",
           "offset_days": 10,
           "reminder_days_before": [10, 5, 3, 1],
           "critical_days": 2,
           "warning_days": 5,
-          "skip_if_not_null": ["date_of_action_taken"]
+          "skip_if_not_null": ["date_of_non_ir"]
         }
       ]
     },
@@ -50,18 +50,18 @@
           "reminder_days_before": [30, 14, 7, 3, 1],
           "critical_days": 5,
           "warning_days": 14,
-          "skip_if_not_null": ["adg_putup_date"]
+          "skip_if_not_null": ["adg_putup_date", "date_of_non_ir"]
         },
         {
-          "rule_id": "intel_execution_deadline",
-          "label": "Intelligence Execution deadline (10 days from group allocation)",
-          "legal_reference": "Int. Procedure – Execution",
+          "rule_id": "non_ir_creation_deadline",
+          "label": "NON-IR/IR to be created (10 days from group allocation)",
+          "legal_reference": "Int. Procedure – NON-IR Creation",
           "reference_field": "group_allocation_date",
           "offset_days": 10,
           "reminder_days_before": [10, 5, 3, 1],
           "critical_days": 2,
           "warning_days": 5,
-          "skip_if_not_null": ["date_of_action_taken"]
+          "skip_if_not_null": ["date_of_non_ir"]
         }
       ]
     },
@@ -69,18 +69,6 @@
       "source_table": "dggi_provisional_attachment_records",
       "dedup_field": "attachment_batch_id",
       "deadlines": [
-        {
-          "rule_id": "provisional_attachment_lapse",
-          "label": "Attachment order lapses",
-          "legal_reference": "Sec 83(2) CGST",
-          "reference_field": "date_of_attachment",
-          "offset_days": 365,
-          "reminder_days_before": [60, 30, 7],
-          "critical_days": 30,
-          "warning_days": 60,
-          "skip_if_not_null": ["date_of_release"],
-          "skip_if": { "field": "out_of_monitoring", "value": "true" }
-        },
         {
           "rule_id": "provisional_attachment_scn_due",
           "label": "SCN must be issued (9-month deadline)",
@@ -129,39 +117,19 @@
       ]
     },
     {
-      "source_table": "dggi_seizure_records",
-      "deadlines": [
-        {
-          "rule_id": "seizure_scn_primary",
-          "label": "Issue SCN or return goods (6-month deadline)",
-          "legal_reference": "Sec 67(7) CGST",
-          "reference_field": "date_of_seizure",
-          "offset_days": 180,
-          "reminder_days_before": [30, 14, 7],
-          "critical_days": 14,
-          "warning_days": 30,
-          "skip_if": { "field": "scn_issued", "value": "Yes" },
-          "skip_if_not_null": ["scn_issue_date"],
-          "apply_only_if": { "field": "extended_by_commissioner", "value": "No" }
-        },
-        {
-          "rule_id": "seizure_scn_extended",
-          "label": "Extended SCN deadline (12 months, Commissioner extension)",
-          "legal_reference": "Sec 67(7) CGST",
-          "reference_field": "date_of_seizure",
-          "offset_days": 365,
-          "reminder_days_before": [30, 14, 7],
-          "critical_days": 14,
-          "warning_days": 30,
-          "skip_if": { "field": "scn_issued", "value": "Yes" },
-          "skip_if_not_null": ["scn_issue_date"],
-          "apply_only_if": { "field": "extended_by_commissioner", "value": "Yes" }
-        }
-      ]
-    },
-    {
       "source_table": "dggi_records",
       "deadlines": [
+        {
+          "rule_id": "action_taken_deadline",
+          "label": "Date of action taken (10 days from NON-IR creation)",
+          "legal_reference": "Int. Procedure – Action Taken",
+          "reference_field": "date_of_non_ir",
+          "offset_days": 10,
+          "reminder_days_before": [10, 5, 3, 1],
+          "critical_days": 2,
+          "warning_days": 5,
+          "skip_if_not_null": ["intelligence_action_date"]
+        },
         {
           "rule_id": "non_ir_initiation_deadline",
           "label": "NON-IR initiation fields must be updated (10 days from creation)",
@@ -208,37 +176,6 @@
           "warning_days": 30,
           "apply_only_if": { "field": "is_ir", "value": "true" },
           "skip_if_not_null": ["closure_by"]
-        }
-      ]
-    },
-    {
-      "source_table": "dggi_prosecution_non_arrest_records",
-      "deadlines": [
-        {
-          "rule_id": "prosecution_non_arrest_sanction",
-          "label": "Prosecution sanction / filing (6-month deadline)",
-          "legal_reference": "Sec 132 CGST",
-          "reference_field": "date_of_order",
-          "offset_days": 180,
-          "reminder_days_before": [30, 14, 7],
-          "critical_days": 14,
-          "warning_days": 30
-        }
-      ]
-    },
-    {
-      "source_table": "dggi_dfl_records",
-      "deadlines": [
-        {
-          "rule_id": "dfl_report_deadline",
-          "label": "DFL report receipt deadline (60 days)",
-          "legal_reference": "Int. Procedure – DFL",
-          "reference_field": "date_of_request",
-          "offset_days": 60,
-          "reminder_days_before": [60, 10, 0],
-          "critical_days": 10,
-          "warning_days": 20,
-          "skip_if_not_null": ["report_received_date"]
         }
       ]
     },

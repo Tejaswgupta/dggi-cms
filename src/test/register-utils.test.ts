@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { nullifyEmpty, currentFY, generateWorkspaceRecordId, REGISTER_PREFIXES } from "@/app/tasks/register-utils";
 
 // ─── nullifyEmpty ─────────────────────────────────────────────────────────────
@@ -114,6 +114,12 @@ describe("REGISTER_PREFIXES", () => {
     expect(REGISTER_PREFIXES.EVIDENCE_ROOM).toBe("EVR");
     expect(REGISTER_PREFIXES.NON_IR).toBe("NIR");
   });
+
+  it("has the correct per-competency SCN prefixes", () => {
+    expect(REGISTER_PREFIXES.SCN_AD_DD).toBe("AD-DD");
+    expect(REGISTER_PREFIXES.SCN_SIO).toBe("SIO");
+    expect(REGISTER_PREFIXES.SCN_ADD_JD).toBe("ADC-JC");
+  });
 });
 
 // ─── currentFY ───────────────────────────────────────────────────────────────
@@ -195,5 +201,120 @@ describe("generateWorkspaceRecordId", () => {
     await expect(
       generateWorkspaceRecordId(supabase as any, "table", "PRE", "ws-1"),
     ).rejects.toThrow("Failed to generate record ID: DB down");
+  });
+});
+
+// ─── SCN per-competency prefix mapping ───────────────────────────────────────
+
+describe("SCN competency → sequence prefix mapping", () => {
+  const COMPETENCY_PREFIX: Record<string, string> = {
+    "AD/DD Competency": REGISTER_PREFIXES.SCN_AD_DD,
+    "SIO Competency": REGISTER_PREFIXES.SCN_SIO,
+    "JC/ADC Competency": REGISTER_PREFIXES.SCN_ADD_JD,
+  };
+
+  it("maps AD/DD Competency to AD-DD", () => {
+    expect(COMPETENCY_PREFIX["AD/DD Competency"]).toBe("AD-DD");
+  });
+
+  it("maps SIO Competency to SIO", () => {
+    expect(COMPETENCY_PREFIX["SIO Competency"]).toBe("SIO");
+  });
+
+  it("maps JC/ADC Competency to ADC-JC", () => {
+    expect(COMPETENCY_PREFIX["JC/ADC Competency"]).toBe("ADC-JC");
+  });
+
+  it("all three competencies have distinct prefixes", () => {
+    const values = Object.values(COMPETENCY_PREFIX);
+    expect(new Set(values).size).toBe(3);
+  });
+});
+
+// ─── SCN record ID format ────────────────────────────────────────────────────
+
+describe("SCN record ID format", () => {
+  // Mirrors the ID-building logic in generateSCNRecordId
+  const buildSCNId = (seq: number, group: string, designation: string, initials: string) => {
+    const seqStr = String(seq).padStart(2, "0");
+    const grp = group.split(" ").pop() ?? "";
+    return `${seqStr}/Grp-${grp}/${designation}/${initials}`;
+  };
+
+  it("pads single-digit seq to two digits", () => {
+    expect(buildSCNId(1, "Group A", "SIO", "AK")).toBe("01/Grp-A/SIO/AK");
+  });
+
+  it("does not pad two-digit seq", () => {
+    expect(buildSCNId(12, "Group B", "DD", "RK")).toBe("12/Grp-B/DD/RK");
+  });
+
+  it("extracts the last word of the group name", () => {
+    expect(buildSCNId(3, "Group C", "SIO", "MN")).toBe("03/Grp-C/SIO/MN");
+  });
+
+  it("uses DD designation when role starts with DD", () => {
+    const rawRole = "DD (Customs)";
+    const designation = rawRole.startsWith("DD") ? "DD" : rawRole;
+    expect(buildSCNId(5, "Group A", designation, "PQ")).toBe("05/Grp-A/DD/PQ");
+  });
+
+  it("uses full role string when role does not start with DD", () => {
+    const rawRole = "SIO";
+    const designation = rawRole.startsWith("DD") ? "DD" : rawRole;
+    expect(buildSCNId(7, "Group D", designation, "XY")).toBe("07/Grp-D/SIO/XY");
+  });
+});
+
+// ─── SCN next_seq_val RPC integration ────────────────────────────────────────
+
+describe("SCN generateSCNRecordId — next_seq_val RPC", () => {
+  const makeSupabase = (seqVal: number | null, rpcError?: string) => ({
+    rpc: vi.fn().mockReturnValue({
+      data: seqVal,
+      error: rpcError ? { message: rpcError } : null,
+    }),
+  });
+
+  it("calls next_seq_val with the correct prefix for SIO Competency", async () => {
+    const supabase = makeSupabase(1);
+    await supabase.rpc("next_seq_val", {
+      p_workspace_id: "ws-1",
+      p_prefix: REGISTER_PREFIXES.SCN_SIO,
+      p_fy: "25-26",
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith("next_seq_val", {
+      p_workspace_id: "ws-1",
+      p_prefix: "SIO",
+      p_fy: "25-26",
+    });
+  });
+
+  it("calls next_seq_val with AD-DD prefix for AD/DD Competency", async () => {
+    const supabase = makeSupabase(3);
+    await supabase.rpc("next_seq_val", {
+      p_workspace_id: "ws-1",
+      p_prefix: REGISTER_PREFIXES.SCN_AD_DD,
+      p_fy: "25-26",
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith("next_seq_val", {
+      p_workspace_id: "ws-1",
+      p_prefix: "AD-DD",
+      p_fy: "25-26",
+    });
+  });
+
+  it("calls next_seq_val with ADC-JC prefix for JC/ADC Competency", async () => {
+    const supabase = makeSupabase(7);
+    await supabase.rpc("next_seq_val", {
+      p_workspace_id: "ws-1",
+      p_prefix: REGISTER_PREFIXES.SCN_ADD_JD,
+      p_fy: "26-27",
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith("next_seq_val", {
+      p_workspace_id: "ws-1",
+      p_prefix: "ADC-JC",
+      p_fy: "26-27",
+    });
   });
 });

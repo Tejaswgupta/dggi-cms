@@ -5,6 +5,9 @@ import type { DGGICaseOption } from "./CaseIdCombobox";
 export const REGISTER_PREFIXES = {
   DGGI: "DGG",
   SCN: "SCN",
+  SCN_AD_DD: "AD-DD",
+  SCN_SIO: "SIO",
+  SCN_ADD_JD: "ADC-JC",
   PROVISIONAL_ATTACHMENT: "PAR",
   INCIDENT_REPORT: "IRR",
   ARREST: "ARR",

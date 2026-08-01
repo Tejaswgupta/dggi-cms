@@ -55,10 +55,11 @@ interface ClosureRecord {
   handling_io_sio: string;
   issue_involved: string;
   latest_status: string;
-  pr_adg_comments: string;
+  pr_adg_comments: { text: string; timestamp: string }[] | null;
   detection_amount: string;
   recovery_itc: string;
   recovery_cash: string;
+  total_recovery: string;
   digit_id: string;
   bo_id: string;
   hsn_code: string;
@@ -91,7 +92,7 @@ type ColDef = {
 
 const SHARED_COLUMNS: ColDef[] = [
   { key: "record_id", label: "Closure ID", type: "text", width: "150px" },
-  { key: "source_record_id", label: "Case ID", type: "text", width: "150px" },
+  { key: "source_record_id", label: "IR No.", type: "text", width: "150px" },
   {
     key: "taxpayer_name",
     label: "Taxpayer / Entity",
@@ -140,6 +141,12 @@ const SHARED_COLUMNS: ColDef[] = [
     label: "Recovery Cash",
     type: "text",
     width: "150px",
+  },
+  {
+    key: "total_recovery",
+    label: "Total Recovery",
+    type: "text",
+    width: "160px",
   },
   { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
   { key: "bo_id", label: "BO ID", type: "text", width: "130px" },
@@ -194,11 +201,7 @@ const fmt = (iso: string) => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 };
 
 function FilterDatePicker({
@@ -218,7 +221,7 @@ function FilterDatePicker({
         <button className="flex h-9 min-w-[130px] items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
           <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
           {parsed ? (
-            format(parsed, "dd/MM/yyyy")
+            format(parsed, "dd-MM-yyyy")
           ) : (
             <span className="text-[#9a9a96]">{placeholder}</span>
           )}
@@ -353,7 +356,20 @@ const ClosureRegisterComponent = () => {
     );
   };
 
+  const LEGACY_CUTOFF = "2026-08-01";
+
   const renderCell = (record: ClosureRecord, col: ColDef) => {
+    if (col.key === "total_recovery") {
+      if (record.total_recovery) return <span>{record.total_recovery}</span>;
+      // Aug 1 2026 onwards: sum recovery_cash + recovery_itc
+      if (record.created_at >= LEGACY_CUTOFF) {
+        const cash = parseFloat(record.recovery_cash) || 0;
+        const itc = parseFloat(record.recovery_itc) || 0;
+        const sum = cash + itc;
+        return <span>{sum ? sum.toLocaleString("en-IN") : "—"}</span>;
+      }
+      return <span>—</span>;
+    }
     const value = (record as any)[col.key] ?? "";
     if (col.type === "datepicker")
       return <span className="whitespace-nowrap">{fmt(value)}</span>;

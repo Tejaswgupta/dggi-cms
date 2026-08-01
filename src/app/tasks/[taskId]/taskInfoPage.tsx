@@ -1,6 +1,5 @@
 "use client";
 
-import { useTimer } from "@/context/TimerContext";
 import { format, isEqual } from "date-fns";
 import { DateTime } from "luxon";
 import dynamic from "next/dynamic";
@@ -88,9 +87,6 @@ function TaskInfoPage({ taskId, variant = "page" }: TaskInfoPageProps) {
   const router = useRouter();
 
   const { toast } = useToast();
-
-  // Extract the timer context at the top level
-  const timer = useTimer();
 
   // State to store the task data
   const [taskData, setTaskData] = useState<any>(null);

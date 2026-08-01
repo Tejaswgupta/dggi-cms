@@ -48,7 +48,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { exportRegisterToExcel, fetchCaseOptions, nullifyEmpty } from "./register-utils";
+import { currentFY, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty, REGISTER_PREFIXES } from "./register-utils";
 import {
   RegisterRecordDialog,
   type RegisterColumn,
@@ -422,11 +422,7 @@ const fmt = (iso: string) => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -448,7 +444,7 @@ function FilterDatePicker({
         <button className="flex h-9 min-w-[130px] items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
           <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
           {parsed ? (
-            format(parsed, "dd/MM/yyyy")
+            format(parsed, "dd-MM-yyyy")
           ) : (
             <span className="text-[#9a9a96]">{placeholder}</span>
           )}
@@ -704,15 +700,25 @@ const SCNRegisterComponent = () => {
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("");
 
+  const COMPETENCY_PREFIX: Record<string, string> = {
+    "AD/DD Competency": REGISTER_PREFIXES.SCN_AD_DD,
+    "SIO Competency": REGISTER_PREFIXES.SCN_SIO,
+    "JC/ADC Competency": REGISTER_PREFIXES.SCN_ADD_JD,
+  };
+
   const generateSCNRecordId = async (
     draft: Partial<SCNRecord>,
   ): Promise<string> => {
-    const { count } = await supabase
-      .from("dggi_scn_records")
-      .select("*", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId)
-      .eq("competency", draft.competency ?? "SIO Competency");
-    const seq = String((count ?? 0) + 1).padStart(2, "0");
+    const competency = draft.competency ?? "SIO Competency";
+    const prefix = COMPETENCY_PREFIX[competency] ?? REGISTER_PREFIXES.SCN_SIO;
+    const fy = draft.date_of_scn ? fyFromDate(draft.date_of_scn) : currentFY();
+    const { data, error } = await supabase.rpc("next_seq_val", {
+      p_workspace_id: workspaceId,
+      p_prefix: prefix,
+      p_fy: fy,
+    });
+    if (error) throw new Error(`Failed to generate record ID: ${error.message}`);
+    const seq = String(data as number).padStart(2, "0");
     const grp = (draft.group ?? "").split(" ").pop() ?? "";
     const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
     const rawRole = sioUser?.dggi_role ?? "";

@@ -155,11 +155,7 @@ const fmt = (iso: string) => {
   const d = new Date(iso);
   return isNaN(d.getTime())
     ? iso
-    : d.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
+    : `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 };
 
 const STRRegisterComponent = () => {

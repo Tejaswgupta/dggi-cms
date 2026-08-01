@@ -13,7 +13,7 @@ FP column mapping (0-indexed):
   Col 4  Closure Date (as seen)        → due_date
   Col 5  Section / Closure Provision   → issue_involved
   Col 6  Incident Report No.           → lookup dggi_records.record_id → source_record_id
-  Col 7  Payment Details (as seen)     → recovery_cash
+  Col 7  Payment Details (as seen)     → total_recovery
   Col 8  Group                         → group  (single letter → "Group X")
   Col 9  SIO                           → lookup votum_users.name → handling_io_sio
 
@@ -323,7 +323,7 @@ def process_fp_sheet(ws, sb, workspace_id, user_cache, rid_cache, fn_cache,
         if ir_no_raw and not source_record_id:
             unmatched_ir_nos.add(ir_no_raw)
 
-        recovery = parse_amount_to_int(payment_raw)
+        total_recovery = parse_amount_to_int(payment_raw)
 
         ALWAYS = {"record_id", "is_ir", "closure_by"}
         payload = {k: v for k, v in {
@@ -334,7 +334,7 @@ def process_fp_sheet(ws, sb, workspace_id, user_cache, rid_cache, fn_cache,
             "taxpayer_name": taxpayer,
             "due_date": closure_date,
             "issue_involved": section,
-            "recovery_cash": recovery,
+            "total_recovery": total_recovery,
             "group": group,
             "handling_io_sio": handling_io_sio_id,
             "closure_by": "Closed After Payment of Tax",
@@ -347,7 +347,7 @@ def process_fp_sheet(ws, sb, workspace_id, user_cache, rid_cache, fn_cache,
                 f"          date={closure_date} | group={group!r}\n"
                 f"          sio={sio_raw!r} → {handling_io_sio_id or 'NO MATCH'}\n"
                 f"          ir_no={ir_no_raw!r} → src={source_record_id or 'NO MATCH'}\n"
-                f"          payment={payment_raw!r} → {recovery}"
+                f"          payment={payment_raw!r} → {total_recovery}"
             )
 
         result = upsert_row(sb, workspace_id, sr_no, payload, by_rid, by_fn, skipped, log, dry_run)

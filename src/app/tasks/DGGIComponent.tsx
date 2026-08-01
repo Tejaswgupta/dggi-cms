@@ -264,11 +264,10 @@ const fmt = (iso: string) => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
 };
 
 const groupKeyLabel = (field: GroupByField, raw: string) => {
@@ -693,7 +692,7 @@ function DatePickerCell({
         >
           <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
           {parsed ? (
-            format(parsed, "dd/MM/yyyy")
+            format(parsed, "dd-MM-yyyy")
           ) : (
             <span className="text-[#9a9a96]">Pick date</span>
           )}
@@ -995,7 +994,7 @@ function FilterDatePicker({
         <button className="flex h-9 min-w-[130px] items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
           <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
           {parsed ? (
-            format(parsed, "dd/MM/yyyy")
+            format(parsed, "dd-MM-yyyy")
           ) : (
             <span className="text-[#9a9a96]">{placeholder}</span>
           )}

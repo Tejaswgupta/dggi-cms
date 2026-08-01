@@ -47,7 +47,7 @@ const COLUMNS: { key: keyof Omit<DFLRecord, "id">; label: string; type: "text" |
 const TOTAL_COLS = COLUMNS.length + 1;
 const EMPTY_RECORD: Omit<DFLRecord, "id"> = { record_id: "", linked_case_id: "", dfl_request_no: "", date_of_request: "", case_file_no: "", entity_name: "", nature_of_request: "", devices_submitted: "", lab_received_date: "", report_received_date: "", findings_summary: "", action_taken: "", sio: "", sio_name: "", group: "", remarks: "" };
 
-const fmt = (iso: string) => { if (!iso) return "—"; const d = new Date(iso); return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }); };
+const fmt = (iso: string) => { if (!iso) return "—"; const d = new Date(iso); if (isNaN(d.getTime())) return iso; return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`; };
 
 // ─── DFL Alarm logic (60-day deadline from date_of_request) ──────────────────
 

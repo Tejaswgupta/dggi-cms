@@ -520,7 +520,7 @@ function DateComputedCell({
 }) {
   if (!date) return <span className="text-[#9a9a96]">—</span>;
   const level = alarmLevel(daysLeft);
-  const fmtd = format(date, "dd/MM/yyyy");
+  const fmtd = format(date, "dd-MM-yyyy");
   if (!level)
     return (
       <span className="text-base text-[#1a1a1a] whitespace-nowrap">{fmtd}</span>
@@ -572,11 +572,7 @@ const fmt = (iso: string) => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
 };
 
 // ─── Filter date picker ───────────────────────────────────────────────────────
@@ -598,7 +594,7 @@ function FilterDatePicker({
         <button className="flex h-9 min-w-[130px] items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
           <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
           {parsed ? (
-            format(parsed, "dd/MM/yyyy")
+            format(parsed, "dd-MM-yyyy")
           ) : (
             <span className="text-[#9a9a96]">{placeholder}</span>
           )}

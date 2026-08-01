@@ -1,6 +1,6 @@
 import { TimeEntry } from "@/apiReq/newAPIs/time-tracking";
-import { clientBackendFetch } from "@/lib/client-backend-fetch";
 import AssignCaseInTask from "@/app/tasks/AssignCaseInTask";
+import { clientBackendFetch } from "@/lib/client-backend-fetch";
 
 import AssignTeamInTask from "@/app/tasks/AssignTeamsInTask";
 import {
@@ -25,16 +25,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { useTimer } from "@/context/TimerContext";
+
 import useWorkspaceUsers from "@/hooks/useWorkspaceUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
-import {
-  ChevronDown,
-  Clock,
-  LoaderCircle,
-  PlayCircle,
-  StopCircle,
-} from "lucide-react";
+import { ChevronDown, Clock, LoaderCircle } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 import { FaRegUser } from "react-icons/fa";
 import { RiTeamLine } from "react-icons/ri";
@@ -81,7 +75,7 @@ interface TaskFormProps {
   // Callbacks for parent components
   onTaskUpdate?: (updatedTask: any) => void;
   onTaskNameChange?: (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
 
   // Override props (optional) - if provided, these will override internal state
@@ -141,7 +135,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
   initialValues = {},
 }) => {
   const { toast } = useToast();
-  const timer = useTimer();
+
   const workspaceUsersList = useWorkspaceUsers() || [];
 
   // Internal state
@@ -201,7 +195,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         const result = await getWorkspaceSettings();
         if (result.success) {
           setIsDelegationWorkflowEnabled(
-            result.data.delegation_workflow_enabled || false
+            result.data.delegation_workflow_enabled || false,
           );
         }
       } catch (error) {
@@ -302,7 +296,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
       const { success, data } = await getTaskAutomationStatus(taskId!);
       if (success && data && data.length > 0) {
         const activeWorkflows = data.filter(
-          (w) => w.status === "pending" || w.status === "in_progress"
+          (w) => w.status === "pending" || w.status === "in_progress",
         );
         if (activeWorkflows.length > 0) {
           setActiveWorkflow(activeWorkflows[0]);
@@ -332,7 +326,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         await updateTaskName(taskData, updateObj);
       }
     }, 1000),
-    [mode]
+    [mode],
   );
 
   // Internal handlers
@@ -549,7 +543,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
       if (newAssignee === prevAssignee) return;
 
       const assigneeUser = workspaceUsersList.find(
-        (user) => user.id === newAssignee
+        (user) => user.id === newAssignee,
       );
       const updatedTaskData = {
         ...taskData,
@@ -597,7 +591,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
       if (newApprover === prevApprover) return;
 
       const approverUser = workspaceUsersList.find(
-        (user) => user.id === newApprover
+        (user) => user.id === newApprover,
       );
       const updatedTaskData = {
         ...taskData,
@@ -633,7 +627,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
   };
 
   const handleCCUsersChange = async (
-    newCCUsers: { id: string; name: string }[]
+    newCCUsers: { id: string; name: string }[],
   ) => {
     if (overrides.onCCUsersChange) {
       overrides.onCCUsersChange(newCCUsers);
@@ -746,13 +740,16 @@ const TaskForm: React.FC<TaskFormProps> = ({
         team_members: transformedMembers,
       };
 
-      const response = await clientBackendFetch("https://api.thevotum.com/assign_task/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await clientBackendFetch(
+        "https://api.thevotum.com/assign_task/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);
@@ -775,7 +772,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
       }
 
       const foundUser = workspaceUsersList.find(
-        (user) => user.id === cleanedUserId
+        (user) => user.id === cleanedUserId,
       );
 
       if (!foundUser) {
@@ -806,13 +803,13 @@ const TaskForm: React.FC<TaskFormProps> = ({
   // Time tracking handlers
   const addTimeEntryManually = async () => {
     const hoursInput = document.getElementById(
-      "manual-hours"
+      "manual-hours",
     ) as HTMLInputElement;
     const minutesInput = document.getElementById(
-      "manual-minutes"
+      "manual-minutes",
     ) as HTMLInputElement;
     const descriptionInput = document.getElementById(
-      "manual-description"
+      "manual-description",
     ) as HTMLInputElement;
 
     const hours = hoursInput ? parseInt(hoursInput.value || "0") : 0;
@@ -869,7 +866,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
   const handleUpdateTimeEntry = async (
     id: string,
     field: string,
-    value: any
+    value: any,
   ) => {
     try {
       const updatedEntries = timeEntries.map((entry) => {
@@ -968,7 +965,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
   console.log(
     "Rendering TaskForm with taskData:",
     overrides.documents,
-    taskData.documents || []
+    taskData.documents || [],
   );
 
   return (
@@ -1077,9 +1074,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     try {
                       // Then perform the actual upload
                       setIsUploadingDocuments(true);
-                      const { addTaskDocuments } = await import(
-                        "@/apiReq/newAPIs/task-new"
-                      );
+                      const { addTaskDocuments } =
+                        await import("@/apiReq/newAPIs/task-new");
                       const result = await addTaskDocuments(taskData, [file]);
 
                       if (result.success) {
@@ -1116,7 +1112,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   // Handle document removal for both new and edit tasks
                   if (mode === "new") {
                     const updatedDocuments = (taskData.documents || []).filter(
-                      (doc: any) => doc.name !== document.name
+                      (doc: any) => doc.name !== document.name,
                     );
                     const updatedTaskData = {
                       ...taskData,
@@ -1129,7 +1125,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   } else if (mode === "edit") {
                     // For edit mode, optimistically update the UI first
                     const updatedDocuments = (taskData.documents || []).filter(
-                      (doc: any) => doc.name !== document.name
+                      (doc: any) => doc.name !== document.name,
                     );
                     const updatedTaskData = {
                       ...taskData,
@@ -1142,12 +1138,11 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
                     try {
                       // Then perform the actual removal
-                      const { removeTaskDocument } = await import(
-                        "@/apiReq/newAPIs/task-new"
-                      );
+                      const { removeTaskDocument } =
+                        await import("@/apiReq/newAPIs/task-new");
                       const result = await removeTaskDocument(
                         taskData,
-                        document
+                        document,
                       );
 
                       if (result.success) {
@@ -1239,7 +1234,16 @@ const TaskForm: React.FC<TaskFormProps> = ({
           {/* Tags */}
           <div className="w-full min-h-[40px] flex gap-3 items-start">
             <div className="base:w-[35%] tv:w-[28%] h-[40px] rounded-[5px] hover:bg-[#efefef] pl-[7px] flex items-center px-[3px] gap-2 font-light text-[#777672]">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#777672" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#777672"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
                 <line x1="7" y1="7" x2="7.01" y2="7" />
               </svg>
@@ -1258,7 +1262,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     type="button"
                     onClick={() =>
                       handleTagsChange(
-                        (taskData.tags || []).filter((t: string) => t !== tag)
+                        (taskData.tags || []).filter((t: string) => t !== tag),
                       )
                     }
                     className="ml-0.5 text-[#777672] hover:text-red-500 leading-none"
@@ -1297,36 +1301,39 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     setShowTagSuggestions(false);
                   }, 150);
                 }}
-                placeholder={(taskData.tags || []).length === 0 ? "Add tag…" : ""}
+                placeholder={
+                  (taskData.tags || []).length === 0 ? "Add tag…" : ""
+                }
                 className="flex-1 min-w-[80px] text-[0.84rem] bg-transparent outline-none text-[#37352f] placeholder:text-[#b0b0aa]"
               />
-              {showTagSuggestions && (() => {
-                const currentTags: string[] = taskData.tags || [];
-                const filtered = workspaceTags.filter(
-                  (t) =>
-                    !currentTags.includes(t) &&
-                    t.toLowerCase().startsWith(tagInput.toLowerCase())
-                );
-                return filtered.length > 0 ? (
-                  <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#EDEDEA] rounded-lg shadow-md py-1 min-w-[160px] max-h-[180px] overflow-y-auto">
-                    {filtered.map((suggestion) => (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                          handleTagsChange([...currentTags, suggestion]);
-                          setTagInput("");
-                          setShowTagSuggestions(false);
-                        }}
-                        className="w-full text-left px-3 py-1.5 text-sm text-[#364258] hover:bg-[#F3F2EF] transition-colors"
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                ) : null;
-              })()}
+              {showTagSuggestions &&
+                (() => {
+                  const currentTags: string[] = taskData.tags || [];
+                  const filtered = workspaceTags.filter(
+                    (t) =>
+                      !currentTags.includes(t) &&
+                      t.toLowerCase().startsWith(tagInput.toLowerCase()),
+                  );
+                  return filtered.length > 0 ? (
+                    <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[#EDEDEA] rounded-lg shadow-md py-1 min-w-[160px] max-h-[180px] overflow-y-auto">
+                      {filtered.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            handleTagsChange([...currentTags, suggestion]);
+                            setTagInput("");
+                            setShowTagSuggestions(false);
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-sm text-[#364258] hover:bg-[#F3F2EF] transition-colors"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
             </div>
           </div>
 
@@ -1484,82 +1491,6 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     Time Tracking
                   </p>
                 </div>
-                <div className="base:w-[65%] tv:w-[72%] flex gap-2">
-                  {timer.isTimerRunning && timer.currentTaskId === taskId ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-1 text-red-600 border-red-600"
-                      onClick={async () => {
-                        const result = await timer.stopTimer();
-                        if (result.success) {
-                          toast({
-                            title: "Time entry saved",
-                            description:
-                              "Your time has been recorded successfully",
-                            variant: "success",
-                          });
-                          await fetchTimeEntries();
-                        } else {
-                          toast({
-                            title: "Error saving time entry",
-                            description:
-                              result.error || "Failed to save time entry",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      disabled={isSavingTimeEntry}
-                    >
-                      {isSavingTimeEntry ? (
-                        <LoaderCircle className="animate-spin" size={16} />
-                      ) : (
-                        <StopCircle size={16} />
-                      )}
-                      <span>
-                        Stop (
-                        {timer.timerElapsed
-                          ? formatTime(timer.timerElapsed)
-                          : "00:00:00"}
-                        )
-                      </span>
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-1 text-green-600 border-green-600"
-                      onClick={() =>
-                        timer.startTimer(
-                          taskId!,
-                          newTimeDescription || "Work on task"
-                        )
-                      }
-                      disabled={
-                        isSavingTimeEntry ||
-                        (timer.isTimerRunning && timer.currentTaskId !== taskId)
-                      }
-                    >
-                      <PlayCircle size={16} />
-                      <span>Start Timer</span>
-                    </Button>
-                  )}
-                  {timer.isTimerRunning && timer.currentTaskId === taskId ? (
-                    <Input
-                      placeholder="What are you working on?"
-                      className="w-40 h-8 text-sm"
-                      value={timer.timerDescription || ""}
-                      onChange={(e) => timer.updateDescription(e.target.value)}
-                    />
-                  ) : (
-                    <Input
-                      placeholder="What are you working on?"
-                      className="w-40 h-8 text-sm"
-                      value={newTimeDescription}
-                      onChange={(e) => setNewTimeDescription(e.target.value)}
-                    />
-                  )}
-                </div>
               </div>
 
               {/* Time tracking details accordion */}
@@ -1658,7 +1589,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                                         handleUpdateTimeEntry(
                                           entry.id!,
                                           "description",
-                                          entry.description
+                                          entry.description,
                                         )
                                       }
                                     >
@@ -1688,8 +1619,8 @@ const TaskForm: React.FC<TaskFormProps> = ({
                                   {formatTime(
                                     timeEntries.reduce(
                                       (total, entry) => total + entry.duration,
-                                      0
-                                    )
+                                      0,
+                                    ),
                                   )}
                                 </TableCell>
                                 <TableCell></TableCell>
