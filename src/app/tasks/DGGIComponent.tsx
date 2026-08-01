@@ -87,7 +87,9 @@ import {
 } from "./AdgCommentThread";
 import { type DGGICaseOption } from "./CaseIdCombobox";
 import {
+  AMOUNT_FIELDS,
   exportRegisterToExcel,
+  fmtLakhs,
   generateClosureRecordId,
   generateWorkspaceRecordId,
   REGISTER_PREFIXES,
@@ -375,19 +377,19 @@ const COLUMNS: {
   },
   {
     key: "detection_amount",
-    label: "Detection (₹)",
+    label: "Detection (₹L)",
     type: "text",
     width: "150px",
   },
   {
     key: "recovery_itc",
-    label: "Recovery ITC (₹)",
+    label: "Recovery ITC (₹L)",
     type: "text",
     width: "160px",
   },
   {
     key: "recovery_cash",
-    label: "Recovery Cash (₹)",
+    label: "Recovery Cash (₹L)",
     type: "text",
     width: "160px",
   },
@@ -871,6 +873,8 @@ function EditableCell({
             "—"}
         </span>
       );
+    if (columnKey && AMOUNT_FIELDS.has(columnKey))
+      return <span className="whitespace-nowrap">{fmtLakhs(value as string)}</span>;
     return <span>{(value as string) || "—"}</span>;
   }
 
@@ -1867,7 +1871,7 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
   },
   {
     key: "expected_liability",
-    label: "Expected Liability (Cr.)",
+    label: "Expected Liability (₹L)",
     type: "number",
     width: "160px",
   },

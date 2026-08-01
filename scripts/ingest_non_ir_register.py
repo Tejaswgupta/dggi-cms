@@ -13,8 +13,9 @@ Column mapping:
   Col 5  E-Mail ID        → (skipped)
 
 Dedup strategy:
-  1. Match on file_no in DB → update
-  2. No match → insert with sequential NIR-NNN record_id
+  1. Match on file_no in DB → skip (already present)
+  2. No match → insert as closed non-IR (closure_by="Closed", latest_status="Closed")
+     with sequential NIR-NNN record_id
 
 NOTE: Does NOT touch dggi_closure_records.
 
@@ -118,7 +119,7 @@ def upsert_record(
     file_no = payload.get("file_no")
     record_id = payload["record_id"]
     try:
-        # 1. Match on file_no
+        # 1. Skip if file_no already exists in DB
         if file_no:
             res = (
                 sb.table("dggi_records")
@@ -130,14 +131,12 @@ def upsert_record(
             if res.data:
                 row = res.data[0]
                 if dry_run:
-                    print(f"    → UPDATE (file_no)  existing={row['record_id']!r}  db_id={row['id']}")
-                else:
-                    sb.table("dggi_records").update(payload).eq("id", row["id"]).execute()
-                log.append({"action": "update", "match_by": "file_no", "sr_no": sr_no,
+                    print(f"    → SKIP (exists by file_no)  record_id={row['record_id']!r}  db_id={row['id']}")
+                log.append({"action": "skip", "reason": "file_no exists", "sr_no": sr_no,
                             "record_id": row["record_id"], "db_id": row["id"]})
-                return "updated"
+                return "skipped"
 
-        # 2. Insert
+        # 2. Insert as closed non-IR
         insert_payload = {**payload, "workspace_id": workspace_id}
         if dry_run:
             print(f"    → INSERT  record_id={record_id!r}  file_no={file_no!r}")
@@ -162,7 +161,7 @@ def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log:
 
     # row[0] is the header row; data starts at row[1]
     seq = start_seq
-    inserted = updated = skipped_count = 0
+    inserted = skipped_count = 0
 
     for row in rows[1:]:
         if row[0] is None:
@@ -188,6 +187,8 @@ def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log:
             "sio_name": officer_name,
             "group": group_val,
             "is_ir": False,
+            "closure_by": "Closed",
+            "latest_status": "Closed",
         }
         # Drop None values except record_id
         payload = {k: v for k, v in payload.items() if v is not None or k == "record_id"}
@@ -201,15 +202,12 @@ def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log:
         result = upsert_record(sb, workspace_id, sr_no, payload, skipped, log, dry_run)
         if result == "inserted":
             inserted += 1
-        elif result == "updated":
-            updated += 1
         else:
             skipped_count += 1
 
     print(
         f"\n[NON-IR Register]  {'Would insert' if dry_run else 'Inserted'}: {inserted}"
-        f" | {'Would update' if dry_run else 'Updated'}: {updated}"
-        f" | Skipped: {skipped_count}"
+        f"  Already exists (skipped): {skipped_count}"
     )
 
 

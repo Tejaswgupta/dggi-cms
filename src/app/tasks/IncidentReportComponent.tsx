@@ -40,7 +40,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { exportRegisterToExcel } from "./register-utils";
+import { exportRegisterToExcel, fmtLakhs } from "./register-utils";
 import type { RegisterColumn } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -94,19 +94,19 @@ const COLUMNS: RegisterColumn[] = [
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
   {
     key: "detection_amount",
-    label: "Detection (₹)",
+    label: "Detection (₹L)",
     type: "number",
     width: "150px",
   },
   {
     key: "recovery_itc",
-    label: "Recovery ITC (₹)",
+    label: "Recovery ITC (₹L)",
     type: "number",
     width: "160px",
   },
   {
     key: "recovery_cash",
-    label: "Recovery Cash (₹)",
+    label: "Recovery Cash (₹L)",
     type: "number",
     width: "160px",
   },
@@ -147,12 +147,14 @@ const IncidentReportComponent = () => {
   const [userGroups, setUserGroups] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [availableFYs, setAvailableFYs] = useState<string[]>([]);
 
   const [search, setSearch] = useState("");
 
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
+  const [fyFilter, setFyFilter] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState<GroupByField | "none">("none");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
@@ -193,6 +195,11 @@ const IncidentReportComponent = () => {
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
 
+  const fyToDateRange = (fy: string): { from: string; to: string } => {
+    const startYear = parseInt(fy.slice(0, 4), 10);
+    return { from: `${startYear}-04-01`, to: `${startYear + 1}-03-31` };
+  };
+
   useEffect(() => {
     const init = async () => {
       const wid = await getWorkspaceId();
@@ -202,31 +209,43 @@ const IncidentReportComponent = () => {
       const uid = authData?.user?.id ?? "";
       setCurrentUserId(uid);
 
-      const [userRow, groupRows] = await Promise.all([
+      const [userRow, groupRows, fyRows] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
-        supabase
-          .from("dggi_user_group_assignments")
-          .select("group_name")
-          .eq("user_id", uid),
+        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
+        supabase.from("dggi_records").select("date_of_ir").eq("workspace_id", wid).eq("is_ir", true).not("date_of_ir", "is", null),
       ]);
       const role = userRow.data?.dggi_role ?? "";
-      const groups = (groupRows.data ?? []).map(
-        (g: { group_name: string }) => g.group_name,
-      );
+      const groups = (groupRows.data ?? []).map((g: { group_name: string }) => g.group_name);
       setUserRole(role);
       setUserGroups(groups);
 
-      await fetchRecords(wid, role, groups, uid);
+      const fys = Array.from(new Set(
+        (fyRows.data ?? []).map(({ date_of_ir }: { date_of_ir: string }) => {
+          const year = parseInt(date_of_ir.slice(0, 4), 10);
+          const month = parseInt(date_of_ir.slice(5, 7), 10);
+          const s = month >= 4 ? year : year - 1;
+          return `${s}-${String(s + 1).slice(2)}`;
+        })
+      )).sort((a, b) => b.localeCompare(a)) as string[];
+      setAvailableFYs(fys);
+
+      await fetchRecords(wid, role, groups, uid, null);
       setLoading(false);
     };
     init();
   }, []);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    fetchRecords(workspaceId, userRole, userGroups, currentUserId, fyFilter);
+  }, [fyFilter]);
 
   const fetchRecords = async (
     wid: string,
     role?: string,
     groups?: string[],
     uid?: string,
+    fy?: string | null,
   ) => {
     let query = supabase
       .from("dggi_records")
@@ -242,6 +261,11 @@ const IncidentReportComponent = () => {
       } else {
         query = query.eq("group", "__none__");
       }
+    }
+
+    if (fy) {
+      const { from, to } = fyToDateRange(fy);
+      query = query.gte("date_of_ir", from).lte("date_of_ir", to);
     }
 
     const { data, error } = await query;
@@ -340,7 +364,7 @@ const IncidentReportComponent = () => {
     );
   };
 
-  const activeFilterCount = (search ? 1 : 0) + (groupFilter ? 1 : 0);
+  const activeFilterCount = (search ? 1 : 0) + (groupFilter ? 1 : 0) + (fyFilter ? 1 : 0);
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
@@ -354,6 +378,11 @@ const IncidentReportComponent = () => {
     if (col.type === "datepicker" && value) {
       const [y, m, d] = value.split("-");
       return <span>{d && m && y ? `${d}-${m}-${y}` : value}</span>;
+    }
+    if (col.type === "number") {
+      const n = parseFloat(value);
+      if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
+      return <span className="whitespace-nowrap">{fmtLakhs(value)}</span>;
     }
     return <span>{value || "—"}</span>;
   };
@@ -539,11 +568,35 @@ const IncidentReportComponent = () => {
               </SelectContent>
             </Select>
 
+            <Select
+              value={fyFilter ?? "all"}
+              onValueChange={(v) => setFyFilter(v === "all" ? null : v)}
+            >
+              <SelectTrigger
+                className={`h-9 w-[130px] rounded-lg text-base border ${
+                  fyFilter
+                    ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]"
+                    : "border-[#EDEDEA] text-[#1a1a1a]"
+                }`}
+              >
+                <SelectValue placeholder="FY" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All FYs</SelectItem>
+                {availableFYs.map((fy) => (
+                  <SelectItem key={fy} value={fy}>
+                    {fy}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {activeFilterCount > 0 && (
               <button
                 onClick={() => {
                   setSearch("");
                   setGroupFilter(null);
+                  setFyFilter(null);
                 }}
                 className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
               >
@@ -662,6 +715,7 @@ const IncidentReportComponent = () => {
                             onClick={() => {
                               setSearch("");
                               setGroupFilter(null);
+                              setFyFilter(null);
                             }}
                           >
                             Clear filters

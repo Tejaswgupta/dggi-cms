@@ -84,6 +84,7 @@ import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
   fetchCaseOptions,
+  fmtLakhs,
   generateWorkspaceRecordIds,
   nullifyEmpty,
 } from "./register-utils";
@@ -265,7 +266,7 @@ const COLUMNS: RegisterColumn[] = [
   },
   {
     key: "expected_liability",
-    label: "Expected Liability (Rs.)",
+    label: "Expected Liability (₹L)",
     type: "number",
     width: "160px",
   },
@@ -1535,14 +1536,7 @@ const ProvisionalAttachmentComponent = () => {
     if (type === "number") {
       const n = parseFloat(value);
       if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
-      return (
-        <span>
-          ₹{n.toLocaleString("en-IN", {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-          })}
-        </span>
-      );
+      return <span className="whitespace-nowrap">{fmtLakhs(value)}</span>;
     }
     return <span>{value || "—"}</span>;
   };

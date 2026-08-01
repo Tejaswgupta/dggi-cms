@@ -191,3 +191,6 @@ CLOUD="postgresql://postgres.zrkvvedwycdcjjheewef:inVAIFRtVEmU4RQ5@aws-0-ap-sout
 npx supabase db dump --db-url "$CLOUD" -f roles.sql --role-only
   npx supabase db dump --db-url "$CLOUD" -f schema.sql
 npx supabase db dump --db-url "$CLOUD" -f data.sql --use-copy --data-only
+
+non-ir dedupoe:
+claude --resume 2391a0bb-8b92-4fdd-8c24-de6427a294de

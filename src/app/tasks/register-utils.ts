@@ -41,6 +41,16 @@ const NULL_ON_EMPTY_TYPES = new Set([
   "number",
 ]);
 
+export const AMOUNT_FIELDS = new Set(["detection_amount", "recovery_itc", "recovery_cash", "expected_liability"]);
+
+export const fmtLakhs = (raw: string) => {
+  if (!raw) return "—";
+  const n = parseFloat(raw);
+  if (isNaN(n)) return raw;
+  const lakhs = n / 100000;
+  return `₹${lakhs.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}L`;
+};
+
 export const nullifyEmpty = (
   payload: Record<string, unknown>,
   columns: { key: string; type: string }[],

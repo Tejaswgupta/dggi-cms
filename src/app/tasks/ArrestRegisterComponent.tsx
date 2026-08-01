@@ -65,6 +65,7 @@ import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
   fetchCaseOptions,
+  fmtLakhs,
   generateWorkspaceRecordId,
   generateWorkspaceRecordIds,
   nullifyEmpty,
@@ -254,7 +255,7 @@ const COLUMNS: {
   },
   {
     key: "amount_crore",
-    label: "Amount (Rs.)",
+    label: "Amount (₹L)",
     type: "number",
     width: "170px",
   },
@@ -409,7 +410,7 @@ function EditableCell({
     if (type === "number") {
       const n = parseFloat(value);
       if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
-      return <span>₹{n.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>;
+      return <span className="whitespace-nowrap">{fmtLakhs(value)}</span>;
     }
     return <span>{value || "—"}</span>;
   }

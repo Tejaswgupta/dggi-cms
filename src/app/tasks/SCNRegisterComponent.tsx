@@ -48,7 +48,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { currentFY, exportRegisterToExcel, fetchCaseOptions, nullifyEmpty, REGISTER_PREFIXES } from "./register-utils";
+import { currentFY, exportRegisterToExcel, fetchCaseOptions, fmtLakhs, nullifyEmpty, REGISTER_PREFIXES } from "./register-utils";
 import {
   RegisterRecordDialog,
   type RegisterColumn,
@@ -317,13 +317,13 @@ const COLUMNS: RegisterColumn[] = [
   { key: "gstin_pan", label: "GSTIN/PAN", type: "text", width: "150px" },
   {
     key: "demand_tax",
-    label: "Demand - Tax (Rs.)",
+    label: "Demand - Tax (₹L)",
     type: "number",
     width: "150px",
   },
   {
     key: "demand_penalty",
-    label: "Demand - Penalty (Rs.)",
+    label: "Demand - Penalty (₹L)",
     type: "number",
     width: "170px",
   },
@@ -796,6 +796,11 @@ const SCNRegisterComponent = () => {
       );
     if (type === "datepicker")
       return <span className="whitespace-nowrap">{fmt(value)}</span>;
+    if (type === "number") {
+      const n = parseFloat(value);
+      if (!value || isNaN(n)) return <span className="text-[#9a9a96]">—</span>;
+      return <span className="whitespace-nowrap">{fmtLakhs(value)}</span>;
+    }
     return <span>{value || "—"}</span>;
   };
 
