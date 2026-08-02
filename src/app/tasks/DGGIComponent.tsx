@@ -337,6 +337,13 @@ const COLUMNS: {
     width: "120px",
   },
   {
+    key: "intel_source",
+    label: "Source",
+    type: "select",
+    options: SOURCE_OPTIONS,
+    width: "120px",
+  },
+  {
     key: "taxpayer_name",
     label: "Taxpayer Name",
     type: "text",
@@ -511,6 +518,13 @@ const NON_IR_COLUMNS: ColDef[] = [
     label: "Group",
     type: "select",
     options: [...GROUPS],
+    width: "120px",
+  },
+  {
+    key: "intel_source",
+    label: "Source",
+    type: "select",
+    options: SOURCE_OPTIONS,
     width: "120px",
   },
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
@@ -2553,7 +2567,9 @@ export function DGGIRecordDialog({
   );
 
   const renderIrForm = () => {
-    const mainCols = editableColumns;
+    const mainCols = editableColumns.filter(
+      (col) => mode === "edit" || col.key !== "intel_source",
+    );
     const closureCols = IR_CLOSURE_FORM_COLS;
 
     return (
