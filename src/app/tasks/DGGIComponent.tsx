@@ -505,13 +505,13 @@ const NON_IR_COLUMNS: ColDef[] = [
     width: "140px",
     readOnly: true,
   },
-  {
-    key: "legacy_non_ir_no",
-    label: "Legacy Register No.",
-    type: "text",
-    width: "140px",
-    readOnly: true,
-  },
+  // {
+  //   key: "legacy_non_ir_no",
+  //   label: "Legacy Register No.",
+  //   type: "text",
+  //   width: "140px",
+  //   readOnly: true,
+  // },
   {
     key: "date_of_non_ir",
     label: "Date of NON-IR",

@@ -41,7 +41,7 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { exportRegisterToExcel, fmtLakhs } from "./register-utils";
-import type { RegisterColumn, WorkspaceUser } from "./RegisterRecordDialog";
+import type { RegisterColumn } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,23 +83,73 @@ type SortDir = "asc" | "desc";
 // ─── Column definitions ───────────────────────────────────────────────────────
 
 const COLUMNS: RegisterColumn[] = [
-  { key: "record_id", label: "ID", type: "text", width: "140px", readOnly: true },
+  {
+    key: "record_id",
+    label: "ID",
+    type: "text",
+    width: "140px",
+    readOnly: true,
+  },
   { key: "intel_source", label: "Intel Source", type: "text", width: "140px" },
-  { key: "date_of_non_ir", label: "Non-IR Date", type: "datepicker", width: "130px" },
+  {
+    key: "date_of_non_ir",
+    label: "Non-IR Date",
+    type: "datepicker",
+    width: "130px",
+  },
   { key: "file_no", label: "File No.", type: "text", width: "140px" },
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
-  { key: "detection_amount", label: "Detection (₹L)", dialogLabel: "Detection (₹)", type: "number", width: "150px" },
-  { key: "recovery_itc", label: "Recovery ITC (₹L)", dialogLabel: "Recovery ITC (₹)", type: "number", width: "160px" },
-  { key: "recovery_cash", label: "Recovery Cash (₹L)", dialogLabel: "Recovery Cash (₹)", type: "number", width: "160px" },
-  { key: "issue_involved", label: "Issue Involved", type: "text", width: "220px" },
+  {
+    key: "detection_amount",
+    label: "Detection (₹L)",
+    dialogLabel: "Detection (₹)",
+    type: "number",
+    width: "150px",
+  },
+  {
+    key: "recovery_itc",
+    label: "Recovery ITC (₹L)",
+    dialogLabel: "Recovery ITC (₹)",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "recovery_cash",
+    label: "Recovery Cash (₹L)",
+    dialogLabel: "Recovery Cash (₹)",
+    type: "number",
+    width: "160px",
+  },
+  {
+    key: "issue_involved",
+    label: "Issue Involved",
+    type: "text",
+    width: "220px",
+  },
   { key: "latest_status", label: "Status", type: "text", width: "180px" },
   { key: "mode_of_initiation", label: "Mode", type: "text", width: "140px" },
-  { key: "group", label: "Group", type: "select", options: DGGI_GROUPS, width: "120px" },
+  {
+    key: "group",
+    label: "Group",
+    type: "select",
+    options: DGGI_GROUPS,
+    width: "120px",
+  },
   { key: "bo_id", label: "BO ID", type: "text", width: "130px" },
   { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
   { key: "gstins", label: "GSTIN(s)", type: "text", width: "160px" },
-  { key: "handling_io_sio", label: "SIO", type: "usercombobox", width: "160px" },
-  { key: "legacy_non_ir_no", label: "Legacy Non-IR No.", type: "text", width: "160px" },
+  {
+    key: "handling_io_sio",
+    label: "SIO",
+    type: "usercombobox",
+    width: "160px",
+  },
+  // {
+  //   key: "legacy_non_ir_no",
+  //   label: "Legacy Register No.",
+  //   type: "text",
+  //   width: "160px",
+  // },
 ];
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -123,7 +173,9 @@ const NonIRRegisterComponent = () => {
   const [fyFilter, setFyFilter] = useState<string | null>(null);
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [groupBy, setGroupBy] = useState<GroupByField | "none">("none");
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -136,7 +188,11 @@ const NonIRRegisterComponent = () => {
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
 
-  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
+  const {
+    allUsers: workspaceUsers,
+    sioUsers,
+    loading: usersLoading,
+  } = useGroupFilteredSioUsers();
 
   const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
   const totalCols = visibleColumns.length;
@@ -171,22 +227,36 @@ const NonIRRegisterComponent = () => {
 
       const [userRow, groupRows, fyRows] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
-        supabase.from("dggi_records").select("date_of_non_ir").eq("workspace_id", wid).eq("is_ir", false).not("date_of_non_ir", "is", null),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid),
+        supabase
+          .from("dggi_records")
+          .select("date_of_non_ir")
+          .eq("workspace_id", wid)
+          .eq("is_ir", false)
+          .not("date_of_non_ir", "is", null),
       ]);
       const role = userRow.data?.dggi_role ?? "";
-      const groups = (groupRows.data ?? []).map((g: { group_name: string }) => g.group_name);
+      const groups = (groupRows.data ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
       setUserRole(role);
       setUserGroups(groups);
 
-      const fys = Array.from(new Set(
-        (fyRows.data ?? []).map(({ date_of_non_ir }: { date_of_non_ir: string }) => {
-          const year = parseInt(date_of_non_ir.slice(0, 4), 10);
-          const month = parseInt(date_of_non_ir.slice(5, 7), 10);
-          const s = month >= 4 ? year : year - 1;
-          return `${s}-${String(s + 1).slice(2)}`;
-        })
-      )).sort((a, b) => b.localeCompare(a)) as string[];
+      const fys = Array.from(
+        new Set(
+          (fyRows.data ?? []).map(
+            ({ date_of_non_ir }: { date_of_non_ir: string }) => {
+              const year = parseInt(date_of_non_ir.slice(0, 4), 10);
+              const month = parseInt(date_of_non_ir.slice(5, 7), 10);
+              const s = month >= 4 ? year : year - 1;
+              return `${s}-${String(s + 1).slice(2)}`;
+            },
+          ),
+        ),
+      ).sort((a, b) => b.localeCompare(a)) as string[];
       setAvailableFYs(fys);
 
       await fetchRecords(wid, role, groups, uid, null);
@@ -243,9 +313,14 @@ const NonIRRegisterComponent = () => {
       if (groupFilter && r.group !== groupFilter) return false;
       if (!search) return true;
       const q = search.toLowerCase();
-      return [r.taxpayer_name, r.file_no, r.bo_id, r.group, r.intel_source, r.gstins].some(
-        (v) => v?.toLowerCase().includes(q),
-      );
+      return [
+        r.taxpayer_name,
+        r.file_no,
+        r.bo_id,
+        r.group,
+        r.intel_source,
+        r.gstins,
+      ].some((v) => v?.toLowerCase().includes(q));
     })
     .sort((a, b) => {
       if (!sortCol) {
@@ -267,7 +342,11 @@ const NonIRRegisterComponent = () => {
 
   // ── Grouped buckets ────────────────────────────────────────────────────────
 
-  const groupedBuckets: { key: string; label: string; rows: NonIRRegisterRecord[] }[] =
+  const groupedBuckets: {
+    key: string;
+    label: string;
+    rows: NonIRRegisterRecord[];
+  }[] =
     groupBy === "none"
       ? []
       : (() => {
@@ -307,19 +386,27 @@ const NonIRRegisterComponent = () => {
   };
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, visibleColumns, "Non_IR_Register", (msg) =>
-      toast.success(msg),
+    exportRegisterToExcel(
+      tableRecords,
+      visibleColumns,
+      "Non_IR_Register",
+      (msg) => toast.success(msg),
       workspaceUsers,
     );
   };
 
-  const activeFilterCount = (search ? 1 : 0) + (groupFilter ? 1 : 0) + (fyFilter ? 1 : 0);
+  const activeFilterCount =
+    (search ? 1 : 0) + (groupFilter ? 1 : 0) + (fyFilter ? 1 : 0);
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
   const renderCell = (value: string, col: RegisterColumn) => {
     if (col.type === "usercombobox")
-      return <span>{workspaceUsers.find((u) => u.id === value)?.name || value || "—"}</span>;
+      return (
+        <span>
+          {workspaceUsers.find((u) => u.id === value)?.name || value || "—"}
+        </span>
+      );
     if (col.type === "datepicker" && value) {
       const [y, m, d] = value.split("-");
       return <span>{d && m && y ? `${d}-${m}-${y}` : value}</span>;
@@ -333,7 +420,10 @@ const NonIRRegisterComponent = () => {
   };
 
   const renderRow = (record: NonIRRegisterRecord) => (
-    <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+    <TableRow
+      key={record.id}
+      className="border-b border-[#EDEDEA] text-base hover:bg-white"
+    >
       {visibleColumns.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
           {renderCell((record as any)[col.key] ?? "", col)}
@@ -359,9 +449,12 @@ const NonIRRegisterComponent = () => {
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-medium text-[#1a1a1a]">NON-IR Register</h1>
+              <h1 className="text-xl font-medium text-[#1a1a1a]">
+                NON-IR Register
+              </h1>
               <p className="text-base text-[#9a9a96]">
-                {tableRecords.length} record{tableRecords.length !== 1 ? "s" : ""}
+                {tableRecords.length} record
+                {tableRecords.length !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -402,7 +495,9 @@ const NonIRRegisterComponent = () => {
                   className="w-[220px] p-2 border border-[#EDEDEA] shadow-none rounded-xl max-h-[400px] overflow-y-auto"
                 >
                   <div className="flex items-center justify-between px-2 py-1 mb-1">
-                    <span className="text-sm font-medium text-[#1a1a1a]">Toggle columns</span>
+                    <span className="text-sm font-medium text-[#1a1a1a]">
+                      Toggle columns
+                    </span>
                     {hiddenColumns.size > 0 && (
                       <button
                         onClick={() => {
@@ -425,15 +520,21 @@ const NonIRRegisterComponent = () => {
                           key={col.key}
                           onClick={() => toggleColumn(col.key)}
                           className={`flex items-center gap-2 rounded-lg px-3 py-2 text-base text-left transition-all ${
-                            visible ? "text-[#1a1a1a] hover:bg-[#F3F2EF]" : "text-[#9a9a96] hover:bg-[#F3F2EF]"
+                            visible
+                              ? "text-[#1a1a1a] hover:bg-[#F3F2EF]"
+                              : "text-[#9a9a96] hover:bg-[#F3F2EF]"
                           }`}
                         >
                           <span
                             className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                              visible ? "border-[#4A5FD4] bg-[#4A5FD4]" : "border-[#EDEDEA]"
+                              visible
+                                ? "border-[#4A5FD4] bg-[#4A5FD4]"
+                                : "border-[#EDEDEA]"
                             }`}
                           >
-                            {visible && <Check size={10} className="text-white" />}
+                            {visible && (
+                              <Check size={10} className="text-white" />
+                            )}
                           </span>
                           <span className="truncate">{col.label}</span>
                         </button>
@@ -456,7 +557,10 @@ const NonIRRegisterComponent = () => {
             </div>
 
             <div className="relative flex items-center">
-              <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
+              <Search
+                size={13}
+                className="absolute left-3 text-[#9a9a96] pointer-events-none"
+              />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -582,13 +686,18 @@ const NonIRRegisterComponent = () => {
                 </button>
                 <span className="text-[#EDEDEA]">·</span>
                 <button
-                  onClick={() => setCollapsedGroups(new Set(groupedBuckets.map((b) => b.key)))}
+                  onClick={() =>
+                    setCollapsedGroups(
+                      new Set(groupedBuckets.map((b) => b.key)),
+                    )
+                  }
                   className="text-base text-[#6b6b6b] hover:text-[#4A5FD4] transition-all px-2 py-1 rounded-lg hover:bg-[#EEF2FF]"
                 >
                   Collapse all
                 </button>
                 <span className="ml-2 text-base text-[#9a9a96]">
-                  {groupedBuckets.length} group{groupedBuckets.length !== 1 ? "s" : ""}
+                  {groupedBuckets.length} group
+                  {groupedBuckets.length !== 1 ? "s" : ""}
                 </span>
               </div>
             )}
@@ -610,7 +719,11 @@ const NonIRRegisterComponent = () => {
                     <span className="flex items-center gap-1">
                       {col.label}
                       {sortCol === col.key &&
-                        (sortDir === "asc" ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+                        (sortDir === "asc" ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        ))}
                     </span>
                   </TableHead>
                 ))}
@@ -665,12 +778,21 @@ const NonIRRegisterComponent = () => {
                             className="bg-white border-b border-[#EDEDEA] cursor-pointer select-none hover:bg-[#F0EEFA]"
                             onClick={() => toggleGroupCollapse(key)}
                           >
-                            <TableCell colSpan={totalCols} className="px-3 py-2">
+                            <TableCell
+                              colSpan={totalCols}
+                              className="px-3 py-2"
+                            >
                               <div className="flex items-center gap-2">
                                 {collapsed ? (
-                                  <ChevronRight size={14} className="text-[#6b6b6b] shrink-0" />
+                                  <ChevronRight
+                                    size={14}
+                                    className="text-[#6b6b6b] shrink-0"
+                                  />
                                 ) : (
-                                  <ChevronDown size={14} className="text-[#6b6b6b] shrink-0" />
+                                  <ChevronDown
+                                    size={14}
+                                    className="text-[#6b6b6b] shrink-0"
+                                  />
                                 )}
                                 <span className="text-base font-semibold text-[#1a1a1a]">
                                   {label}
