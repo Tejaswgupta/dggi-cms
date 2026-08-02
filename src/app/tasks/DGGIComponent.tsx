@@ -123,10 +123,7 @@ const ABEYANCE_STATUS = "Kept in Abeyance";
 
 const LATEST_STATUS_OPTIONS = [ABEYANCE_STATUS];
 
-type GroupByField =
-  | "group"
-  | "mode_of_initiation"
-  | "handling_io_sio";
+type GroupByField = "group" | "mode_of_initiation" | "handling_io_sio";
 
 const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
   { value: "group", label: "Group" },
@@ -454,7 +451,12 @@ type ColDef = {
 
 // Fields used in the NON-IR form but not shown as table columns
 const NON_IR_FORM_EXTRA: ColDef[] = [
-  { key: "taxpayer_name", label: "Taxpayer Name", type: "text", width: "150px" },
+  {
+    key: "taxpayer_name",
+    label: "Taxpayer Name",
+    type: "text",
+    width: "150px",
+  },
   {
     key: "date_of_receipt",
     label: "Date of Receipt from Int Section",
@@ -505,7 +507,7 @@ const NON_IR_COLUMNS: ColDef[] = [
   },
   {
     key: "legacy_non_ir_no",
-    label: "No. in Register",
+    label: "Legacy Register No.",
     type: "text",
     width: "140px",
     readOnly: true,
@@ -531,7 +533,12 @@ const NON_IR_COLUMNS: ColDef[] = [
     options: SOURCE_OPTIONS,
     width: "120px",
   },
-  { key: "taxpayer_name", label: "Taxpayer Name", type: "text", width: "150px" },
+  {
+    key: "taxpayer_name",
+    label: "Taxpayer Name",
+    type: "text",
+    width: "150px",
+  },
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   {
@@ -883,7 +890,9 @@ function EditableCell({
         </span>
       );
     if (columnKey && AMOUNT_FIELDS.has(columnKey))
-      return <span className="whitespace-nowrap">{fmtLakhs(value as string)}</span>;
+      return (
+        <span className="whitespace-nowrap">{fmtLakhs(value as string)}</span>
+      );
     return <span>{(value as string) || "—"}</span>;
   }
 
@@ -2258,11 +2267,7 @@ const NON_IR_STAGES: {
       "date_of_initiation",
       "issue_involved",
     ],
-    requiredFields: [
-      "group",
-      "file_no",
-      "handling_io_sio",
-    ],
+    requiredFields: ["group", "file_no", "handling_io_sio"],
   },
   {
     label: "Intelligence Action",
@@ -2419,8 +2424,7 @@ export function DGGIRecordDialog({
         col.key === "handling_io_sio" && selectedGroup
           ? users.filter(
               (u) =>
-                u.dggi_role === "SIO" &&
-                userGroupMap[u.id] === selectedGroup,
+                u.dggi_role === "SIO" && userGroupMap[u.id] === selectedGroup,
             )
           : users;
       return (
@@ -2950,7 +2954,11 @@ function BulkTransferDialog({
   onOpenChange: (v: boolean) => void;
   users: WorkspaceUser[];
   records: DGGIRecord[];
-  onTransfer: (fromUserId: string, toUserId: string, toGroup: GroupName) => void;
+  onTransfer: (
+    fromUserId: string,
+    toUserId: string,
+    toGroup: GroupName,
+  ) => void;
   transferring: boolean;
   userGroupMap: Record<string, GroupName>;
 }) {
@@ -2975,7 +2983,11 @@ function BulkTransferDialog({
   const fromUser = users.find((u) => u.id === fromUserId);
   const toUser = users.find((u) => u.id === toUserId);
   const canTransfer =
-    fromUserId && toUserId && fromUserId !== toUserId && affectedCount > 0 && toGroup;
+    fromUserId &&
+    toUserId &&
+    fromUserId !== toUserId &&
+    affectedCount > 0 &&
+    toGroup;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -3023,7 +3035,8 @@ function BulkTransferDialog({
             />
             {toUserId && toGroup && (
               <p className="text-sm text-[#9a9a96]">
-                Group: <span className="font-medium text-[#1a1a1a]">{toGroup}</span>
+                Group:{" "}
+                <span className="font-medium text-[#1a1a1a]">{toGroup}</span>
               </p>
             )}
             {toUserId && !toGroup && (
@@ -3061,7 +3074,9 @@ function BulkTransferDialog({
           </Button>
           <Button
             className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none"
-            onClick={() => toGroup && onTransfer(fromUserId, toUserId, toGroup as GroupName)}
+            onClick={() =>
+              toGroup && onTransfer(fromUserId, toUserId, toGroup as GroupName)
+            }
             disabled={!canTransfer || transferring}
           >
             {transferring
@@ -3089,7 +3104,11 @@ function SingleCaseTransferDialog({
   onOpenChange: (v: boolean) => void;
   users: WorkspaceUser[];
   record: DGGIRecord | null;
-  onTransfer: (record: DGGIRecord, toUserId: string, toGroup: GroupName) => void;
+  onTransfer: (
+    record: DGGIRecord,
+    toUserId: string,
+    toGroup: GroupName,
+  ) => void;
   transferring: boolean;
   userGroupMap: Record<string, GroupName>;
 }) {
@@ -3143,7 +3162,9 @@ function SingleCaseTransferDialog({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#9a9a96]">Current Group</span>
-              <span className="text-base text-[#1a1a1a]">{record?.group || "—"}</span>
+              <span className="text-base text-[#1a1a1a]">
+                {record?.group || "—"}
+              </span>
             </div>
           </div>
 
@@ -3161,7 +3182,8 @@ function SingleCaseTransferDialog({
             />
             {toUserId && toGroup && (
               <p className="text-sm text-[#9a9a96]">
-                Group: <span className="font-medium text-[#1a1a1a]">{toGroup}</span>
+                Group:{" "}
+                <span className="font-medium text-[#1a1a1a]">{toGroup}</span>
               </p>
             )}
             {toUserId && !toGroup && (
@@ -3174,13 +3196,15 @@ function SingleCaseTransferDialog({
           {/* Confirmation summary */}
           {canTransfer && toUser && (
             <div className="rounded-xl border border-[#4A5FD4]/20 bg-[#EEF2FF] px-4 py-3 text-sm text-[#4A5FD4]">
-              Case{" "}
-              <span className="font-medium">{record?.record_id}</span>
-              {" and its linked SCN, Arrest, and Provisional Attachment records will be reassigned to "}
+              Case <span className="font-medium">{record?.record_id}</span>
+              {
+                " and its linked SCN, Arrest, and Provisional Attachment records will be reassigned to "
+              }
               <span className="font-medium">{toUser.name}</span>
               {toGroup !== record?.group && (
                 <>
-                  {" "}and moved to <span className="font-medium">{toGroup}</span>
+                  {" "}
+                  and moved to <span className="font-medium">{toGroup}</span>
                 </>
               )}
               .
@@ -3198,7 +3222,9 @@ function SingleCaseTransferDialog({
           </Button>
           <Button
             className="rounded-lg bg-[#4A5FD4] hover:bg-[#3B4EC5] text-white shadow-none"
-            onClick={() => record && toGroup && onTransfer(record, toUserId, toGroup)}
+            onClick={() =>
+              record && toGroup && onTransfer(record, toUserId, toGroup)
+            }
             disabled={!canTransfer || transferring}
           >
             {transferring ? "Transferring…" : "Transfer Case"}
@@ -3274,7 +3300,9 @@ const DGGIComponent = () => {
   const [singleTransferRecord, setSingleTransferRecord] =
     useState<DGGIRecord | null>(null);
   const [singleTransferring, setSingleTransferring] = useState(false);
-  const [userGroupMap, setUserGroupMap] = useState<Record<string, GroupName>>({});
+  const [userGroupMap, setUserGroupMap] = useState<Record<string, GroupName>>(
+    {},
+  );
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -3799,7 +3827,11 @@ const DGGIComponent = () => {
     );
   };
 
-  const bulkTransfer = async (fromUserId: string, toUserId: string, toGroup: GroupName) => {
+  const bulkTransfer = async (
+    fromUserId: string,
+    toUserId: string,
+    toGroup: GroupName,
+  ) => {
     const newUser = workspaceUsers.find((u) => u.id === toUserId);
     if (!newUser) return;
     setTransferring(true);
@@ -3809,7 +3841,14 @@ const DGGIComponent = () => {
     );
     const affectedRecordIds = affectedCases.map((r) => r.record_id);
 
-    const [caseRes, scnRes, arrestRes, provRes, prosArrestRes, prosNonArrestRes] = await Promise.all([
+    const [
+      caseRes,
+      scnRes,
+      arrestRes,
+      provRes,
+      prosArrestRes,
+      prosNonArrestRes,
+    ] = await Promise.all([
       supabase
         .from("dggi_records")
         .update({
@@ -3862,8 +3901,10 @@ const DGGIComponent = () => {
       scnRes.error && "SCN records: " + scnRes.error.message,
       arrestRes.error && "arrest records: " + arrestRes.error.message,
       provRes.error && "provisional attachments: " + provRes.error.message,
-      prosArrestRes.error && "prosecution arrest records: " + prosArrestRes.error.message,
-      prosNonArrestRes.error && "prosecution non-arrest records: " + prosNonArrestRes.error.message,
+      prosArrestRes.error &&
+        "prosecution arrest records: " + prosArrestRes.error.message,
+      prosNonArrestRes.error &&
+        "prosecution non-arrest records: " + prosNonArrestRes.error.message,
     ].filter(Boolean);
 
     if (errors.length > 0) {
@@ -3893,44 +3934,54 @@ const DGGIComponent = () => {
     setTransferring(false);
   };
 
-  const singleTransfer = async (record: DGGIRecord, toUserId: string, toGroup: GroupName) => {
+  const singleTransfer = async (
+    record: DGGIRecord,
+    toUserId: string,
+    toGroup: GroupName,
+  ) => {
     const newUser = workspaceUsers.find((u) => u.id === toUserId);
     if (!newUser) return;
     setSingleTransferring(true);
 
     const caseRecordId = record.record_id;
 
-    const [caseRes, scnRes, arrestRes, provRes, prosArrestRes, prosNonArrestRes] =
-      await Promise.all([
-        supabase
-          .from("dggi_records")
-          .update({
-            handling_io_sio: toUserId,
-            sio_name: newUser.name,
-            group: toGroup,
-          })
-          .eq("id", record.id),
-        supabase
-          .from("dggi_scn_records")
-          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
-          .eq("linked_case_id", caseRecordId),
-        supabase
-          .from("dggi_arrest_records")
-          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
-          .eq("linked_case_id", caseRecordId),
-        supabase
-          .from("dggi_provisional_attachment_records")
-          .update({ sio: toUserId, group: toGroup })
-          .eq("linked_case_id", caseRecordId),
-        supabase
-          .from("dggi_prosecution_arrest_records")
-          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
-          .eq("linked_case_id", caseRecordId),
-        supabase
-          .from("dggi_prosecution_non_arrest_records")
-          .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
-          .eq("linked_case_id", caseRecordId),
-      ]);
+    const [
+      caseRes,
+      scnRes,
+      arrestRes,
+      provRes,
+      prosArrestRes,
+      prosNonArrestRes,
+    ] = await Promise.all([
+      supabase
+        .from("dggi_records")
+        .update({
+          handling_io_sio: toUserId,
+          sio_name: newUser.name,
+          group: toGroup,
+        })
+        .eq("id", record.id),
+      supabase
+        .from("dggi_scn_records")
+        .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
+        .eq("linked_case_id", caseRecordId),
+      supabase
+        .from("dggi_arrest_records")
+        .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
+        .eq("linked_case_id", caseRecordId),
+      supabase
+        .from("dggi_provisional_attachment_records")
+        .update({ sio: toUserId, group: toGroup })
+        .eq("linked_case_id", caseRecordId),
+      supabase
+        .from("dggi_prosecution_arrest_records")
+        .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
+        .eq("linked_case_id", caseRecordId),
+      supabase
+        .from("dggi_prosecution_non_arrest_records")
+        .update({ sio: toUserId, sio_name: newUser.name, group: toGroup })
+        .eq("linked_case_id", caseRecordId),
+    ]);
 
     const errors = [
       caseRes.error && "case: " + caseRes.error.message,
@@ -3960,9 +4011,7 @@ const DGGIComponent = () => {
             : r,
         ),
       );
-      toast.success(
-        `${caseRecordId} transferred to ${newUser.name}`,
-      );
+      toast.success(`${caseRecordId} transferred to ${newUser.name}`);
       setSingleTransferOpen(false);
       setSingleTransferRecord(null);
     }
@@ -4159,8 +4208,11 @@ const DGGIComponent = () => {
     setFilters((prev) => ({ ...prev, [key]: val }));
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, visibleColumns, "DGGI", (msg) =>
-      toast.success(msg),
+    exportRegisterToExcel(
+      tableRecords,
+      visibleColumns,
+      "DGGI",
+      (msg) => toast.success(msg),
       workspaceUsers,
     );
   };
@@ -4856,9 +4908,7 @@ const DGGIComponent = () => {
                 users={workspaceUsers}
                 readOnly={col.readOnly}
                 storedName={
-                  col.key === "handling_io_sio"
-                    ? record.sio_name
-                    : undefined
+                  col.key === "handling_io_sio" ? record.sio_name : undefined
                 }
                 columnKey={col.key}
                 onChange={() => {}}
