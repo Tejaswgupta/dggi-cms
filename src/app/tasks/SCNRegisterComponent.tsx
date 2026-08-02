@@ -759,6 +759,7 @@ const SCNRegisterComponent = () => {
             next.period_involved = fyFromDate(caseRow.date_of_receipt ?? "");
           if (!prev.sio) next.sio = caseRow.handling_io_sio ?? "";
           if (!prev.group) next.group = caseRow.group ?? "";
+          if (!prev.file_no) next.file_no = caseRow.file_no ?? "";
         }
       }
       return next;
