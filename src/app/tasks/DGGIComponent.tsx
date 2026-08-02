@@ -527,6 +527,7 @@ const NON_IR_COLUMNS: ColDef[] = [
     options: SOURCE_OPTIONS,
     width: "120px",
   },
+  { key: "taxpayer_name", label: "Taxpayer Name", type: "text", width: "150px" },
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
   { key: "file_no", label: "File No.", type: "text", width: "110px" },
   {
