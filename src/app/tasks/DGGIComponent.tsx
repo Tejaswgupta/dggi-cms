@@ -228,7 +228,7 @@ const ISSUE_INVOLVED_OPTIONS = [
 export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   record_id: "",
   group: "Group A",
-  intel_source: "",
+  intel_source: "Group",
   date_of_receipt: today(),
   taxpayer_name: "",
   gstins: "",
@@ -334,13 +334,6 @@ const COLUMNS: {
     label: "Group",
     type: "select",
     options: [...GROUPS],
-    width: "120px",
-  },
-  {
-    key: "intel_source",
-    label: "Source",
-    type: "select",
-    options: SOURCE_OPTIONS,
     width: "120px",
   },
   {
@@ -518,13 +511,6 @@ const NON_IR_COLUMNS: ColDef[] = [
     label: "Group",
     type: "select",
     options: [...GROUPS],
-    width: "120px",
-  },
-  {
-    key: "intel_source",
-    label: "Source",
-    type: "select",
-    options: SOURCE_OPTIONS,
     width: "120px",
   },
   { key: "gstins", label: "GSTIN(s) Involved", type: "text", width: "160px" },
@@ -2244,7 +2230,6 @@ const NON_IR_STAGES: {
     label: "Case Details",
     fields: [
       "group",
-      "intel_source",
       "date_of_receipt",
       "taxpayer_name",
       "gstins",
@@ -2255,7 +2240,6 @@ const NON_IR_STAGES: {
     ],
     requiredFields: [
       "group",
-      "intel_source",
       "taxpayer_name",
       "file_no",
       "handling_io_sio",
@@ -3981,10 +3965,6 @@ const DGGIComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     const draft = dialogDraft as Omit<DGGIRecord, "id">;
-    if (!draft.is_ir && !draft.intel_source) {
-      toast.error("Source is required for NON-IR records.");
-      return;
-    }
     setSavingRow(true);
     const payload = {
       ...draft,
