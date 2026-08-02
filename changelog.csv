@@ -1,0 +1,11 @@
+Register,Issue #,Issue,Status,Details
+Provisional Attachment,1,3 extra test data to be removed,Not addressed,No changes to PA test data in this diff
+Provisional Attachment,2,Proprietor spelling error,Not addressed,No spelling fix found in the diff
+Provisional Attachment,3,Amounts shown in actuals but column header says Lakhs,Not addressed,Existing PA amount column headers unchanged
+Provisional Attachment,4,Amounts not in number format in downloaded Excel,Fixed,"register-utils.ts: columns typed ""number"" now export as numeric cells; excel-export.ts: added applyIndianFormat() (Indian comma grouping ##,##,##0.00) applied to all number columns in both single-sheet and multi-sheet export"
+Provisional Attachment,5,Arrests Yes/No field missing from portal and Excel,Fixed,"ProvisionalAttachmentComponent.tsx: added arrest select column (Yes/No) included in BATCH_FIELDS and EMPTY_RECORD; migration 20260802000001 adds arrest text column to DB"
+SCN Register,1,"Fewer entries in portal than actual (3 less DD/AD, 2 less ADD)",Fixed,"ingest_adjudication_scn_data.py: removed int(row[0]) serial-number gate that silently skipped rows lacking a Sr. No.; now skips only if taxpayer_name is empty. Log confirms 2 previously missing ADD entries now ingested (Excel Enterprises, KUNAL HASMUKH SHAH at rows 202-203)"
+SCN Register,2,"Incorrect SCN numbers (e.g. DMMK Trading, Navi General)",Fixed,"Removed normalize_scn_no() entirely; raw values from column B are now stored verbatim. Log confirms DMMK now stores 03/2025-26/DD/GR.-B and Navi General stores 02/ 2024-25/ Gr-E / NMS"
+SCN Register,3,Amounts shown in actuals but column header says Lakhs,Partially addressed,"Newly added demand_interest column is correctly labelled Demand - Interest (₹L); existing amount column labels were not changed in this diff"
+SCN Register,4,Demand-Interest column missing,Fixed,"SCNRegisterComponent.tsx: added demand_interest field to interface, EMPTY_RECORD, and COLUMNS (label Demand - Interest (₹L) type number); migration 20260802000002 adds demand_interest text to DB"
+SCN Register,5,Date of uploading in BO fails when cell contains text alongside date,Not addressed,No date-parsing changes in this diff
