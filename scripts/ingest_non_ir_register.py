@@ -64,14 +64,20 @@ LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_non_ir_register_log.j
 def parse_date(val) -> str | None:
     if val is None:
         return None
-    if isinstance(val, datetime):
-        return val.date().isoformat()
-    if isinstance(val, date):
-        return val.isoformat()
+    if isinstance(val, (datetime, date)):
+        d = val.date() if isinstance(val, datetime) else val
+        if d > date.today() and d.day <= 12:
+            try:
+                d = d.replace(month=d.day, day=d.month)
+            except ValueError:
+                pass
+        if d > date.today():
+            return None
+        return d.isoformat()
     s = str(val).strip()
     if not s:
         return None
-    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:

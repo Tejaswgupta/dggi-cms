@@ -339,8 +339,8 @@ const ClosureRegisterComponent = () => {
       if (!sortCol) return b.created_at.localeCompare(a.created_at);
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
-      const na = parseFloat(av);
-      const nb = parseFloat(bv);
+      const na = Number(av);
+      const nb = Number(bv);
       const cmp =
         !isNaN(na) && !isNaN(nb)
           ? na - nb

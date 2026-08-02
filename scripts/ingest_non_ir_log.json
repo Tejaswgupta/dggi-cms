@@ -1,429 +1,428 @@
 [
   {
     "action": "insert",
-    "sr_no": 1,
-    "new_record_id": "NIR-001",
-    "db_id": "138fac72-7595-42e1-9a4d-b046c1bc2d3e"
-  },
-  {
-    "action": "insert",
-    "sr_no": 2,
-    "new_record_id": "NIR-002",
-    "db_id": "1c7bf632-5517-4792-a780-b8bad1f10eea"
-  },
-  {
-    "action": "insert",
-    "sr_no": 3,
-    "new_record_id": "NIR-003",
-    "db_id": "ed98516a-525e-4a0e-902b-3bc048be2b9b"
-  },
-  {
-    "action": "insert",
-    "sr_no": 4,
-    "new_record_id": "NIR-004",
-    "db_id": "6a8e990f-afc2-4457-a687-8baa2738ca87"
-  },
-  {
-    "action": "insert",
-    "sr_no": 5,
-    "new_record_id": "NIR-005",
-    "db_id": "97d78c01-53f6-4522-8630-6c6576930067"
-  },
-  {
-    "action": "insert",
-    "sr_no": 6,
-    "new_record_id": "NIR-006",
-    "db_id": "4ee134ae-7bc8-4b74-b441-af8e8656a8f9"
-  },
-  {
-    "action": "insert",
-    "sr_no": 7,
-    "new_record_id": "NIR-007",
-    "db_id": "b69c1ebb-ec55-4442-949a-b2a2236d10c9"
-  },
-  {
-    "action": "insert",
-    "sr_no": 8,
-    "new_record_id": "NIR-008",
-    "db_id": "684c0850-e29a-4a09-a2bd-0a3f6f74662b"
-  },
-  {
-    "action": "insert",
-    "sr_no": 9,
-    "new_record_id": "NIR-009",
-    "db_id": "98e3e1f3-3d86-4a0b-a0ec-a0a6a59071b2"
-  },
-  {
-    "action": "insert",
-    "sr_no": 10,
-    "new_record_id": "NIR-010",
-    "db_id": "d4966d37-224a-49a1-9079-a260b80d47d9"
-  },
-  {
-    "action": "insert",
-    "sr_no": 11,
-    "new_record_id": "NIR-011",
-    "db_id": "3674d469-cda6-4590-b537-097b7f6119a0"
-  },
-  {
-    "action": "insert",
-    "sr_no": 12,
-    "new_record_id": "NIR-012",
-    "db_id": "41416cb5-ea8a-4797-ad9b-57f84250bc3d"
-  },
-  {
-    "action": "insert",
-    "sr_no": 13,
-    "new_record_id": "NIR-013",
-    "db_id": "69bae3f3-0c00-4fa6-ad12-9c6af1ac56ca"
-  },
-  {
-    "action": "insert",
-    "sr_no": 14,
-    "new_record_id": "NIR-014",
-    "db_id": "7d7f888d-dd28-49ff-8ba6-217a53434818"
-  },
-  {
-    "action": "insert",
-    "sr_no": 15,
-    "new_record_id": "NIR-015",
-    "db_id": "43bf6576-0277-44a7-bf7e-08c3f5b932d3"
-  },
-  {
-    "action": "insert",
-    "sr_no": 16,
-    "new_record_id": "NIR-016",
-    "db_id": "3c6b2659-7d20-4de3-bcfb-c20b85c08177"
-  },
-  {
-    "action": "insert",
-    "sr_no": 17,
-    "new_record_id": "NIR-017",
-    "db_id": "e1be3c5d-f18a-4178-9cc0-dbb5419f0f54"
-  },
-  {
-    "action": "insert",
-    "sr_no": 18,
-    "new_record_id": "NIR-018",
-    "db_id": "b3d27d10-aad4-4907-8288-1e9d457b22b1"
-  },
-  {
-    "action": "insert",
-    "sr_no": 19,
-    "new_record_id": "NIR-019",
-    "db_id": "4e123c70-68c2-4844-94cb-c2c82c91ed87"
-  },
-  {
-    "action": "insert",
-    "sr_no": 20,
-    "new_record_id": "NIR-020",
-    "db_id": "b9da4ea4-ae73-48ae-a7b3-d281a634deff"
-  },
-  {
-    "action": "insert",
-    "sr_no": 21,
-    "new_record_id": "NIR-021",
-    "db_id": "953a08e5-da4a-411b-a0d6-ab31a56eed82"
-  },
-  {
-    "action": "insert",
-    "sr_no": 22,
-    "new_record_id": "NIR-022",
-    "db_id": "6e07fcda-25ef-4ac7-8049-20d1bab1d746"
-  },
-  {
-    "action": "insert",
-    "sr_no": 23,
-    "new_record_id": "NIR-023",
-    "db_id": "a5cd3d1e-3027-40b7-b41d-65d64bfad6f2"
-  },
-  {
-    "action": "insert",
-    "sr_no": 24,
-    "new_record_id": "NIR-024",
-    "db_id": "0fc3ebf8-6eb6-4ff3-9b88-bf9aa1450415"
-  },
-  {
-    "action": "insert",
-    "sr_no": 25,
-    "new_record_id": "NIR-025",
-    "db_id": "506ec2be-2988-4f36-93c0-4feff7b24e09"
-  },
-  {
-    "action": "insert",
-    "sr_no": 26,
-    "new_record_id": "NIR-026",
-    "db_id": "73731d01-6417-40fe-beb1-ecbe40184e19"
-  },
-  {
-    "action": "insert",
-    "sr_no": 27,
-    "new_record_id": "NIR-027",
-    "db_id": "c9ab461c-26eb-401b-aa6a-57f2f98b5c4c"
-  },
-  {
-    "action": "insert",
-    "sr_no": 28,
-    "new_record_id": "NIR-028",
-    "db_id": "ab8f9b05-3ddd-4646-a19d-f7d048980777"
-  },
-  {
-    "action": "insert",
-    "sr_no": 29,
-    "new_record_id": "NIR-029",
-    "db_id": "fb431d5e-af3b-4852-b09f-34bb7e39156a"
-  },
-  {
-    "action": "insert",
     "sr_no": 30,
-    "new_record_id": "NIR-030",
-    "db_id": "e472a99e-8fb8-4915-8232-b9bf2ed37064"
+    "new_record_id": "1/GST/2023-24",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 31,
-    "new_record_id": "NIR-031",
-    "db_id": "fabad0d2-8a1a-4226-aaa6-06f37991ec85"
+    "new_record_id": "2/GST/2023-24",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 32,
-    "new_record_id": "NIR-032",
-    "db_id": "1e465e09-28f7-4c7a-a34a-f26b24e7a565"
+    "new_record_id": "3/GST/2023-24",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 27,
+    "new_record_id": "1/GST/2024-25",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 28,
+    "new_record_id": "2/GST/2024-25",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 29,
+    "new_record_id": "3/GST/2024-25",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 33,
-    "new_record_id": "NIR-033",
-    "db_id": "0e19c6a5-4b4d-41e4-9110-5cb6d8c14b36"
-  },
-  {
-    "action": "insert",
-    "sr_no": 34,
-    "new_record_id": "NIR-034",
-    "db_id": "719e3493-b774-4004-820f-8ca20d6813b0"
+    "new_record_id": "1/GST/2025-26",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 35,
-    "new_record_id": "NIR-035",
-    "db_id": "a45ff623-463b-4ee3-bf3e-9487e441e9cd"
+    "new_record_id": "2/GST/2025-26",
+    "db_id": null
   },
   {
     "action": "insert",
-    "sr_no": 36,
-    "new_record_id": "NIR-036",
-    "db_id": "1718663c-2eb4-41da-b020-64a4ae3424c9"
+    "sr_no": 34,
+    "new_record_id": "3/GST/2025-26",
+    "db_id": null
   },
   {
     "action": "insert",
-    "sr_no": 37,
-    "new_record_id": "NIR-037",
-    "db_id": "e1be4973-1897-4668-9f83-e54e6c496d28"
-  },
-  {
-    "action": "insert",
-    "sr_no": 38,
-    "new_record_id": "NIR-038",
-    "db_id": "6edca69c-6739-4f79-a068-3ed8f93e52a4"
-  },
-  {
-    "action": "insert",
-    "sr_no": 39,
-    "new_record_id": "NIR-039",
-    "db_id": "6a992810-ff1d-4dab-a1af-f2a1c34994d8"
-  },
-  {
-    "action": "insert",
-    "sr_no": 40,
-    "new_record_id": "NIR-040",
-    "db_id": "013b24e8-efbe-4e5a-9d35-a842ae273eea"
+    "sr_no": 2,
+    "new_record_id": "4/GST/2025-26",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 41,
-    "new_record_id": "NIR-041",
-    "db_id": "f10d3439-87bc-4798-8f69-3aa29898645e"
+    "new_record_id": "1/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 36,
+    "new_record_id": "2/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 37,
+    "new_record_id": "3/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 38,
+    "new_record_id": "4/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 42,
-    "new_record_id": "NIR-073",
-    "db_id": "64546026-3e9e-41e2-9c37-51afd93092b5"
-  },
-  {
-    "action": "insert",
-    "sr_no": 43,
-    "new_record_id": "NIR-074",
-    "db_id": "e9d10b0e-6464-4559-a025-4780367bfa3b"
-  },
-  {
-    "action": "insert",
-    "sr_no": 44,
-    "new_record_id": "NIR-077",
-    "db_id": "7a773a76-912b-48a6-ab86-e1ab3b97dd10"
-  },
-  {
-    "action": "insert",
-    "sr_no": 45,
-    "new_record_id": "NIR-079",
-    "db_id": "c102009f-fca6-42a9-a448-e7d6cbe495f6"
+    "new_record_id": "5/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 46,
-    "new_record_id": "NIR-080",
-    "db_id": "d8f21b16-6e45-442e-b260-4591f7afda8e"
+    "new_record_id": "6/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 47,
-    "new_record_id": "NIR-081",
-    "db_id": "e8a822f1-ce75-47bb-8d70-bb98412b32c7"
+    "new_record_id": "7/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 43,
+    "new_record_id": "8/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 44,
+    "new_record_id": "9/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 45,
+    "new_record_id": "10/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 48,
-    "new_record_id": "NIR-093",
-    "db_id": "e9da4006-b835-438c-a27f-f56c7495c8fd"
-  },
-  {
-    "action": "insert",
-    "sr_no": 49,
-    "new_record_id": "NIR-084",
-    "db_id": "1a10f280-46fc-41e7-9f2c-0bdd0737c400"
-  },
-  {
-    "action": "insert",
-    "sr_no": 50,
-    "new_record_id": "NIR-085",
-    "db_id": "6abd2402-675a-4d2b-a02d-9e375dc7e1bb"
-  },
-  {
-    "action": "insert",
-    "sr_no": 51,
-    "new_record_id": "NIR-086",
-    "db_id": "546e7862-7cce-44bd-a2ba-210ceb3b1baf"
-  },
-  {
-    "action": "insert",
-    "sr_no": 52,
-    "new_record_id": "NIR-087",
-    "db_id": "0576680c-e2f6-4c88-9fc6-e36adcc415a6"
-  },
-  {
-    "action": "insert",
-    "sr_no": 53,
-    "new_record_id": "NIR-088",
-    "db_id": "54336503-be05-499d-b916-351d978660d3"
-  },
-  {
-    "action": "insert",
-    "sr_no": 54,
-    "new_record_id": "NIR-089",
-    "db_id": "c5bd1721-51a5-48d3-b3f3-e5587c2ea8aa"
-  },
-  {
-    "action": "insert",
-    "sr_no": 55,
-    "new_record_id": "NIR-112",
-    "db_id": "8151ea61-1af9-4dbf-b9dd-7181e29f421b"
-  },
-  {
-    "action": "insert",
-    "sr_no": 56,
-    "new_record_id": "NIR-113",
-    "db_id": "fd415e6a-4e1f-4037-9cbc-1f70d0ef2a03"
-  },
-  {
-    "action": "update",
-    "match_by": "record_id",
-    "sr_no": 57,
-    "record_id": "NIR-113",
-    "db_id": "fd415e6a-4e1f-4037-9cbc-1f70d0ef2a03"
-  },
-  {
-    "action": "insert",
-    "sr_no": 58,
-    "new_record_id": "NIR-120",
-    "db_id": "2990be9c-61d4-4d50-85ed-3c3f2e55af4d"
-  },
-  {
-    "action": "insert",
-    "sr_no": 59,
-    "new_record_id": "NIR-121",
-    "db_id": "844d23bb-23d1-4554-acb4-4d64842c5353"
-  },
-  {
-    "action": "insert",
-    "sr_no": 60,
-    "new_record_id": "NIR-122",
-    "db_id": "f669c159-1a87-4724-be1c-90823745b85a"
+    "new_record_id": "11/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 61,
-    "new_record_id": "NIR-094",
-    "db_id": "d8b762bd-0c6a-4299-9f1b-23af05074de2"
+    "new_record_id": "12/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
-    "sr_no": 62,
-    "new_record_id": "NIR-095",
-    "db_id": "984499c1-278a-439c-aa17-44d15d604fce"
+    "sr_no": 51,
+    "new_record_id": "13/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
-    "sr_no": 63,
-    "new_record_id": "NIR-096",
-    "db_id": "2b8bf9e9-0bec-42a2-867e-1a3342b965de"
+    "sr_no": 50,
+    "new_record_id": "14/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
-    "sr_no": 64,
-    "new_record_id": "NIR-114",
-    "db_id": "c9e9199a-d861-410b-b59b-1364616196ae"
+    "sr_no": 55,
+    "new_record_id": "15/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
-    "sr_no": 65,
-    "new_record_id": "NIR-115",
-    "db_id": "1f834d7b-8906-4f4d-a7f1-49d5b5b91807"
+    "sr_no": 56,
+    "new_record_id": "16/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 49,
+    "new_record_id": "17/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 57,
+    "new_record_id": "18/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 52,
+    "new_record_id": "19/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 53,
+    "new_record_id": "20/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 54,
+    "new_record_id": "21/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 58,
+    "new_record_id": "22/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 60,
+    "new_record_id": "23/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 59,
+    "new_record_id": "24/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 66,
-    "new_record_id": "NIR-116",
-    "db_id": "e2e1086f-0f5f-48e5-8d25-3e421794b4da"
-  },
-  {
-    "action": "insert",
-    "sr_no": 67,
-    "new_record_id": "NIR-128",
-    "db_id": "f2181ebe-4dd2-4446-aaea-dd8eb88bf210"
-  },
-  {
-    "action": "insert",
-    "sr_no": 68,
-    "new_record_id": "NIR-129",
-    "db_id": "5c6dd906-dde4-4c63-bc5a-9977fcdb4d80"
-  },
-  {
-    "action": "insert",
-    "sr_no": 69,
-    "new_record_id": "NIR-130",
-    "db_id": "4b269f46-d03b-46dc-8029-06f0468e469e"
+    "new_record_id": "25/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 70,
-    "new_record_id": "NIR-131",
-    "db_id": "398b72ab-519f-4ded-8f1d-873787c80423"
+    "new_record_id": "26/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 68,
+    "new_record_id": "27/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 1,
+    "new_record_id": "28/GST/2026-27",
+    "db_id": null
   },
   {
     "action": "insert",
     "sr_no": 71,
-    "new_record_id": "NIR-132",
-    "db_id": "469bdf67-9860-4a83-b5ee-9a202386c0bc"
+    "new_record_id": "29/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 3,
+    "new_record_id": "30/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 4,
+    "new_record_id": "31/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 5,
+    "new_record_id": "32/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 6,
+    "new_record_id": "33/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 7,
+    "new_record_id": "34/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 8,
+    "new_record_id": "35/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 9,
+    "new_record_id": "36/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 10,
+    "new_record_id": "37/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 11,
+    "new_record_id": "38/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 12,
+    "new_record_id": "39/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 13,
+    "new_record_id": "40/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 14,
+    "new_record_id": "41/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 15,
+    "new_record_id": "42/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 16,
+    "new_record_id": "43/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 17,
+    "new_record_id": "44/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 18,
+    "new_record_id": "45/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 19,
+    "new_record_id": "46/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 20,
+    "new_record_id": "47/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 21,
+    "new_record_id": "48/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 22,
+    "new_record_id": "49/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 23,
+    "new_record_id": "50/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 24,
+    "new_record_id": "51/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 25,
+    "new_record_id": "52/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 26,
+    "new_record_id": "53/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 39,
+    "new_record_id": "54/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 40,
+    "new_record_id": "55/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 62,
+    "new_record_id": "56/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 63,
+    "new_record_id": "57/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 64,
+    "new_record_id": "58/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 65,
+    "new_record_id": "59/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 67,
+    "new_record_id": "60/GST/2026-27",
+    "db_id": null
+  },
+  {
+    "action": "insert",
+    "sr_no": 69,
+    "new_record_id": "61/GST/2026-27",
+    "db_id": null
   }
 ]

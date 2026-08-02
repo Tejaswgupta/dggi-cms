@@ -86,14 +86,20 @@ _DATE_RE = re.compile(r'\b(\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})\b'
 def parse_date(val) -> str | None:
     if val is None:
         return None
-    if isinstance(val, datetime):
-        return val.date().isoformat()
-    if isinstance(val, date):
-        return val.isoformat()
+    if isinstance(val, (datetime, date)):
+        d = val.date() if isinstance(val, datetime) else val
+        if d > date.today() and d.day <= 12:
+            try:
+                d = d.replace(month=d.day, day=d.month)
+            except ValueError:
+                pass
+        if d > date.today():
+            return None
+        return d.isoformat()
     s = str(val).strip()
     if not s or s in ("0", "-"):
         return None
-    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%y", "%d/%m/%y"):
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%y", "%d/%m/%y"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:
@@ -102,7 +108,7 @@ def parse_date(val) -> str | None:
     m = _DATE_RE.search(s)
     if m:
         candidate = m.group(1)
-        for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%y", "%d/%m/%y"):
+        for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%y", "%d/%m/%y"):
             try:
                 return datetime.strptime(candidate, fmt).date().isoformat()
             except ValueError:

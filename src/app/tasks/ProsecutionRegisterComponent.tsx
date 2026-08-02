@@ -49,7 +49,7 @@ const ARREST_COLS: RegisterColumn[] = [
   { key: "date_of_arrest", label: "Date of Arrest", type: "datepicker", width: "150px" },
   { key: "bail_status", label: "Bail Status", type: "select", options: ["Bail Given", "Bail Not Given"], width: "140px" },
   { key: "status_of_person", label: "Status", type: "select", options: ["On Bail", "In Custody", "Absconding", "Deceased"], width: "130px" },
-  { key: "amount_evaded_crore", label: "Amount Evaded (₹L)", type: "rupees", width: "160px" },
+  { key: "amount_evaded_crore", label: "Amount Evaded (₹L)", dialogLabel: "Amount Evaded (₹)", type: "rupees", width: "160px" },
   { key: "entity_name", label: "Entity Name", type: "text", width: "170px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   { key: "brief_modus_operandi", label: "Modus Operandi", type: "text", width: "240px" },
@@ -82,7 +82,7 @@ const NON_ARREST_COLS: RegisterColumn[] = [
   { key: "person_name", label: "Accused Person", type: "text", width: "170px" },
   { key: "age", label: "Age", type: "text", width: "80px" },
   { key: "date_of_prosecution_sanction_order", label: "Date of Prosecution Sanction Order", type: "datepicker", width: "220px" },
-  { key: "amount_evaded_crore", label: "Amount Evaded (₹L)", type: "rupees", width: "160px" },
+  { key: "amount_evaded_crore", label: "Amount Evaded (₹L)", dialogLabel: "Amount Evaded (₹)", type: "rupees", width: "160px" },
   { key: "entity_name", label: "Entity Name", type: "text", width: "170px" },
   { key: "gstin", label: "GSTIN", type: "text", width: "160px" },
   { key: "brief_modus_operandi", label: "Modus Operandi", type: "text", width: "240px" },
@@ -189,8 +189,8 @@ const ProsecutionRegisterComponent = () => {
     }
     const av = (a as any)[arrestSort.col] ?? "";
     const bv = (b as any)[arrestSort.col] ?? "";
-    const na = parseFloat(av);
-    const nb = parseFloat(bv);
+    const na = Number(av);
+    const nb = Number(bv);
     const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
     return arrestSort.dir === "asc" ? cmp : -cmp;
   });
@@ -258,8 +258,8 @@ const ProsecutionRegisterComponent = () => {
     }
     const av = (a as any)[nonArrestSort.col] ?? "";
     const bv = (b as any)[nonArrestSort.col] ?? "";
-    const na = parseFloat(av);
-    const nb = parseFloat(bv);
+    const na = Number(av);
+    const nb = Number(bv);
     const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
     return nonArrestSort.dir === "asc" ? cmp : -cmp;
   });

@@ -283,6 +283,7 @@ const groupKeyLabel = (field: GroupByField, raw: string) => {
 const COLUMNS: {
   key: keyof Omit<DGGIRecord, "id">;
   label: string;
+  dialogLabel?: string;
   type:
     | "text"
     | "datepicker"
@@ -380,18 +381,21 @@ const COLUMNS: {
   {
     key: "detection_amount",
     label: "Detection (₹L)",
+    dialogLabel: "Detection (₹)",
     type: "text",
     width: "150px",
   },
   {
     key: "recovery_itc",
     label: "Recovery ITC (₹L)",
+    dialogLabel: "Recovery ITC (₹)",
     type: "text",
     width: "160px",
   },
   {
     key: "recovery_cash",
     label: "Recovery Cash (₹L)",
+    dialogLabel: "Recovery Cash (₹)",
     type: "text",
     width: "160px",
   },
@@ -1874,6 +1878,7 @@ const PROVISIONAL_COLUMNS: RegisterColumn[] = [
   {
     key: "expected_liability",
     label: "Expected Liability (₹L)",
+    dialogLabel: "Expected Liability (₹)",
     type: "number",
     width: "160px",
   },
@@ -2255,7 +2260,6 @@ const NON_IR_STAGES: {
     ],
     requiredFields: [
       "group",
-      "taxpayer_name",
       "file_no",
       "handling_io_sio",
     ],
@@ -2326,14 +2330,7 @@ export function DGGIRecordDialog({
     const stage = NON_IR_STAGES[stageIdx];
     if (!stage) return false;
     if (stage.requiredFields.length === 0) return true;
-    const isGroupSource = (draft as any).intel_source === "Group";
     return stage.requiredFields.every((f) => {
-      if (
-        mode === "add" &&
-        isGroupSource &&
-        (f === "taxpayer_name" || f === "gstins")
-      )
-        return true;
       const val = (draft as any)[f];
       return val !== undefined && val !== null && val !== "";
     });
@@ -2594,7 +2591,7 @@ export function DGGIRecordDialog({
               className={`flex flex-col gap-1.5 ${col.key === "pr_adg_comments" ? "col-span-2" : ""}`}
             >
               <label className="text-sm font-medium text-[#6b6b6b]">
-                {col.label}
+                {col.dialogLabel ?? col.label}
               </label>
               {renderField(
                 col,
@@ -2620,7 +2617,7 @@ export function DGGIRecordDialog({
               {closureCols.map((col) => (
                 <div key={col.key} className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium text-[#6b6b6b]">
-                    {col.label}
+                    {col.dialogLabel ?? col.label}
                   </label>
                   {renderField(
                     col,
@@ -2813,15 +2810,9 @@ export function DGGIRecordDialog({
                     {stageCols
                       .filter(
                         (col) =>
-                          col.key !== "date_of_receipt" ||
-                          (draft as any).intel_source === "Int",
-                      )
-                      .filter(
-                        (col) =>
                           !(
                             ["taxpayer_name", "gstins"].includes(col.key) &&
-                            mode === "add" &&
-                            (draft as any).intel_source === "Group"
+                            mode === "add"
                           ),
                       )
                       .map((col) => (
@@ -2832,7 +2823,7 @@ export function DGGIRecordDialog({
                           <label
                             className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
                           >
-                            {col.label}
+                            {col.dialogLabel ?? col.label}
                             {stage.requiredFields.includes(
                               col.key as keyof DGGIRecord,
                             ) && (
@@ -3511,8 +3502,8 @@ const DGGIComponent = () => {
       if (sortCol) {
         const av = (a as any)[sortCol] ?? "";
         const bv = (b as any)[sortCol] ?? "";
-        const na = parseFloat(av);
-        const nb = parseFloat(bv);
+        const na = Number(av);
+        const nb = Number(bv);
         const cmp =
           !isNaN(na) && !isNaN(nb)
             ? na - nb

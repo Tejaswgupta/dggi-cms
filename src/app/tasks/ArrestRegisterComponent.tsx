@@ -185,6 +185,7 @@ const PERSON_FIELDS = new Set<keyof ArrestRecord>([
 const COLUMNS: {
   key: keyof Omit<ArrestRecord, "id">;
   label: string;
+  dialogLabel?: string;
   type:
     | "text"
     | "number"
@@ -256,6 +257,7 @@ const COLUMNS: {
   {
     key: "amount_crore",
     label: "Amount (₹L)",
+    dialogLabel: "Amount (₹)",
     type: "number",
     width: "170px",
   },
@@ -936,8 +938,8 @@ const ArrestRegisterComponent = () => {
       }
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
-      const na = parseFloat(av);
-      const nb = parseFloat(bv);
+      const na = Number(av);
+      const nb = Number(bv);
       const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });

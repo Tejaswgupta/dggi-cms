@@ -88,9 +88,9 @@ const COLUMNS: RegisterColumn[] = [
   { key: "date_of_non_ir", label: "Non-IR Date", type: "datepicker", width: "130px" },
   { key: "file_no", label: "File No.", type: "text", width: "140px" },
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
-  { key: "detection_amount", label: "Detection (₹L)", type: "number", width: "150px" },
-  { key: "recovery_itc", label: "Recovery ITC (₹L)", type: "number", width: "160px" },
-  { key: "recovery_cash", label: "Recovery Cash (₹L)", type: "number", width: "160px" },
+  { key: "detection_amount", label: "Detection (₹L)", dialogLabel: "Detection (₹)", type: "number", width: "150px" },
+  { key: "recovery_itc", label: "Recovery ITC (₹L)", dialogLabel: "Recovery ITC (₹)", type: "number", width: "160px" },
+  { key: "recovery_cash", label: "Recovery Cash (₹L)", dialogLabel: "Recovery Cash (₹)", type: "number", width: "160px" },
   { key: "issue_involved", label: "Issue Involved", type: "text", width: "220px" },
   { key: "latest_status", label: "Status", type: "text", width: "180px" },
   { key: "mode_of_initiation", label: "Mode", type: "text", width: "140px" },
@@ -256,8 +256,8 @@ const NonIRRegisterComponent = () => {
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
       const colDef = COLUMNS.find((c) => c.key === sortCol);
-      const na = parseFloat(av);
-      const nb = parseFloat(bv);
+      const na = Number(av);
+      const nb = Number(bv);
       const cmp =
         colDef?.type !== "datepicker" && !isNaN(na) && !isNaN(nb)
           ? na - nb

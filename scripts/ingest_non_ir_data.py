@@ -5,20 +5,26 @@ Source: 'MZU_ Non-IR Pending.xlsx'
         Sheet: 'Pending Non-IR'  (~71 rows)
 
 Column mapping:
-  Col 0  Sr. No.             → upsert key
-  Col 1  Non-IR Register No. → record_id as NIR-{no:03d} (upsert key 1; null → sequential)
+  Col 0  Sr. No.             → (row key for logging)
+  Col 1  Non-IR Register No. → legacy_non_ir_no
   Col 2  Name of TP          → taxpayer_name
   Col 3  GSTIN               → gstins
-  Col 4  Initiation date     → date_of_non_ir
+  Col 4  Initiation date     → date_of_non_ir (used for FY sequencing)
   Col 5  REIC/Co-lending     → (skipped)
   Col 6  SIO                 → sio_name
   Col 7  Group               → group (prefixed "Group " + letter)
   Col 8  Mode                → mode_of_initiation
   Col 9  Current Status      → latest_status
 
+record_id generation (FY-based, date-sequenced):
+  - Extract FY from date_of_non_ir (e.g. 2026-05-01 → "2026-27")
+  - Sort all records by date within each FY
+  - Assign sequential numbers: 1/GST/2026-27, 2/GST/2026-27, etc.
+  - Sequence resets for each FY
+
 Dedup strategy (checked in order):
-  1. record_id match  — exact match vs record_id in DB  (when col 1 not null)
-  2. No match         → insert with record_id from col 1 or sequential NIR-… fallback
+  1. legacy_non_ir_no match — update existing row when col 1 is not null
+  2. No match              → insert with date-sequenced record_id
 
 Usage:
     python3 scripts/ingest_non_ir_data.py [/path/to/file.xlsx] [--dry-run]
@@ -28,6 +34,7 @@ import csv
 import json
 import os
 import sys
+from collections import defaultdict
 from datetime import date, datetime
 
 import openpyxl
@@ -60,14 +67,20 @@ LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_non_ir_log.json")
 def parse_date(val) -> str | None:
     if val is None:
         return None
-    if isinstance(val, datetime):
-        return val.date().isoformat()
-    if isinstance(val, date):
-        return val.isoformat()
+    if isinstance(val, (datetime, date)):
+        d = val.date() if isinstance(val, datetime) else val
+        if d > date.today() and d.day <= 12:
+            try:
+                d = d.replace(month=d.day, day=d.month)
+            except ValueError:
+                pass
+        if d > date.today():
+            return None
+        return d.isoformat()
     s = str(val).strip()
     if not s:
         return None
-    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
+    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:
@@ -83,42 +96,23 @@ def clean(val) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Sequential NON-IR record_id generator
+# FY helper
 # ---------------------------------------------------------------------------
 
-def fy_short(date_str: str | None) -> str:
-    """'2026-05-01' → '26-27'"""
+def fy_from_date(date_str: str | None) -> str:
+    """'2026-05-01' → '2026-27'; '2025-03-15' → '2024-25'"""
     if not date_str:
-        from datetime import date
         now = date.today()
-        s = now.year if now.month >= 4 else now.year - 1
+        year = now.year if now.month >= 4 else now.year - 1
     else:
-        year, month = int(date_str[:4]), int(date_str[5:7])
-        s = year if month >= 4 else year - 1
-    return f"{str(s)[2:]}-{str(s + 1)[2:]}"
-
-
-def next_non_ir_seq(sb, workspace_id: str) -> int:
-    import re
-    res = (
-        sb.table("dggi_records")
-        .select("record_id")
-        .eq("workspace_id", workspace_id)
-        .eq("is_ir", False)
-        .like("record_id", "NIR-%")
-        .execute()
-    )
-    max_seq = 0
-    for r in res.data:
-        m = re.match(r"NIR-(\d+)$", r["record_id"] or "")
-        if m:
-            max_seq = max(max_seq, int(m.group(1)))
-    return max_seq + 1
+        year = int(date_str[:4])
+        month = int(date_str[5:7])
+        year = year if month >= 4 else year - 1
+    return f"{year}-{year + 1 - 2000:02d}"
 
 
 # ---------------------------------------------------------------------------
-# Upsert: file_no column match → update; no match → insert
-# record_id is pre-assigned by the caller (date-sorted sequence)
+# Upsert: legacy_non_ir_no match → update; no match → insert
 # ---------------------------------------------------------------------------
 
 def upsert_non_ir_record(
@@ -130,52 +124,52 @@ def upsert_non_ir_record(
     log: list,
     dry_run: bool = False,
 ) -> str:
-    new_record_id = payload["record_id"]
+    legacy_non_ir_no = payload.get("legacy_non_ir_no")
+    record_id = payload["record_id"]
     try:
-        # 1. Match on record_id
-        res = (
-            sb.table("dggi_records")
-            .select("id,record_id")
-            .eq("workspace_id", workspace_id)
-            .eq("record_id", new_record_id)
-            .execute()
-        )
-        if res.data:
-            row = res.data[0]
-            if dry_run:
-                print(f"    → UPDATE (record_id)  existing={row['record_id']!r}  db_id={row['id']}")
-            else:
-                sb.table("dggi_records").update(payload).eq("id", row["id"]).execute()
-            log.append({"action": "update", "match_by": "record_id", "sr_no": sr_no, "record_id": new_record_id, "db_id": row["id"]})
-            return "updated"
+        # 1. Match on legacy_non_ir_no
+        if legacy_non_ir_no:
+            res = (
+                sb.table("dggi_records")
+                .select("id,record_id")
+                .eq("workspace_id", workspace_id)
+                .eq("legacy_non_ir_no", legacy_non_ir_no)
+                .execute()
+            )
+            if res.data:
+                row = res.data[0]
+                if dry_run:
+                    print(f"    → UPDATE (legacy_non_ir_no={legacy_non_ir_no!r})  existing={row['record_id']!r}  db_id={row['id']}")
+                else:
+                    sb.table("dggi_records").update(payload).eq("id", row["id"]).execute()
+                log.append({"action": "update", "match_by": "legacy_non_ir_no", "sr_no": sr_no, "record_id": record_id, "db_id": row["id"]})
+                return "updated"
 
-        # 2. Insert with pre-assigned record_id
+        # 2. Insert with date-sequenced record_id
         insert_payload = {**payload, "workspace_id": workspace_id}
         if dry_run:
-            print(f"    → INSERT  new record_id={new_record_id!r}")
+            print(f"    → INSERT  new record_id={record_id!r}")
             inserted_id = None
         else:
             insert_res = sb.table("dggi_records").insert(insert_payload).execute()
             inserted_id = insert_res.data[0]["id"] if insert_res.data else None
-        log.append({"action": "insert", "sr_no": sr_no, "new_record_id": new_record_id, "db_id": inserted_id})
+        log.append({"action": "insert", "sr_no": sr_no, "new_record_id": record_id, "db_id": inserted_id})
         return "inserted"
 
     except Exception as e:
-        skipped.append({"sr_no": sr_no, "record_id": new_record_id, "reason": str(e)})
+        skipped.append({"sr_no": sr_no, "record_id": record_id, "reason": str(e)})
         return "skipped"
 
 
 # ---------------------------------------------------------------------------
-# Sheet processor — sorts all rows by date first, assigns record_ids in order
+# Sheet processor — groups by FY, sorts by date, assigns record_ids
 # ---------------------------------------------------------------------------
 
-def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log: list, dry_run: bool = False):
+def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
-    fy = fy_short(None)  # current FY e.g. "26-27"
 
     # Skip row 0 (title) and row 1 (header); data starts at index 2
-    records = []
-    seq = start_seq
+    raw_records = []
     for row in rows[2:]:
         if row[0] is None:
             continue
@@ -184,40 +178,46 @@ def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log:
         except (ValueError, TypeError):
             continue
 
-        reg_no = row[1]  # Non-IR Register No. (integer or None)
-        if reg_no is not None:
-            try:
-                record_id = f"NIR-{int(reg_no):03d}"
-            except (ValueError, TypeError):
-                record_id = f"NIR-{seq:03d}"
-                seq += 1
-        else:
-            record_id = f"NIR-{seq:03d}"
-            seq += 1
+        nir_date = parse_date(row[4])
+        group_raw = clean(row[7])
 
-        records.append({
+        raw_records.append({
             "sr_no": sr_no,
-            "record_id": record_id,
+            "legacy_non_ir_no": clean(row[1]),
+            "date": nir_date,
             "taxpayer_name": clean(row[2]),
             "gstins": clean(row[3]),
-            "ir_date": parse_date(row[4]),
             "officer_name": clean(row[6]),
-            "group_val": f"Group {clean(row[7])}" if clean(row[7]) else None,
+            "group_val": f"Group {group_raw}" if group_raw else None,
             "mode": clean(row[8]),
             "latest_status": clean(row[9]),
         })
 
+    # Group by FY, sort by date within each FY, assign sequential record_ids
+    by_fy = defaultdict(list)
+    for rec in raw_records:
+        fy = fy_from_date(rec["date"])
+        by_fy[fy].append(rec)
+
+    assigned = []
+    for fy in sorted(by_fy.keys()):
+        recs = by_fy[fy]
+        recs.sort(key=lambda r: (r["date"] is None, r["date"]))
+        for seq, rec in enumerate(recs, 1):
+            rec["record_id"] = f"{seq}/GST/{fy}"
+            assigned.append(rec)
+
     inserted = updated = skipped_count = 0
 
-    for rec in records:
+    for rec in assigned:
         sr_no = rec["sr_no"]
-        new_record_id = rec["record_id"]
 
         payload = {
-            "record_id": new_record_id,
+            "record_id": rec["record_id"],
+            "legacy_non_ir_no": rec["legacy_non_ir_no"],
             "taxpayer_name": rec["taxpayer_name"],
             "gstins": rec["gstins"],
-            "date_of_non_ir": rec["ir_date"],
+            "date_of_non_ir": rec["date"],
             "group": rec["group_val"],
             "sio_name": rec["officer_name"],
             "mode_of_initiation": rec["mode"],
@@ -230,8 +230,9 @@ def process_sheet(ws, sb, workspace_id: str, start_seq: int, skipped: list, log:
 
         if dry_run:
             print(
-                f"  [#{sr_no:03d}] taxpayer={rec['taxpayer_name']!r} | date={rec['ir_date']}"
-                f" | group={rec['group_val']!r} | sio={rec['officer_name']!r} → {new_record_id}"
+                f"  [#{sr_no:03d}] taxpayer={rec['taxpayer_name']!r} | date={rec['date']}"
+                f" | group={rec['group_val']!r} | sio={rec['officer_name']!r}"
+                f" → {rec['record_id']}  legacy_non_ir_no={rec['legacy_non_ir_no']!r}"
             )
 
         result = upsert_non_ir_record(
@@ -285,14 +286,11 @@ def main():
     if not res.data:
         raise SystemExit(f"No user found for {WORKSPACE_OWNER_EMAIL}")
     workspace_id = res.data[0]["workspace_id"]
-    print(f"Workspace: {workspace_id}")
-
-    start_seq = next_non_ir_seq(sb, workspace_id)
-    print(f"Next NON-IR sequence starts at: {start_seq}\n")
+    print(f"Workspace: {workspace_id}\n")
 
     skipped = []
     log = []
-    process_sheet(wb[SHEET_NAME], sb, workspace_id, start_seq, skipped, log, dry_run)
+    process_sheet(wb[SHEET_NAME], sb, workspace_id, skipped, log, dry_run)
 
     if log:
         with open(LOG_JSON, "w") as f:

@@ -320,18 +320,21 @@ const COLUMNS: RegisterColumn[] = [
   {
     key: "demand_tax",
     label: "Demand - Tax (₹L)",
+    dialogLabel: "Demand - Tax (₹)",
     type: "number",
     width: "150px",
   },
   {
     key: "demand_penalty",
     label: "Demand - Penalty (₹L)",
+    dialogLabel: "Demand - Penalty (₹)",
     type: "number",
     width: "170px",
   },
   {
     key: "demand_interest",
     label: "Demand - Interest (₹L)",
+    dialogLabel: "Demand - Interest (₹)",
     type: "number",
     width: "170px",
   },
@@ -610,8 +613,8 @@ const SCNRegisterComponent = () => {
       }
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
-      const na = parseFloat(av);
-      const nb = parseFloat(bv);
+      const na = Number(av);
+      const nb = Number(bv);
       const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });

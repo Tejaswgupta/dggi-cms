@@ -95,18 +95,21 @@ const COLUMNS: RegisterColumn[] = [
   {
     key: "detection_amount",
     label: "Detection (₹L)",
+    dialogLabel: "Detection (₹)",
     type: "number",
     width: "150px",
   },
   {
     key: "recovery_itc",
     label: "Recovery ITC (₹L)",
+    dialogLabel: "Recovery ITC (₹)",
     type: "number",
     width: "160px",
   },
   {
     key: "recovery_cash",
     label: "Recovery Cash (₹L)",
+    dialogLabel: "Recovery Cash (₹)",
     type: "number",
     width: "160px",
   },
@@ -300,8 +303,8 @@ const IncidentReportComponent = () => {
       }
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
-      const na = parseFloat(av);
-      const nb = parseFloat(bv);
+      const na = Number(av);
+      const nb = Number(bv);
       const cmp =
         !isNaN(na) && !isNaN(nb)
           ? na - nb

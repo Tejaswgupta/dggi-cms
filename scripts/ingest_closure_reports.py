@@ -77,15 +77,21 @@ SKIPPED_CSV = os.path.join(os.path.dirname(__file__), "ingest_closure_reports_sk
 def parse_date(val) -> str | None:
     if val is None:
         return None
-    if isinstance(val, datetime):
-        return val.date().isoformat()
-    if isinstance(val, date):
-        return val.isoformat()
+    if isinstance(val, (datetime, date)):
+        d = val.date() if isinstance(val, datetime) else val
+        if d > date.today() and d.day <= 12:
+            try:
+                d = d.replace(month=d.day, day=d.month)
+            except ValueError:
+                pass
+        if d > date.today():
+            return None
+        return d.isoformat()
     s = str(val).strip().rstrip("?").strip()
     if not s:
         return None
     # handle short year formats like "18/05/26"
-    for fmt in ("%d/%m/%Y", "%d/%m/%y", "%d.%m.%Y", "%d.%m.%y", "%Y-%m-%d", "%d-%m-%Y"):
+    for fmt in ("%d/%m/%Y", "%d/%m/%y", "%d.%m.%Y", "%d.%m.%y", "%d-%m-%Y"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:

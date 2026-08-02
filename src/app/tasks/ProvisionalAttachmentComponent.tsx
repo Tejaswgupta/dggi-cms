@@ -270,6 +270,7 @@ const COLUMNS: RegisterColumn[] = [
   {
     key: "expected_liability",
     label: "Expected Liability (₹L)",
+    dialogLabel: "Expected Liability (₹)",
     type: "number",
     width: "160px",
   },
