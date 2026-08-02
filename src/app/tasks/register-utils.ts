@@ -236,7 +236,7 @@ export const exportRegisterToExcel = <T extends Record<string, any>>(
   const excelColumns: ExcelColumn<T>[] = columns.map((col) => ({
     key: col.key as keyof T,
     label: col.label,
-    type: col.type === "datepicker" || col.type === "date" ? "date" : "text",
+    type: col.type === "datepicker" || col.type === "date" ? "date" : (col.type === "number" || AMOUNT_FIELDS.has(col.key)) ? "number" : "text",
     ...(col.type === "usercombobox"
       ? {
           format: (value: string, row: T) =>

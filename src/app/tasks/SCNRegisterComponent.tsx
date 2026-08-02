@@ -66,6 +66,7 @@ interface SCNRecord {
   gstin_pan: string;
   demand_tax: string;
   demand_penalty: string;
+  demand_interest: string;
   period_involved: string;
   last_date_oio: string;
   issue: string;
@@ -111,6 +112,7 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   gstin_pan: "",
   demand_tax: "",
   demand_penalty: "",
+  demand_interest: "",
   period_involved: "",
   last_date_oio: "",
   issue: "",
@@ -324,6 +326,12 @@ const COLUMNS: RegisterColumn[] = [
   {
     key: "demand_penalty",
     label: "Demand - Penalty (₹L)",
+    type: "number",
+    width: "170px",
+  },
+  {
+    key: "demand_interest",
+    label: "Demand - Interest (₹L)",
     type: "number",
     width: "170px",
   },

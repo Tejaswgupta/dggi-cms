@@ -19,6 +19,22 @@ export interface ExcelExportOptions {
   includeTimestamp?: boolean;
 }
 
+// Indian number system: groups of 2 after the first 3 digits, e.g. 12,34,56,789.00
+// Excel format: last group is 3 digits, rest are 2 digits each
+const INDIA_NUMBER_FORMAT = `[>=10000000]##\\,##\\,##\\,##0.00;[>=100000]##\\,##\\,##0.00;[>=1000]##\\,##0.00;0.00`;
+
+/**
+ * Applies Indian currency number format to all cells in a column.
+ * colIdx is 0-based.
+ */
+const applyIndianFormat = (ws: XLSX.WorkSheet, colIdx: number, rowCount: number) => {
+  for (let r = 1; r <= rowCount; r++) {
+    const addr = XLSX.utils.encode_cell({ r, c: colIdx });
+    if (!ws[addr]) continue;
+    ws[addr].z = INDIA_NUMBER_FORMAT;
+  }
+};
+
 /**
  * Formats a date value for Excel
  */
@@ -76,6 +92,13 @@ export const exportToExcel = <T extends Record<string, any>>(
 
   // Create worksheet
   const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  // Apply Indian currency format to number columns
+  columns.forEach((col, idx) => {
+    if (col.type === "number") {
+      applyIndianFormat(worksheet, idx, exportData.length);
+    }
+  });
 
   // Auto-size columns
   const colWidths = columns.map((col) => {
@@ -137,6 +160,13 @@ export const exportMultipleSheets = <T extends Record<string, any>>(
     });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // Apply Indian currency format to number columns
+    columns.forEach((col, idx) => {
+      if (col.type === "number") {
+        applyIndianFormat(worksheet, idx, exportData.length);
+      }
+    });
 
     // Auto-size columns
     const colWidths = columns.map((col) => {

@@ -137,6 +137,7 @@ interface ProvisionalAttachmentRecord {
   sio: string;
   sio_name: string;
   group: string;
+  arrest: string;
   created_by: string | null;
 }
 
@@ -188,6 +189,7 @@ const EMPTY_RECORD: Omit<ProvisionalAttachmentRecord, "id"> = {
   sio: "",
   sio_name: "",
   group: "",
+  arrest: "",
   created_by: null,
 };
 
@@ -210,6 +212,7 @@ const BATCH_FIELDS = new Set<keyof ProvisionalAttachmentRecord>([
   "group_sio",
   "sio",
   "group",
+  "arrest",
 ]);
 
 // Fields that belong to each individual attached property
@@ -382,6 +385,13 @@ const COLUMNS: RegisterColumn[] = [
     type: "select",
     options: ["Yes", "No"],
     width: "120px",
+  },
+  {
+    key: "arrest",
+    label: "Arrest",
+    type: "select",
+    options: ["Yes", "No"],
+    width: "100px",
   },
   {
     key: "date_of_release",
@@ -732,6 +742,7 @@ function AddAttachmentDialog({
     date_of_scn_issuance: "",
     letter_issued: "",
     oio_issued: "",
+    arrest: "",
     date_of_release: "",
     group_sio: "",
     sio: "",
@@ -754,6 +765,7 @@ function AddAttachmentDialog({
         date_of_scn_issuance: "",
         letter_issued: "",
         oio_issued: "",
+        arrest: "",
         date_of_release: "",
         group_sio: "",
         sio: "",

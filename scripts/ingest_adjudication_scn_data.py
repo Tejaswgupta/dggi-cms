@@ -81,6 +81,8 @@ SHEET_COMPETENCY = {
 # Helpers
 # ---------------------------------------------------------------------------
 
+_DATE_RE = re.compile(r'\b(\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{4}-\d{2}-\d{2})\b')
+
 def parse_date(val) -> str | None:
     if val is None:
         return None
@@ -96,6 +98,15 @@ def parse_date(val) -> str | None:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:
             pass
+    # Cell has extra text — extract the first date-like substring and retry
+    m = _DATE_RE.search(s)
+    if m:
+        candidate = m.group(1)
+        for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%d.%m.%y", "%d/%m/%y"):
+            try:
+                return datetime.strptime(candidate, fmt).date().isoformat()
+            except ValueError:
+                pass
     return None
 
 
@@ -107,22 +118,6 @@ def clean(val) -> str | None:
         return None
     return s if s else None
 
-
-def normalize_scn_no(val: str | None) -> str | None:
-    if not val:
-        return val
-    s = re.sub(r'\s*/\s*', '/', val.strip())
-    m = re.match(r'^(\d+)-(\d{4}-\d{2})$', s)
-    if m: return f'{m.group(1)}/{m.group(2)}'
-    m = re.match(r'^(\d+)/(1[5-9]|2[0-9])-(\d{2})$', s)
-    if m: return f'{m.group(1)}/20{m.group(2)}-{m.group(3)}'
-    m = re.match(r'^(\d+)/(\d{4})-(\d{4})$', s)
-    if m: return f'{m.group(1)}/{m.group(2)}-{m.group(3)[2:]}'
-    m = re.match(r'^(\d+/\d{4}-\d{2})(/.*)?$', s)
-    if m and m.group(2): return m.group(1)
-    m = re.match(r'^(\d+)/[A-Z./]+?(\d{4}-\d{2})$', s, re.IGNORECASE)
-    if m: return f'{m.group(1)}/{m.group(2)}'
-    return s
 
 
 def normalize_period(val: str | None) -> str | None:
@@ -177,28 +172,28 @@ def parse_amount(val) -> str | None:
 def insert_scn_record(
     sb,
     workspace_id: str,
-    sr_no: int,
     scn_no: str | None,
     sheet_abbr: str,
+    row_idx: int,
     payload: dict,
     skipped: list,
     log: list,
     dry_run: bool = False,
 ) -> str:
     try:
-        new_record_id = scn_no or f"{sheet_abbr}-{sr_no:03d}"
-        insert_payload = {**payload, "workspace_id": workspace_id, "record_id": new_record_id}
+        record_id = scn_no or f"{sheet_abbr}-row{row_idx}"
+        insert_payload = {**payload, "workspace_id": workspace_id, "record_id": record_id}
         if dry_run:
-            print(f"    → INSERT  new record_id={new_record_id!r}")
+            print(f"    → INSERT  record_id={record_id!r}")
             inserted_id = None
         else:
             insert_res = sb.table("dggi_scn_records").insert(insert_payload).execute()
             inserted_id = insert_res.data[0]["id"] if insert_res.data else None
-        log.append({"action": "insert", "sr_no": sr_no, "record_id": new_record_id, "db_id": inserted_id, "noticee_name": payload.get("noticee_name")})
+        log.append({"action": "insert", "record_id": record_id, "db_id": inserted_id, "noticee_name": payload.get("noticee_name")})
         return "inserted"
 
     except Exception as e:
-        skipped.append({"sr_no": sr_no, "scn_no": scn_no or "", "sheet": sheet_abbr, "reason": str(e)})
+        skipped.append({"scn_no": scn_no or "", "sheet": sheet_abbr, "row": row_idx, "reason": str(e)})
         return "skipped"
 
 
@@ -239,21 +234,15 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, u
     rows = list(ws.iter_rows(values_only=True))
     inserted = skipped_count = 0
 
-    # Rows 0–2 are header / sub-header / column-number rows; data starts at index 3
-    for row in rows[3:]:
-        if row[0] is None:
-            continue
-        try:
-            sr_no = int(row[0])
-        except (ValueError, TypeError):
-            continue
+    sheet_abbr = SHEET_ABBR.get(sheet_name, sheet_name.strip().replace(" ", "_").replace("&", "").replace("__", "_"))
 
-        taxpayer_name = clean(row[3])  # used only for skip-check and dry-run label
+    # Rows 0–2 are header / sub-header / column-number rows; data starts at index 3
+    for row_idx, row in enumerate(rows[3:], start=4):
+        taxpayer_name = clean(row[3])
         if not taxpayer_name:
             continue
 
-        scn_no = normalize_scn_no(clean(row[1]))
-        sheet_abbr = SHEET_ABBR.get(sheet_name, sheet_name.strip().replace(" ", "_").replace("&", "").replace("__", "_"))
+        scn_no = clean(row[1])
 
         officer_raw = clean(row[19])
         group_val = normalize_group(clean(row[18]))
@@ -285,12 +274,12 @@ def process_sheet(ws, sheet_name: str, competency: str, sb, workspace_id: str, u
 
         if dry_run:
             print(
-                f"  [#{sr_no:03d}] {taxpayer_name[:45]!r}"
+                f"  [row {row_idx}] {taxpayer_name[:45]!r}"
                 f" | scn_no={scn_no} | sheet={sheet_name.strip()!r}"
             )
 
         result = insert_scn_record(
-            sb, workspace_id, sr_no, scn_no, sheet_abbr, payload, skipped, log, dry_run
+            sb, workspace_id, scn_no, sheet_abbr, row_idx, payload, skipped, log, dry_run
         )
         if result == "inserted":
             inserted += 1
