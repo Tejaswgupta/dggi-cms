@@ -450,6 +450,7 @@ type ColDef = {
 
 // Fields used in the NON-IR form but not shown as table columns
 const NON_IR_FORM_EXTRA: ColDef[] = [
+  { key: "taxpayer_name", label: "Taxpayer Name", type: "text", width: "150px" },
   {
     key: "date_of_receipt",
     label: "Date of Receipt from Int Section",
@@ -2326,7 +2327,14 @@ export function DGGIRecordDialog({
     const stage = NON_IR_STAGES[stageIdx];
     if (!stage) return false;
     if (stage.requiredFields.length === 0) return true;
+    const isGroupSource = (draft as any).intel_source === "Group";
     return stage.requiredFields.every((f) => {
+      if (
+        mode === "add" &&
+        isGroupSource &&
+        (f === "taxpayer_name" || f === "gstins")
+      )
+        return true;
       const val = (draft as any)[f];
       return val !== undefined && val !== null && val !== "";
     });
@@ -2806,6 +2814,14 @@ export function DGGIRecordDialog({
                         (col) =>
                           col.key !== "date_of_receipt" ||
                           (draft as any).intel_source === "Int",
+                      )
+                      .filter(
+                        (col) =>
+                          !(
+                            ["taxpayer_name", "gstins"].includes(col.key) &&
+                            mode === "add" &&
+                            (draft as any).intel_source === "Group"
+                          ),
                       )
                       .map((col) => (
                         <div

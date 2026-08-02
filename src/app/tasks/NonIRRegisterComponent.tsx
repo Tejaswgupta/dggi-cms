@@ -75,6 +75,7 @@ interface NonIRRegisterRecord {
   gstins: string;
   is_ir: boolean;
   closure_by: string | null;
+  legacy_non_ir_no: string;
 }
 
 type SortDir = "asc" | "desc";
@@ -98,6 +99,7 @@ const COLUMNS: RegisterColumn[] = [
   { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
   { key: "gstins", label: "GSTIN(s)", type: "text", width: "160px" },
   { key: "handling_io_sio", label: "SIO", type: "usercombobox", width: "160px" },
+  { key: "legacy_non_ir_no", label: "Legacy Non-IR No.", type: "text", width: "160px" },
 ];
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -253,10 +255,11 @@ const NonIRRegisterComponent = () => {
       }
       const av = (a as any)[sortCol] ?? "";
       const bv = (b as any)[sortCol] ?? "";
+      const colDef = COLUMNS.find((c) => c.key === sortCol);
       const na = parseFloat(av);
       const nb = parseFloat(bv);
       const cmp =
-        !isNaN(na) && !isNaN(nb)
+        colDef?.type !== "datepicker" && !isNaN(na) && !isNaN(nb)
           ? na - nb
           : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
