@@ -18,7 +18,7 @@ const colType = (cols: { key: string; type: string }[], key: string) =>
 
 const ARREST_COLUMNS = [
   { key: "record_id", type: "text" },
-  { key: "arrest_batch_id", type: "text" },
+  { key: "file_no", type: "text" },
   { key: "linked_case_id", type: "caselink" },
   { key: "date_of_arrest", type: "datepicker" },
   { key: "amount_crore", type: "number" },

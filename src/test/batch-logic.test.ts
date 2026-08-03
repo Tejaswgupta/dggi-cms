@@ -22,7 +22,7 @@ function buildBatchPayloads(
   return items.map((item, idx) => ({
     ...batchFields,
     ...item,
-    arrest_batch_id: batchId,
+    file_no: batchId,
     record_id: `${batchId}-${idx + 1}`,
     workspace_id: workspaceId,
   }));
@@ -61,9 +61,9 @@ describe("batch payload builder", () => {
     expect(payloads[2].record_id).toBe("ARR/001/25-26-3");
   });
 
-  it("sets arrest_batch_id on every payload", () => {
+  it("sets file_no on every payload", () => {
     const payloads = buildBatchPayloads(BATCH_ID, batchFields, [{ name: "X" }], WS);
-    expect(payloads[0].arrest_batch_id).toBe(BATCH_ID);
+    expect(payloads[0].file_no).toBe(BATCH_ID);
   });
 
   it("merges batch fields into every payload", () => {

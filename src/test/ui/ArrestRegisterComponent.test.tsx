@@ -45,7 +45,7 @@ const ARREST_RECORDS = [
   {
     id: "row-1",
     record_id: "ARR/001/25-26-1",
-    arrest_batch_id: "ARR/001/25-26",
+    file_no: "ARR/001/25-26",
     linked_case_id: "case-uuid-1",
     arrested_name: "John Doe",
     arrested_designation: "Director",
@@ -62,7 +62,7 @@ const ARREST_RECORDS = [
   {
     id: "row-2",
     record_id: "ARR/002/25-26-1",
-    arrest_batch_id: "ARR/002/25-26",
+    file_no: "ARR/002/25-26",
     linked_case_id: "case-uuid-2",
     arrested_name: "Jane Smith",
     arrested_designation: "CFO",

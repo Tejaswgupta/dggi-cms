@@ -66,7 +66,6 @@ import {
   exportRegisterToExcel,
   fetchCaseOptions,
   fmtLakhs,
-  generateWorkspaceRecordId,
   generateWorkspaceRecordIds,
   nullifyEmpty,
 } from "./register-utils";
@@ -83,7 +82,7 @@ import {
 interface ArrestRecord {
   id: string;
   record_id: string;
-  arrest_batch_id: string;
+  file_no: string;
   linked_case_id: string;
   arrested_name: string;
   arrested_designation: string;
@@ -135,7 +134,7 @@ const fyFromDate = (iso: string): string => {
 
 const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
   record_id: "",
-  arrest_batch_id: "",
+  file_no: "",
   linked_case_id: "",
   arrested_name: "",
   arrested_designation: "",
@@ -157,7 +156,7 @@ const EMPTY_RECORD: Omit<ArrestRecord, "id"> = {
 
 // Fields that belong to the "batch" (shared across all persons in an arrest event)
 const BATCH_FIELDS = new Set<keyof ArrestRecord>([
-  "arrest_batch_id",
+  "file_no",
   "linked_case_id",
   "date_of_arrest",
   "financial_year",
@@ -205,8 +204,8 @@ const COLUMNS: {
     readOnly: true,
   },
   {
-    key: "arrest_batch_id",
-    label: "Arrest No.",
+    key: "file_no",
+    label: "File No.",
     type: "text",
     width: "140px",
     readOnly: true,
@@ -482,7 +481,7 @@ function FilterDatePicker({
 type PersonDraft = Omit<
   typeof EMPTY_RECORD,
   | "record_id"
-  | "arrest_batch_id"
+  | "file_no"
   | "linked_case_id"
   | "date_of_arrest"
   | "financial_year"
@@ -507,7 +506,7 @@ const EMPTY_PERSON = (): Record<string, string> => ({
 const BATCH_COLUMNS = COLUMNS.filter(
   (c) =>
     BATCH_FIELDS.has(c.key as keyof ArrestRecord) &&
-    c.key !== "arrest_batch_id",
+    c.key !== "file_no",
 );
 const PERSON_COLUMNS = COLUMNS.filter((c) =>
   PERSON_FIELDS.has(c.key as keyof ArrestRecord),
@@ -858,17 +857,17 @@ const ArrestRegisterComponent = () => {
       setLoading(false);
 
       // Handle URL hash for deep linking (e.g., #ARR/001/26-27)
-      const hash = window.location.hash.replace('#', '');
+      const hash = window.location.hash.replace("#", "");
       if (hash) {
-        setFilters(prev => ({ ...prev, search: hash }));
+        setFilters((prev) => ({ ...prev, search: hash }));
         // Scroll to the record after a short delay to let the table render
         setTimeout(() => {
           const row = document.querySelector(`[data-record-id="${hash}"]`);
           if (row) {
-            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.scrollIntoView({ behavior: "smooth", block: "center" });
             // Highlight briefly
-            row.classList.add('bg-[#EEF2FF]');
-            setTimeout(() => row.classList.remove('bg-[#EEF2FF]'), 2000);
+            row.classList.add("bg-[#EEF2FF]");
+            setTimeout(() => row.classList.remove("bg-[#EEF2FF]"), 2000);
           }
         }, 500);
       }
@@ -943,7 +942,10 @@ const ArrestRegisterComponent = () => {
       const bv = (b as any)[sortCol] ?? "";
       const na = Number(av);
       const nb = Number(bv);
-      const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
+      const cmp =
+        !isNaN(na) && !isNaN(nb)
+          ? na - nb
+          : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });
 
@@ -1025,16 +1027,17 @@ const ArrestRegisterComponent = () => {
       { separator: "/" },
     );
     // The batch is identified by the first person's record_id
-    const arrest_batch_id = recordIds[0];
+    const file_no = recordIds[0];
     const sio_name =
       workspaceUsers.find((u) => u.id === (batch.sio ?? ""))?.name || null;
-    const createdByName = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
+    const createdByName =
+      workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const payloads = persons.map((person, idx) => {
       const p = nullifyEmpty(
         {
           ...batch,
           ...person,
-          arrest_batch_id,
+          file_no,
           record_id: recordIds[idx],
           workspace_id: workspaceId,
         },
@@ -1055,7 +1058,7 @@ const ArrestRegisterComponent = () => {
       setRecords((prev) => [...prev, ...(data ?? [])]);
       setAddOpen(false);
       if (persons.length > 1)
-        setExpandedBatches((prev) => new Set([...prev, arrest_batch_id]));
+        setExpandedBatches((prev) => new Set([...prev, file_no]));
       toast.success(
         persons.length > 1 ? `${persons.length} persons added` : "Record added",
       );
@@ -1064,7 +1067,7 @@ const ArrestRegisterComponent = () => {
   };
 
   const saveNewPerson = async () => {
-    if (!workspaceId || !dialogDraft.arrest_batch_id) return;
+    if (!workspaceId || !dialogDraft.file_no) return;
     setSavingRow(true);
     const [record_id] = await generateWorkspaceRecordIds(
       supabase,
@@ -1086,7 +1089,8 @@ const ArrestRegisterComponent = () => {
       workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
       null;
     (payload as any).created_by = currentUserId || null;
-    (payload as any).created_by_name = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
+    (payload as any).created_by_name =
+      workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const { data, error } = await supabase
       .from("dggi_arrest_records")
       .insert(payload)
@@ -1127,8 +1131,11 @@ const ArrestRegisterComponent = () => {
   };
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "Arrest", (msg) =>
-      toast.success(msg),
+    exportRegisterToExcel(
+      tableRecords,
+      COLUMNS,
+      "Arrest",
+      (msg) => toast.success(msg),
       workspaceUsers,
     );
   };
@@ -1144,11 +1151,11 @@ const ArrestRegisterComponent = () => {
     });
   };
 
-  // Group sorted records by arrest_batch_id, preserving order of first occurrence
+  // Group sorted records by file_no, preserving order of first occurrence
   const batches: { batchId: string; persons: ArrestRecord[] }[] = [];
   const batchIndex = new Map<string, number>();
   for (const r of tableRecords) {
-    const bid = r.arrest_batch_id || `__solo__${r.id}`;
+    const bid = r.file_no || `__solo__${r.id}`;
     if (!batchIndex.has(bid)) {
       batchIndex.set(bid, batches.length);
       batches.push({ batchId: bid, persons: [] });
@@ -1159,7 +1166,10 @@ const ArrestRegisterComponent = () => {
   const PAGE_SIZE = 20;
   const totalPages = Math.max(1, Math.ceil(batches.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const pagedBatches = batches.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedBatches = batches.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   const openAddPerson = (record: ArrestRecord) => {
     const batchDraft: Partial<ArrestRecord> = {};
@@ -1191,8 +1201,8 @@ const ArrestRegisterComponent = () => {
             >
               {record.record_id || "—"}
             </button>
-          ) : col.key === "arrest_batch_id" ? (
-            <span>{record.arrest_batch_id || ""}</span>
+          ) : col.key === "file_no" ? (
+            <span>{record.file_no || ""}</span>
           ) : (
             <EditableCell
               value={((record as any)[col.key] as string) ?? ""}
@@ -1235,35 +1245,35 @@ const ArrestRegisterComponent = () => {
             <Pencil size={13} />
           </Button>
           {userRole === "DD_INT" && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-              >
-                <Trash2 size={13} />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete arrest record?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete {record.record_id} and cannot be
-                  undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-[#C0432A] hover:bg-[#a83823] text-white"
-                  onClick={() => deleteRecord(record.id)}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
                 >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Trash2 size={13} />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete arrest record?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete {record.record_id} and cannot
+                    be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-[#C0432A] hover:bg-[#a83823] text-white"
+                    onClick={() => deleteRecord(record.id)}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </TableCell>
@@ -1293,7 +1303,7 @@ const ArrestRegisterComponent = () => {
         >
           {COLUMNS.map((col) => (
             <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-              {col.key === "arrest_batch_id" ? (
+              {col.key === "file_no" ? (
                 <span className="flex items-center gap-1.5 font-medium">
                   {isExpanded ? (
                     <ChevronUp size={13} className="text-[#6b6b6b]" />
@@ -1458,7 +1468,10 @@ const ArrestRegisterComponent = () => {
 
             {activeFilterCount > 0 && (
               <button
-                onClick={() => { setFilters({ ...EMPTY_FILTERS }); setCurrentPage(1); }}
+                onClick={() => {
+                  setFilters({ ...EMPTY_FILTERS });
+                  setCurrentPage(1);
+                }}
                 className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
               >
                 <X size={12} />
@@ -1473,57 +1486,60 @@ const ArrestRegisterComponent = () => {
 
         {/* ── Records table ─────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-white">
-                <TableRow className="bg-white border-b border-[#EDEDEA]">
-                  {COLUMNS.map((col) => (
-                    <TableHead
-                      key={col.key}
-                      style={{ minWidth: col.width }}
-                      className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
-                      onClick={() => toggleSort(col.key)}
-                    >
-                      <span className="flex items-center gap-1">
-                        {col.label}
-                        {sortCol === col.key &&
-                          (sortDir === "asc" ? (
-                            <ChevronUp size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          ))}
-                      </span>
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
-                    Actions
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-white">
+              <TableRow className="bg-white border-b border-[#EDEDEA]">
+                {COLUMNS.map((col) => (
+                  <TableHead
+                    key={col.key}
+                    style={{ minWidth: col.width }}
+                    className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
+                    onClick={() => toggleSort(col.key)}
+                  >
+                    <span className="flex items-center gap-1">
+                      {col.label}
+                      {sortCol === col.key &&
+                        (sortDir === "asc" ? (
+                          <ChevronUp size={12} />
+                        ) : (
+                          <ChevronDown size={12} />
+                        ))}
+                    </span>
                   </TableHead>
+                ))}
+                <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+
+            <TableBody>
+              {pagedBatches.map(renderBatchGroup)}
+
+              {/* Empty state */}
+              {tableRecords.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={TOTAL_COLS}
+                    className="py-12 text-center text-base text-[#9a9a96]"
+                  >
+                    No arrest records match the current filters.{" "}
+                    {activeFilterCount > 0 && (
+                      <button
+                        className="text-[#4A5FD4] underline"
+                        onClick={() => {
+                          setFilters({ ...EMPTY_FILTERS });
+                          setCurrentPage(1);
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {pagedBatches.map(renderBatchGroup)}
-
-                {/* Empty state */}
-                {tableRecords.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={TOTAL_COLS}
-                      className="py-12 text-center text-base text-[#9a9a96]"
-                    >
-                      No arrest records match the current filters.{" "}
-                      {activeFilterCount > 0 && (
-                        <button
-                          className="text-[#4A5FD4] underline"
-                          onClick={() => { setFilters({ ...EMPTY_FILTERS }); setCurrentPage(1); }}
-                        >
-                          Clear filters
-                        </button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              )}
+            </TableBody>
+          </Table>
         </div>
 
         {/* ── Pagination ────────────────────────────────────────────────── */}
@@ -1555,9 +1571,7 @@ const ArrestRegisterComponent = () => {
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter(
                   (p) =>
-                    p === 1 ||
-                    p === totalPages ||
-                    Math.abs(p - safePage) <= 2,
+                    p === 1 || p === totalPages || Math.abs(p - safePage) <= 2,
                 )
                 .reduce<(number | "…")[]>((acc, p, idx, arr) => {
                   if (idx > 0 && p - (arr[idx - 1] as number) > 1)
@@ -1591,7 +1605,9 @@ const ArrestRegisterComponent = () => {
                 variant="outline"
                 className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40"
                 disabled={safePage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
               >
                 Next ›
               </Button>
@@ -1624,7 +1640,7 @@ const ArrestRegisterComponent = () => {
         mode={dialogMode}
         title={
           dialogMode === "add-person"
-            ? `Add Person — ${dialogDraft.arrest_batch_id ?? "batch"}`
+            ? `Add Person — ${dialogDraft.file_no ?? "batch"}`
             : undefined
         }
         columns={
