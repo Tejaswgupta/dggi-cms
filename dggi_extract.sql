@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_arrest_records" (
     "relative_address" "text",
     "relative_tel" "text",
     "sio_name" "text",
-    "arrest_batch_id" "text",
+    "file_no" "text",
     "party_name" "text" DEFAULT ''::"text" NOT NULL,
     "unit_gstin" "text" DEFAULT ''::"text" NOT NULL,
     "prosecution_filed" "text" DEFAULT ''::"text" NOT NULL,
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_closure_records" (
     "handling_io_sio" "uuid",
     "issue_involved" "text",
     "latest_status" "text",
-    "pr_adg_comments" "text",
+    "pr_adg_comments" "jsonb",
     "detection_amount" "text",
     "recovery_itc" "text",
     "recovery_cash" "text",
@@ -126,7 +126,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_closure_records" (
     "closure_reason" "text",
     "transferred_to" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "total_recovery" "text"
 );
 
 
@@ -151,7 +152,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_computed_deadlines" (
     "officer_name" "text",
     "critical_days" integer,
     "warning_days" integer,
-    "max_reminder_days" integer
+    "max_reminder_days" integer,
+    "linked_case_id" "text"
 );
 
 
@@ -244,7 +246,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_other_source_records" (
     "sio_name" "text",
     "e_office_ref_no" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "pr_adg_comments" "jsonb"
 );
 
 
@@ -279,7 +282,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_rapid_records" (
     "sender_mobile" "text",
     "sio_name" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "pr_adg_comments" "jsonb"
 );
 
 
@@ -355,8 +359,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_notifications" (
     "source_table" "text" NOT NULL,
     "record_id" "text" NOT NULL,
     "row_id" "uuid",
-    "deadline_date" "date" NOT NULL,
-    "days_until" integer NOT NULL,
+    "deadline_date" "date",
+    "days_until" integer,
     "label" "text" NOT NULL,
     "legal_reference" "text",
     "read" boolean DEFAULT false NOT NULL,
@@ -406,7 +410,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_prosecution_non_arrest_records" (
     "sio_name" "text",
     "person_name" "text",
     "age" "text",
-    "date_of_arrest" "date",
+    "date_of_prosecution_sanction_order" "date",
     "amount_evaded_crore" "text",
     "entity_name" "text",
     "gstin" "text",
@@ -464,7 +468,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_provisional_attachment_records" (
     "bank_name" "text",
     "bank_ifsc" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "bank_account_no" "text",
+    "arrest" "text"
 );
 
 
@@ -484,7 +490,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_records" (
     "intelligence_action_date" "date",
     "issue_involved" "text",
     "latest_status" "text",
-    "pr_adg_comments" "text",
+    "pr_adg_comments" "jsonb",
     "is_ir" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"(),
     "group" "text",
@@ -503,11 +509,11 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_records" (
     "assigned_user_id" "uuid",
     "handling_io_sio" "uuid",
     "transferred_to" "text",
-    "handling_io_sio_name" "text",
+    "sio_name" "text",
     "closure_reason" "text",
-    "pr_adg_comments_updated_at" timestamp with time zone,
     "created_by" "uuid",
     "created_by_name" "text",
+    "legacy_non_ir_no" "text",
     CONSTRAINT "dggi_records_group_check" CHECK (("group" = ANY (ARRAY['Group A'::"text", 'Group B'::"text", 'Group C'::"text", 'Group D'::"text", 'Group E'::"text", 'Group F'::"text"]))),
     CONSTRAINT "dggi_records_mode_of_initiation_check" CHECK (("mode_of_initiation" = ANY (ARRAY['Letter'::"text", 'Email'::"text", 'Summons'::"text", 'Inspection'::"text", 'Search'::"text"])))
 );
@@ -544,7 +550,6 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_scn_records" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "workspace_id" "text" NOT NULL,
     "record_id" "text",
-    "scn_no" "text",
     "date_of_scn" "date",
     "noticee_name" "text",
     "gstin_pan" "text",
@@ -570,42 +575,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_scn_records" (
     "adjudicating_authority" "text",
     "common_adjudicating_authority" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
-);
-
-
--- Table: dggi_seizure_records
-
-CREATE TABLE IF NOT EXISTS "public"."dggi_seizure_records" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workspace_id" "text" NOT NULL,
-    "record_id" "text",
-    "case_file_no" "text",
-    "entity_name" "text",
-    "goods_description" "text",
-    "seizure_type" "text",
-    "quantity" "text",
-    "seizure_value" "text",
-    "mahazar_no" "text",
-    "storage_location" "text",
-    "date_of_seizure" "date",
-    "seized_by" "uuid",
-    "scn_issued" "text",
-    "scn_issue_date" "date",
-    "scn_no" "text",
-    "extended_by_commissioner" "text",
-    "extension_order_date" "date",
-    "goods_returned" "text",
-    "return_date" "date",
-    "remarks" "text",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "linked_case_id" "text",
-    "group" "text",
-    "sio" "uuid",
-    "sio_name" "text",
-    "seized_by_name" "text",
-    "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "division_and_range" "text"
 );
 
 
@@ -645,7 +616,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_str_records" (
     "sio" "uuid",
     "sio_name" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "pr_adg_comments" "jsonb"
 );
 
 
@@ -695,7 +667,7 @@ CREATE TABLE IF NOT EXISTS "public"."votum_users" (
     "dggi_role" "text",
     "enabled_modules" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
     "pno" "text",
-    CONSTRAINT "votum_users_dggi_role_check" CHECK ((("dggi_role" IS NULL) OR ("dggi_role" = ANY (ARRAY['ADG'::"text", 'DD_INT'::"text", 'DD'::"text", 'AD'::"text", 'ADC'::"text", 'JD'::"text", 'SIO'::"text", 'IO'::"text"]))))
+    CONSTRAINT "votum_users_dggi_role_check" CHECK ((("dggi_role" IS NULL) OR ("dggi_role" = ANY (ARRAY['ADG'::"text", 'DD_INT'::"text", 'DD'::"text", 'AD'::"text", 'ADC'::"text", 'JD'::"text", 'SIO'::"text", 'IO'::"text", 'SIO_INT'::"text"]))))
 );
 
 
@@ -723,7 +695,8 @@ CREATE TABLE IF NOT EXISTS "public"."votum_workspace" (
     "settings" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     "translation_base_price" numeric(10,2) DEFAULT NULL::numeric,
     "auto_destruct" boolean DEFAULT false NOT NULL,
-    "auto_destruct_days" integer DEFAULT 0 NOT NULL
+    "auto_destruct_days" integer DEFAULT 0 NOT NULL,
+    "ai_task_extraction_enabled" boolean DEFAULT false NOT NULL
 );
 
 
@@ -797,9 +770,6 @@ ALTER TABLE ONLY "public"."dggi_report_compliance_records"
 
 ALTER TABLE ONLY "public"."dggi_scn_records"
     ADD CONSTRAINT "dggi_scn_records_pkey" PRIMARY KEY ("id");
-
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_pkey" PRIMARY KEY ("id");
 
 ALTER TABLE ONLY "public"."dggi_str_records"
     ADD CONSTRAINT "dggi_str_records_pkey" PRIMARY KEY ("id");
@@ -927,15 +897,6 @@ ALTER TABLE ONLY "public"."dggi_scn_records"
 ALTER TABLE ONLY "public"."dggi_scn_records"
     ADD CONSTRAINT "dggi_scn_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
 
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
-
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_seized_by_fkey" FOREIGN KEY ("seized_by") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
 ALTER TABLE ONLY "public"."dggi_str_records"
     ADD CONSTRAINT "dggi_str_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
@@ -1010,8 +971,6 @@ CREATE INDEX "idx_dggi_records_assigned_user" ON "public"."dggi_records" USING "
 CREATE INDEX "dggi_report_compliance_workspace_idx" ON "public"."dggi_report_compliance_records" USING "btree" ("workspace_id");
 
 CREATE INDEX "dggi_scn_records_workspace_idx" ON "public"."dggi_scn_records" USING "btree" ("workspace_id");
-
-CREATE INDEX "dggi_seizure_records_workspace_idx" ON "public"."dggi_seizure_records" USING "btree" ("workspace_id");
 
 CREATE INDEX "dggi_str_workspace_idx" ON "public"."dggi_str_records" USING "btree" ("workspace_id");
 
@@ -1160,11 +1119,11 @@ ALTER TABLE "public"."dggi_computed_deadlines" ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "workspace members can read computed deadlines" ON "public"."dggi_computed_deadlines" FOR SELECT USING (true);
 
-ALTER TABLE "public"."dggi_notifications" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "dggi_notifications_insert" ON "public"."dggi_notifications" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."votum_users"
+  WHERE ((("votum_users"."id")::"text" = ("auth"."uid"())::"text") AND ("votum_users"."dggi_role" = 'ADG'::"text") AND (("votum_users"."workspace_id")::"text" = "dggi_notifications"."workspace_id")))));
 
-CREATE POLICY "workspace members can mark notifications read" ON "public"."dggi_notifications" FOR UPDATE USING (true);
-
-CREATE POLICY "workspace members can read their notifications" ON "public"."dggi_notifications" FOR SELECT USING (true);
+CREATE POLICY "dggi_notifications_select" ON "public"."dggi_notifications" FOR SELECT TO "authenticated" USING ((("user_id")::"text" = ("auth"."uid"())::"text"));
 
 ALTER TABLE "public"."votum_workspace" ENABLE ROW LEVEL SECURITY;
 
@@ -1473,12 +1432,6 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_scn_records" TO "authe
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_scn_records" TO PUBLIC;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_scn_records" TO "service_role";
-
-GRANT ALL ON TABLE "public"."dggi_seizure_records" TO PUBLIC;
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_seizure_records" TO "authenticated";
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_seizure_records" TO "service_role";
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_str_records" TO "authenticated";
 

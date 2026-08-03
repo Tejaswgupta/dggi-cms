@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-DUMP = Path(__file__).parent / "dump.sql"
+DUMP = Path(__file__).parent / "schema.sql"
 OUT  = Path(__file__).parent / "dggi_extract.sql"
 
 # Tables to include: all dggi_* plus FK-linked tables
