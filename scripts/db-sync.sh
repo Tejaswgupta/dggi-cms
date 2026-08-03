@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dump remote Supabase and restore to local Docker-based Supabase (supabase start).
+# Dump remote Supabase and restore to local Docker-based Supabase.
 # Restores everything: pg roles, schema, auth users, and all app data.
 #
 # Usage:
@@ -7,104 +7,102 @@
 #   ./scripts/db-sync.sh
 #
 # Requirements:
-#   - supabase CLI  (brew install supabase/tap/supabase)
-#   - Docker running
-#   - psql          (brew install libpq)
-#   - You must be logged in: supabase login
+#   - supabase CLI  (curl -fsSL https://supabase.com/install.sh | sh)
+#   - Docker running (with sudo if needed)
+#   - psql          (sudo apt-get install -y postgresql-client)
 
 set -euo pipefail
 
-REMOTE_PROJECT_REF="zrkvvedwycdcjjheewef"
+# ── CONFIGURE THESE ───────────────────────────────────────────────────────────
+# Remote DB URL — Supabase dashboard → Settings → Database → Connection string (URI)
+REMOTE_DB_URL="postgresql://postgres:YOUR_PASSWORD_HERE@db.zrkvvedwycdcjjheewef.supabase.co:5432/postgres"
+
+# Local DB URL — leave blank to auto-detect from Docker containers
+# The pooler (supabase-pooler) is what listens on the host; override if needed.
+LOCAL_DB_URL="${LOCAL_DB_URL:-}"
+# ──────────────────────────────────────────────────────────────────────────────
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DUMP_DIR="$PROJECT_ROOT/.dumps/$(date +%Y%m%d_%H%M%S)"
 
-# ── prereq checks ──────────────────────────────────────────────────────────────
-for cmd in supabase psql docker; do
+# Use sudo for docker if the current user isn't in the docker group
+DOCKER="docker"
+if ! docker info &>/dev/null 2>&1; then
+  if sudo docker info &>/dev/null 2>&1; then
+    DOCKER="sudo docker"
+    echo "Note: using 'sudo docker' (add your user to the docker group to avoid this)"
+  else
+    echo "ERROR: Docker is not running or not accessible."
+    exit 1
+  fi
+fi
+
+# ── prereq checks ─────────────────────────────────────────────────────────────
+for cmd in supabase psql; do
   if ! command -v "$cmd" &>/dev/null; then
     echo "ERROR: '$cmd' not found."
-    [[ "$cmd" == "supabase" ]] && echo "  Install: brew install supabase/tap/supabase"
-    [[ "$cmd" == "psql" ]]     && echo "  Install: brew install libpq && brew link libpq --force"
+    [[ "$cmd" == "supabase" ]] && echo "  Install: curl -fsSL https://supabase.com/install.sh | sh"
+    [[ "$cmd" == "psql" ]]     && echo "  Install: sudo apt-get install -y postgresql-client"
     exit 1
   fi
 done
 
-# Override DB_URL here if your Docker Postgres uses non-default credentials/port.
-# Leave blank to auto-detect from running Docker containers.
-LOCAL_DB_URL="${LOCAL_DB_URL:-}"
-
-if ! docker info &>/dev/null; then
-  echo "ERROR: Docker is not running. Start Docker Desktop first."
+if [[ "$REMOTE_DB_URL" == *"YOUR_PASSWORD_HERE"* ]]; then
+  echo "ERROR: Set REMOTE_DB_URL at the top of this script with your real database password."
   exit 1
 fi
 
 mkdir -p "$DUMP_DIR"
 echo "Dump directory: $DUMP_DIR"
 
-# ── 1. dump from remote (three separate passes) ───────────────────────────────
+# ── 1. dump from remote ───────────────────────────────────────────────────────
 echo ""
-echo "→ Dumping remote project $REMOTE_PROJECT_REF ..."
+echo "→ Dumping remote database ..."
 
-# Schema only (includes all objects, no data)
 echo "  [1/3] Schema ..."
-supabase db dump \
-  --project-ref "$REMOTE_PROJECT_REF" \
-  --schema-only \
-  -f "$DUMP_DIR/schema.sql"
+supabase db dump --db-url "$REMOTE_DB_URL" --schema-only -f "$DUMP_DIR/schema.sql"
 
-# Data only (all schemas: public + auth + storage)
 echo "  [2/3] Data ..."
-supabase db dump \
-  --project-ref "$REMOTE_PROJECT_REF" \
-  --data-only \
-  -f "$DUMP_DIR/data.sql"
+supabase db dump --db-url "$REMOTE_DB_URL" --data-only -f "$DUMP_DIR/data.sql"
 
-# Auth roles (Supabase creates pg roles that must exist before schema restore)
 echo "  [3/3] Roles ..."
-supabase db dump \
-  --project-ref "$REMOTE_PROJECT_REF" \
-  --role-only \
-  -f "$DUMP_DIR/roles.sql"
+supabase db dump --db-url "$REMOTE_DB_URL" --role-only -f "$DUMP_DIR/roles.sql"
 
 echo "  Dumps saved to $DUMP_DIR"
 
-# ── 3. detect local Docker-based Supabase DB ──────────────────────────────────
+# ── 2. detect local DB ────────────────────────────────────────────────────────
 echo ""
 echo "→ Detecting local DB connection (Docker) ..."
 
 if [[ -n "$LOCAL_DB_URL" ]]; then
   DB_URL="$LOCAL_DB_URL"
-  echo "  Using LOCAL_DB_URL from environment: $DB_URL"
+  echo "  Using LOCAL_DB_URL: $DB_URL"
 else
-  # Find the Supabase Postgres container by image name
-  CONTAINER_ID=$(docker ps --filter "name=supabase-db" --format "{{.ID}}" | head -1)
-  if [[ -z "$CONTAINER_ID" ]]; then
-    # Try common alternative container names used by Docker-based Supabase setups
-    CONTAINER_ID=$(docker ps --filter "ancestor=supabase/postgres" --format "{{.ID}}" | head -1)
-  fi
+  # supabase-pooler exposes 5432 on the host; supabase-db does not
+  POOLER_ID=$($DOCKER ps --filter "name=supabase-pooler" --format "{{.ID}}" | head -1)
 
-  if [[ -n "$CONTAINER_ID" ]]; then
-    HOST_PORT=$(docker inspect "$CONTAINER_ID" \
+  if [[ -n "$POOLER_ID" ]]; then
+    HOST_PORT=$($DOCKER inspect "$POOLER_ID" \
       --format '{{range $p, $conf := .NetworkSettings.Ports}}{{if eq $p "5432/tcp"}}{{(index $conf 0).HostPort}}{{end}}{{end}}')
     DB_URL="postgresql://postgres:postgres@localhost:${HOST_PORT:-5432}/postgres"
-    echo "  Detected container $CONTAINER_ID on port ${HOST_PORT:-5432}: $DB_URL"
+    echo "  Detected supabase-pooler on port ${HOST_PORT:-5432}: $DB_URL"
   else
     DB_URL="postgresql://postgres:postgres@localhost:5432/postgres"
-    echo "  Could not find a running Supabase DB container, using default: $DB_URL"
+    echo "  Could not find supabase-pooler container, using default: $DB_URL"
     echo "  Set LOCAL_DB_URL env var to override."
   fi
 fi
 
-# ── 4. wipe existing local data ───────────────────────────────────────────────
+# ── 3. wipe existing local data ───────────────────────────────────────────────
 echo ""
 echo "→ Wiping existing local data ..."
 psql "$DB_URL" --no-password -v ON_ERROR_STOP=1 \
   -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
-# ── 5. restore ────────────────────────────────────────────────────────────────
+# ── 4. restore ────────────────────────────────────────────────────────────────
 echo ""
 echo "→ Restoring roles ..."
-# Roles must go in first; ignore errors for roles that already exist
 psql "$DB_URL" --no-password -v ON_ERROR_STOP=0 -f "$DUMP_DIR/roles.sql" 2>&1 \
   | grep -v "^ERROR:.*already exists" || true
 
@@ -112,14 +110,13 @@ echo "→ Restoring schema ..."
 psql "$DB_URL" --no-password -v ON_ERROR_STOP=1 -f "$DUMP_DIR/schema.sql"
 
 echo "→ Restoring data (including auth.users) ..."
-# Temporarily disable triggers so FK constraints don't block out-of-order inserts
 psql "$DB_URL" --no-password -v ON_ERROR_STOP=1 \
   -c "SET session_replication_role = replica;" \
   -f "$DUMP_DIR/data.sql" \
   -c "SET session_replication_role = DEFAULT;"
 
 echo ""
-echo "✓ Done. Local DB is now a full copy of remote $REMOTE_PROJECT_REF."
+echo "✓ Done. Local DB is now a full copy of the remote database."
 echo "  Dumps kept at: $DUMP_DIR"
 echo ""
 echo "  To connect to local DB:"
