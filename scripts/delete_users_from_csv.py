@@ -96,7 +96,7 @@ def main():
     with open(csv_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             email = (row.get("email") or "").strip().lower()
-            if email:
+            if email and "@" in email:
                 emails.append(email)
 
     print(f"Found {len(emails)} users to delete{' (DRY RUN)' if dry_run else ''}.\n")
