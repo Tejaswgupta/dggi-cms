@@ -10,9 +10,10 @@ CSV columns expected: id, name, email, dggi_role, groups, created_at
 
 Reads .env from scripts/.env (SUPABASE_URL, SERVICE_ROLE_KEY).
 For each row it:
-  1. Creates the auth.users record via the Admin API (or finds existing).
-  2. Upserts a votum_users row.
-  3. Inserts dggi_user_group_assignments rows for every group listed.
+  1. Creates (or reuses) the "DGGI MZU" workspace in votum_workspace.
+  2. Creates the auth.users record via the Admin API (or finds existing).
+  3. Upserts a votum_users row.
+  4. Inserts dggi_user_group_assignments rows for every group listed.
 """
 
 import sys
@@ -54,7 +55,8 @@ load_env(str(SCRIPT_DIR / ".env"))
 SUPABASE_URL     = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_ROLE_KEY = os.environ["SERVICE_ROLE_KEY"]
 
-DEFAULT_PASSWORD = "Dggi@1234"
+DEFAULT_PASSWORD  = "Dggi@1234"
+WORKSPACE_NAME    = "DGGI MZU"
 
 VALID_ROLES  = {"SIO", "DD", "ADD", "ADG", "DD_INT", "SIO_INT", "AD", "ADC", "JD", "IO"}
 VALID_GROUPS = {"Group A", "Group B", "Group C", "Group D", "Group E", "Group F"}
@@ -70,16 +72,23 @@ HEADERS = {
 # Supabase helpers
 # ---------------------------------------------------------------------------
 
-def get_workspace_id(client: "httpx.Client", admin_email: str = "ajinkya@gov.in") -> str:
+def get_or_create_workspace(client: "httpx.Client", name: str = WORKSPACE_NAME) -> str:
     resp = client.get(
-        f"{SUPABASE_URL}/rest/v1/votum_users",
-        params={"select": "workspace_id", "email": f"eq.{admin_email}", "limit": "1"},
+        f"{SUPABASE_URL}/rest/v1/votum_workspace",
+        params={"select": "id", "name": f"eq.{name}", "limit": "1"},
     )
     resp.raise_for_status()
     rows = resp.json()
-    if not rows:
-        raise RuntimeError(f"No workspace found for {admin_email}")
-    return rows[0]["workspace_id"]
+    if rows:
+        return rows[0]["id"]
+
+    resp = client.post(
+        f"{SUPABASE_URL}/rest/v1/votum_workspace",
+        headers={**HEADERS, "Prefer": "return=representation"},
+        json={"name": name},
+    )
+    resp.raise_for_status()
+    return resp.json()[0]["id"]
 
 
 def create_auth_user(client: "httpx.Client", email: str, password: str, name: str, workspace_id: str) -> str:
@@ -191,8 +200,8 @@ def main():
     with httpx.Client(timeout=30) as client:
         client.headers.update(HEADERS)
 
-        print("Resolving workspace ID …")
-        workspace_id = get_workspace_id(client)
+        print(f"Resolving workspace '{WORKSPACE_NAME}' (creating if absent) …")
+        workspace_id = get_or_create_workspace(client)
         print(f"  workspace_id = {workspace_id}\n")
 
         ok = err = 0
