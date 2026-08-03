@@ -1,4 +1,5 @@
 node_modules
 .next
 .env.local
-scripts/.env
+scripts/.envdata.sql
+data.sql
