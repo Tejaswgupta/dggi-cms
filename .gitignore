@@ -3,3 +3,4 @@ node_modules
 .env.local
 scripts/.envdata.sql
 data.sql
+scripts/.env
