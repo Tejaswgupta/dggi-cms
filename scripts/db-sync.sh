@@ -27,11 +27,12 @@ DUMP_DIR="$PROJECT_ROOT/.dumps/$(date +%Y%m%d_%H%M%S)"
 
 # Use sudo for docker/supabase if the current user isn't in the docker group
 DOCKER="docker"
-SUPABASE="supabase"
+SUPABASE_BIN="$(command -v supabase)"
+SUPABASE="$SUPABASE_BIN"
 if ! docker info &>/dev/null 2>&1; then
   if sudo docker info &>/dev/null 2>&1; then
     DOCKER="sudo docker"
-    SUPABASE="sudo supabase"
+    SUPABASE="sudo $SUPABASE_BIN"
     echo "Note: using 'sudo docker'/'sudo supabase' (add your user to the docker group to avoid this)"
   else
     echo "ERROR: Docker is not running or not accessible."
