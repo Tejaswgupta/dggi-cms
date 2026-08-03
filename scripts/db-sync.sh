@@ -29,6 +29,10 @@ for cmd in supabase psql docker; do
   fi
 done
 
+# Override DB_URL here if your Docker Postgres uses non-default credentials/port.
+# Leave blank to auto-detect from running Docker containers.
+LOCAL_DB_URL="${LOCAL_DB_URL:-}"
+
 if ! docker info &>/dev/null; then
   echo "ERROR: Docker is not running. Start Docker Desktop first."
   exit 1
@@ -37,32 +41,25 @@ fi
 mkdir -p "$DUMP_DIR"
 echo "Dump directory: $DUMP_DIR"
 
-# ── 1. init supabase project if needed ────────────────────────────────────────
-if [[ ! -f "$PROJECT_ROOT/supabase/config.toml" ]]; then
-  echo ""
-  echo "→ No supabase/config.toml found. Initialising local project ..."
-  (cd "$PROJECT_ROOT" && supabase init --force)
-fi
-
-# ── 2. dump from remote (three separate passes) ───────────────────────────────
+# ── 1. dump from remote (three separate passes) ───────────────────────────────
 echo ""
 echo "→ Dumping remote project $REMOTE_PROJECT_REF ..."
 
-# 2a. Schema only (includes all objects, no data)
+# Schema only (includes all objects, no data)
 echo "  [1/3] Schema ..."
 supabase db dump \
   --project-ref "$REMOTE_PROJECT_REF" \
   --schema-only \
   -f "$DUMP_DIR/schema.sql"
 
-# 2b. Data only (all schemas: public + auth + storage)
+# Data only (all schemas: public + auth + storage)
 echo "  [2/3] Data ..."
 supabase db dump \
   --project-ref "$REMOTE_PROJECT_REF" \
   --data-only \
   -f "$DUMP_DIR/data.sql"
 
-# 2c. Auth roles (Supabase creates pg roles that must exist before schema restore)
+# Auth roles (Supabase creates pg roles that must exist before schema restore)
 echo "  [3/3] Roles ..."
 supabase db dump \
   --project-ref "$REMOTE_PROJECT_REF" \
@@ -71,23 +68,31 @@ supabase db dump \
 
 echo "  Dumps saved to $DUMP_DIR"
 
-# ── 3. start local supabase ───────────────────────────────────────────────────
+# ── 3. detect local Docker-based Supabase DB ──────────────────────────────────
 echo ""
-echo "→ Starting local Supabase ..."
-(cd "$PROJECT_ROOT" && supabase start)
+echo "→ Detecting local DB connection (Docker) ..."
 
-# Grab the local DB URL from `supabase status`
-echo ""
-echo "→ Detecting local DB connection ..."
-STATUS_OUTPUT=$(cd "$PROJECT_ROOT" && supabase status 2>&1)
-DB_URL=$(echo "$STATUS_OUTPUT" | grep -E "^[[:space:]]*DB URL" | awk '{print $NF}')
-
-if [[ -z "$DB_URL" ]]; then
-  # Fallback to default
-  DB_URL="postgresql://postgres:postgres@localhost:54322/postgres"
-  echo "  Could not auto-detect DB URL, using default: $DB_URL"
+if [[ -n "$LOCAL_DB_URL" ]]; then
+  DB_URL="$LOCAL_DB_URL"
+  echo "  Using LOCAL_DB_URL from environment: $DB_URL"
 else
-  echo "  Detected: $DB_URL"
+  # Find the Supabase Postgres container by image name
+  CONTAINER_ID=$(docker ps --filter "name=supabase-db" --format "{{.ID}}" | head -1)
+  if [[ -z "$CONTAINER_ID" ]]; then
+    # Try common alternative container names used by Docker-based Supabase setups
+    CONTAINER_ID=$(docker ps --filter "ancestor=supabase/postgres" --format "{{.ID}}" | head -1)
+  fi
+
+  if [[ -n "$CONTAINER_ID" ]]; then
+    HOST_PORT=$(docker inspect "$CONTAINER_ID" \
+      --format '{{range $p, $conf := .NetworkSettings.Ports}}{{if eq $p "5432/tcp"}}{{(index $conf 0).HostPort}}{{end}}{{end}}')
+    DB_URL="postgresql://postgres:postgres@localhost:${HOST_PORT:-5432}/postgres"
+    echo "  Detected container $CONTAINER_ID on port ${HOST_PORT:-5432}: $DB_URL"
+  else
+    DB_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+    echo "  Could not find a running Supabase DB container, using default: $DB_URL"
+    echo "  Set LOCAL_DB_URL env var to override."
+  fi
 fi
 
 # ── 4. wipe existing local data ───────────────────────────────────────────────
