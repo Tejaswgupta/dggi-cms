@@ -62,8 +62,8 @@ WORKSPACE_OWNER_EMAIL = "ajinkya.k1@gov.in"
 DEFAULT_EXCEL_PATH = os.path.join(
     os.path.dirname(__file__),
     "..",
-    "..",
-    "Closure Reports.xlsx",
+    "data",
+    "Closure Reports (1).xlsx",
 )
 
 LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_closure_reports_log.json")

@@ -60,7 +60,7 @@ DEFAULT_EXCEL_PATH = os.path.join(
     os.path.dirname(__file__),
     "..",
     "data",
-    "Prosecution List DGGI MZU_Updated.xlsx",
+    "Prosecution List DGGI MZU_Updated 03.08.2026.xlsx",
 )
 
 SKIPPED_CSV = os.path.join(os.path.dirname(__file__), "ingest_prosecution_skipped.csv")
