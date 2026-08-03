@@ -1110,29 +1110,49 @@ export default function DGGIDashboard() {
       const currMonth = getMonthRange(0);
       const prevMonth = getMonthRange(-1);
 
-      function countQuery(table: string, gte: string, lt: string) {
-        return applyRbacFilter(
+      function countByDate(
+        table: string,
+        dateCol: string,
+        gte: string,
+        lt?: string,
+      ) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q: any = applyRbacFilter(
           supabase
             .from(table)
             .select("*", { count: "exact", head: true })
             .eq("workspace_id", wid)
-            .gte("created_at", gte)
-            .lt("created_at", lt),
+            .gte(dateCol, gte),
           table,
           rbac,
-        ).then((r: { count: number | null }) => r.count ?? 0);
+        );
+        if (lt) q = q.lt(dateCol, lt);
+        return q.then((r: { count: number | null }) => r.count ?? 0);
       }
 
-      function countQueryFrom(table: string, gte: string) {
-        return applyRbacFilter(
-          supabase
-            .from(table)
-            .select("*", { count: "exact", head: true })
-            .eq("workspace_id", wid)
-            .gte("created_at", gte),
-          table,
-          rbac,
-        ).then((r: { count: number | null }) => r.count ?? 0);
+      // Investigations = IR cases (date_of_ir) + NON-IR cases (date_of_non_ir)
+      // is_ir filter prevents double-counting cases that have both dates set
+      async function countInvestigations(gte: string, lt?: string) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        function buildQ(dateCol: string, isIr: boolean): any {
+          let q = applyRbacFilter(
+            supabase
+              .from(INVESTIGATIONS_TABLE)
+              .select("*", { count: "exact", head: true })
+              .eq("workspace_id", wid)
+              .eq("is_ir", isIr)
+              .gte(dateCol, gte),
+            INVESTIGATIONS_TABLE,
+            rbac,
+          );
+          if (lt) q = q.lt(dateCol, lt);
+          return q.then((r: { count: number | null }) => r.count ?? 0);
+        }
+        const [ir, nonIr] = await Promise.all([
+          buildQ("date_of_ir", true),
+          buildQ("date_of_non_ir", false),
+        ]);
+        return ir + nonIr;
       }
 
       const [
@@ -1206,32 +1226,16 @@ export default function DGGIDashboard() {
           INVESTIGATIONS_TABLE,
           rbac,
         ),
-        // Zone Intelligence: server-side count queries (no row data transferred)
-        countQueryFrom("dggi_provisional_attachment_records", fyStart),
-        countQueryFrom("dggi_prosecution_arrest_records", fyStart),
-        countQueryFrom(INVESTIGATIONS_TABLE, fyStart),
-        countQuery(
-          "dggi_provisional_attachment_records",
-          currMonth.start,
-          currMonth.end,
-        ),
-        countQuery(
-          "dggi_prosecution_arrest_records",
-          currMonth.start,
-          currMonth.end,
-        ),
-        countQuery(INVESTIGATIONS_TABLE, currMonth.start, currMonth.end),
-        countQuery(
-          "dggi_provisional_attachment_records",
-          prevMonth.start,
-          prevMonth.end,
-        ),
-        countQuery(
-          "dggi_prosecution_arrest_records",
-          prevMonth.start,
-          prevMonth.end,
-        ),
-        countQuery(INVESTIGATIONS_TABLE, prevMonth.start, prevMonth.end),
+        // Zone Intelligence: server-side count queries using domain date fields
+        countByDate("dggi_provisional_attachment_records", "date_of_attachment", fyStart),
+        countByDate("dggi_prosecution_arrest_records", "date_of_arrest", fyStart),
+        countInvestigations(fyStart),
+        countByDate("dggi_provisional_attachment_records", "date_of_attachment", currMonth.start, currMonth.end),
+        countByDate("dggi_prosecution_arrest_records", "date_of_arrest", currMonth.start, currMonth.end),
+        countInvestigations(currMonth.start, currMonth.end),
+        countByDate("dggi_provisional_attachment_records", "date_of_attachment", prevMonth.start, prevMonth.end),
+        countByDate("dggi_prosecution_arrest_records", "date_of_arrest", prevMonth.start, prevMonth.end),
+        countInvestigations(prevMonth.start, prevMonth.end),
         applyRbacFilter(
           supabase
             .from("dggi_records")
