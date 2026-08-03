@@ -17,9 +17,9 @@ Column mapping:
   Col 9  Current Status      → latest_status
 
 record_id generation (FY-based, date-sequenced):
-  - Extract FY from date_of_non_ir (e.g. 2026-05-01 → "2026-27")
+  - Extract short FY from date_of_non_ir (e.g. 2026-05-01 → "26-27")
   - Sort all records by date within each FY
-  - Assign sequential numbers: 1/GST/2026-27, 2/GST/2026-27, etc.
+  - Assign sequential numbers starting from 1: NIR-001-26-27, NIR-002-26-27, etc.
   - Sequence resets for each FY
 
 Dedup strategy (checked in order):
@@ -100,7 +100,7 @@ def clean(val) -> str | None:
 # ---------------------------------------------------------------------------
 
 def fy_from_date(date_str: str | None) -> str:
-    """'2026-05-01' → '2026-27'; '2025-03-15' → '2024-25'"""
+    """'2026-05-01' → '26-27'; '2025-03-15' → '24-25'"""
     if not date_str:
         now = date.today()
         year = now.year if now.month >= 4 else now.year - 1
@@ -108,7 +108,7 @@ def fy_from_date(date_str: str | None) -> str:
         year = int(date_str[:4])
         month = int(date_str[5:7])
         year = year if month >= 4 else year - 1
-    return f"{year}-{year + 1 - 2000:02d}"
+    return f"{year - 2000:02d}-{year + 1 - 2000:02d}"
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +204,7 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
         recs = by_fy[fy]
         recs.sort(key=lambda r: (r["date"] is None, r["date"]))
         for seq, rec in enumerate(recs, 1):
-            rec["record_id"] = f"{seq}/GST/{fy}"
+            rec["record_id"] = f"NIR-{seq:03d}-{fy}"
             assigned.append(rec)
 
     inserted = updated = skipped_count = 0

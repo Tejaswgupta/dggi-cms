@@ -206,7 +206,7 @@ def insert_arrest_record(
         "workspace_id": workspace_id,
         "record_id": record_id,
         "linked_case_id": linked_case,
-        "arrest_batch_id": clean(row[5]),  # F. NO. groups all persons from the same case
+        "file_no": clean(row[5]),
         "group": normalize_group(row[1]),
         "sio_name": clean(row[2]),
         "financial_year": clean(row[4]),

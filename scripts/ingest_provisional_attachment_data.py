@@ -10,7 +10,7 @@ Row layout:
   Row 6    Column numbers  — data begins at row 7
 
 Column mapping:
-  Col 0   Sr. No.                                              → upsert key; record_id = "PA-{sr_no:03d}"
+  Col 0   Sr. No. / PA ID (e.g. "1/2025-26")                  → record_id (upsert key, used as-is)
   Col 1   DGGI Formation                                       → formation
   Col 2   Name of person (Section 83 invoked)                 → taxpayer_name
   Col 3   GSTIN/PAN of person involved                        → gstins
@@ -41,8 +41,8 @@ Column mapping:
   Col 28  Date of Attachment (DD/MM/YYYY)                     → date_of_attachment
 
 Dedup strategy (checked in order):
-  1. record_id match — exact match of "PA-{sr_no:03d}" vs record_id in DB  (primary)
-  2. No match → insert; record_id = "PA-{sr_no:03d}"
+  1. record_id match — exact match of col 0 value vs record_id in DB  (primary)
+  2. No match → insert; record_id = col 0 value
 
 Usage:
     python3 scripts/ingest_provisional_attachment_data.py [/path/to/file.xlsx] [--dry-run]
@@ -207,13 +207,13 @@ def parse_group_sio(text: str | None, user_cache: dict) -> tuple:
 def upsert_record(
     sb,
     workspace_id: str,
-    sr_no: int,
+    sr_no: str,
+    record_id: str,
     payload: dict,
     skipped: list,
     log: list,
     dry_run: bool = False,
 ) -> str:
-    record_id = f"PA-{sr_no:03d}"
     try:
         res = (
             sb.table("dggi_provisional_attachment_records")
@@ -257,18 +257,19 @@ def process_sheet(ws, sb, workspace_id: str, user_cache: dict, skipped: list, lo
     for row in rows[7:]:  # rows 0-6 are title/headers/sub-headers/col-numbers
         if row[0] is None:
             continue
-        try:
-            sr_no = int(row[0])
-        except (ValueError, TypeError):
+        sr_no = clean(row[0])
+        if not sr_no:
             continue
 
         taxpayer_name = balance_parens(clean(row[2])) if clean(row[2]) else None
         if not taxpayer_name:
             continue
 
+        record_id = sr_no  # col 0 is now the PA ID like "1/2025-26"
+
         if dry_run:
             print(
-                f"  [#{sr_no:03d}] {taxpayer_name[:50]!r}"
+                f"  [{record_id}] {taxpayer_name[:50]!r}"
                 f" | gstin={clean(row[3])}"
                 f" | date={parse_date(row[28])}"
             )
@@ -309,7 +310,7 @@ def process_sheet(ws, sb, workspace_id: str, user_cache: dict, skipped: list, lo
         }
         payload = {k: v for k, v in payload.items() if v is not None}
 
-        result = upsert_record(sb, workspace_id, sr_no, payload, skipped, log, dry_run)
+        result = upsert_record(sb, workspace_id, sr_no, record_id, payload, skipped, log, dry_run)
         if result == "inserted":
             inserted += 1
         elif result == "updated":
