@@ -9,7 +9,6 @@
 # Requirements:
 #   - supabase CLI  (curl -fsSL https://supabase.com/install.sh | sh)
 #   - Docker running (with sudo if needed)
-#   - psql          (sudo apt-get install -y postgresql-client)
 
 set -euo pipefail
 
@@ -26,12 +25,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DUMP_DIR="$PROJECT_ROOT/.dumps/$(date +%Y%m%d_%H%M%S)"
 
-# Use sudo for docker if the current user isn't in the docker group
+# Use sudo for docker/supabase if the current user isn't in the docker group
 DOCKER="docker"
+SUPABASE="supabase"
 if ! docker info &>/dev/null 2>&1; then
   if sudo docker info &>/dev/null 2>&1; then
     DOCKER="sudo docker"
-    echo "Note: using 'sudo docker' (add your user to the docker group to avoid this)"
+    SUPABASE="sudo supabase"
+    echo "Note: using 'sudo docker'/'sudo supabase' (add your user to the docker group to avoid this)"
   else
     echo "ERROR: Docker is not running or not accessible."
     exit 1
@@ -61,13 +62,13 @@ echo ""
 echo "→ Dumping remote database ..."
 
 echo "  [1/3] Schema ..."
-supabase db dump --db-url "$REMOTE_DB_URL" -f "$DUMP_DIR/schema.sql"
+$SUPABASE db dump --db-url "$REMOTE_DB_URL" -f "$DUMP_DIR/schema.sql"
 
 echo "  [2/3] Data ..."
-supabase db dump --db-url "$REMOTE_DB_URL" --data-only -f "$DUMP_DIR/data.sql"
+$SUPABASE db dump --db-url "$REMOTE_DB_URL" --data-only -f "$DUMP_DIR/data.sql"
 
 echo "  [3/3] Roles ..."
-supabase db dump --db-url "$REMOTE_DB_URL" --role-only -f "$DUMP_DIR/roles.sql"
+$SUPABASE db dump --db-url "$REMOTE_DB_URL" --role-only -f "$DUMP_DIR/roles.sql"
 
 echo "  Dumps saved to $DUMP_DIR"
 
