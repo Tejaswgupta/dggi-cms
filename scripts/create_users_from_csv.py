@@ -20,6 +20,8 @@ import sys
 import os
 import csv
 import pathlib
+import secrets
+import string
 
 # ---------------------------------------------------------------------------
 # Minimal .env loader
@@ -55,8 +57,16 @@ load_env(str(SCRIPT_DIR / ".env"))
 SUPABASE_URL     = os.environ["SUPABASE_URL"].rstrip("/")
 SERVICE_ROLE_KEY = os.environ["SERVICE_ROLE_KEY"]
 
-DEFAULT_PASSWORD  = "Dggi@1234"
 WORKSPACE_NAME    = "DGGI MZU"
+
+_ALPHABET = string.ascii_letters + string.digits + "!@#$%"
+
+def generate_password(length: int = 12) -> str:
+    while True:
+        pwd = "".join(secrets.choice(_ALPHABET) for _ in range(length))
+        if (any(c.isupper() for c in pwd) and any(c.islower() for c in pwd)
+                and any(c.isdigit() for c in pwd) and any(c in "!@#$%" for c in pwd)):
+            return pwd
 
 VALID_ROLES  = {"SIO", "DD", "ADD", "ADG", "DD_INT", "SIO_INT", "AD", "ADC", "JD", "IO"}
 VALID_GROUPS = {"Group A", "Group B", "Group C", "Group D", "Group E", "Group F"}
@@ -205,9 +215,12 @@ def main():
         print(f"  workspace_id = {workspace_id}\n")
 
         ok = err = 0
+        credentials: list[dict] = []
+
         for u in user_rows:
+            password = generate_password()
             try:
-                user_id = create_auth_user(client, u["email"], DEFAULT_PASSWORD,
+                user_id = create_auth_user(client, u["email"], password,
                                            u["name"], workspace_id)
                 upsert_votum_user(client, user_id, u["email"], u["name"],
                                   workspace_id, u["role"])
@@ -217,6 +230,7 @@ def main():
                     else:
                         print(f"  WARN  {u['email']}: unknown group '{g}' — skipped")
 
+                credentials.append({"email": u["email"], "password": password})
                 group_str = ", ".join(u["groups"]) if u["groups"] else "—"
                 print(f"  OK    {u['email']}  [{u['role']}]  groups: {group_str}")
                 ok += 1
@@ -224,7 +238,14 @@ def main():
                 print(f"  ERR   {u['email']}: {exc}")
                 err += 1
 
+    out_path = pathlib.Path(csv_path).with_stem(pathlib.Path(csv_path).stem + "_passwords")
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["email", "password"])
+        writer.writeheader()
+        writer.writerows(credentials)
+
     print(f"\nDone. {ok} created/updated, {err} errors.")
+    print(f"Credentials saved to {out_path}")
 
 
 if __name__ == "__main__":
