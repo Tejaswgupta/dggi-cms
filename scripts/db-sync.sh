@@ -90,7 +90,13 @@ else
   echo "  Detected: $DB_URL"
 fi
 
-# ── 4. restore ────────────────────────────────────────────────────────────────
+# ── 4. wipe existing local data ───────────────────────────────────────────────
+echo ""
+echo "→ Wiping existing local data ..."
+psql "$DB_URL" --no-password -v ON_ERROR_STOP=1 \
+  -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+# ── 5. restore ────────────────────────────────────────────────────────────────
 echo ""
 echo "→ Restoring roles ..."
 # Roles must go in first; ignore errors for roles that already exist
