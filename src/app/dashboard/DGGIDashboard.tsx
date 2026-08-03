@@ -11,7 +11,6 @@ import {
   Activity,
   AlertTriangle,
   Archive,
-  BarChart3,
   Bell,
   Brain,
   CalendarClock,
@@ -714,7 +713,7 @@ function DeadlineTable({
                 </td>
                 <td className="px-4 py-2.5 whitespace-nowrap">
                   <Link
-                    href={`${item.registerHref}${item.registerHref.includes("?") ? "&" : "?"}highlight=${encodeURIComponent(item.recordId)}`}
+                    href={item.registerHref}
                     className="font-mono text-[11px] text-[#4A5FD4] hover:underline"
                   >
                     {item.recordId}
@@ -1339,7 +1338,6 @@ export default function DGGIDashboard() {
         .filter((d) => Object.values(d.monthCounts).some((c) => c > 0));
 
       setActivityDatasets(builtDatasets);
-
     } catch (e) {
       console.error("DGGIDashboard fetch error:", e);
     } finally {
@@ -2105,7 +2103,7 @@ export default function DGGIDashboard() {
             </div>
 
             {/* Pendency Table */}
-            <div className="bg-white rounded-xl border border-[#EDEDEA]">
+            {/* <div className="bg-white rounded-xl border border-[#EDEDEA]">
               <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-[#F3F2EF]">
                 <div className="flex items-center gap-2">
                   <BarChart3 size={14} className="text-[#4A5FD4]" />
@@ -2129,7 +2127,7 @@ export default function DGGIDashboard() {
                   />
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
         )}
       </div>

@@ -1148,7 +1148,7 @@ const ArrestRegisterComponent = () => {
   const batches: { batchId: string; persons: ArrestRecord[] }[] = [];
   const batchIndex = new Map<string, number>();
   for (const r of tableRecords) {
-    const bid = r.arrest_batch_id || r.id;
+    const bid = r.arrest_batch_id || `__solo__${r.id}`;
     if (!batchIndex.has(bid)) {
       batchIndex.set(bid, batches.length);
       batches.push({ batchId: bid, persons: [] });
@@ -1191,6 +1191,8 @@ const ArrestRegisterComponent = () => {
             >
               {record.record_id || "—"}
             </button>
+          ) : col.key === "arrest_batch_id" ? (
+            <span>{record.arrest_batch_id || ""}</span>
           ) : (
             <EditableCell
               value={((record as any)[col.key] as string) ?? ""}

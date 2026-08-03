@@ -665,6 +665,7 @@ function SubTable<T extends { id: string; record_id: string }>({
   customCells,
   readOnly,
   editOnly,
+  canDelete,
 }: {
   records: T[];
   columns: RegisterColumn[];
@@ -685,6 +686,7 @@ function SubTable<T extends { id: string; record_id: string }>({
   customCells?: Record<string, CustomCellRenderer<T>>;
   readOnly?: boolean;
   editOnly?: boolean;
+  canDelete?: boolean;
 }) {
   const renderCell = (
     value: string,
@@ -853,7 +855,7 @@ function SubTable<T extends { id: string; record_id: string }>({
                       >
                         <Pencil size={13} />
                       </Button>
-                      {!editOnly && (
+                      {!editOnly && canDelete && (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -1624,6 +1626,7 @@ const IntelligenceAllocationComponent = () => {
               cases={caseOptions}
               readOnly={!canCreate && !isDD}
               editOnly={isDD}
+              canDelete={userRole === "DD_INT"}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1698,6 +1701,7 @@ const IntelligenceAllocationComponent = () => {
               cases={caseOptions}
               readOnly={!canCreate && !isDD}
               editOnly={isDD}
+              canDelete={userRole === "DD_INT"}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
@@ -1766,6 +1770,7 @@ const IntelligenceAllocationComponent = () => {
               cases={caseOptions}
               readOnly={!canCreate && !isDD}
               editOnly={isDD}
+              canDelete={userRole === "DD_INT"}
               customCells={{
                 non_ir_no: (r) =>
                   r.non_ir_no ? (
