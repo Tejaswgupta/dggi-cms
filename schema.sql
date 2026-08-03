@@ -682,6 +682,515 @@ $$;
 
 ALTER FUNCTION "public"."advance_proposal_workflow"("proposal_uuid" "uuid", "approver_uuid" "uuid", "action_taken" "text", "comments_text" "text") OWNER TO "postgres";
 
+SET default_tablespace = '';
+
+SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."delegation_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "task_id" "uuid" NOT NULL,
+    "workspace_id" "uuid" NOT NULL,
+    "event_seq" bigint NOT NULL,
+    "actor_user" "uuid" NOT NULL,
+    "to_users" "uuid"[] DEFAULT '{}'::"uuid"[] NOT NULL,
+    "action" "text" NOT NULL,
+    "notes" "text",
+    "review_required" boolean DEFAULT false NOT NULL,
+    "source" "text" DEFAULT 'app'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "delegation_events_action_check" CHECK (("action" = ANY (ARRAY['delegated'::"text", 'submitted_for_review'::"text", 'approved'::"text", 'completed'::"text", 'cancelled'::"text"]))),
+    CONSTRAINT "delegation_events_recipients_check" CHECK (((("action" = 'delegated'::"text") AND ("cardinality"("to_users") > 0)) OR (("action" = 'submitted_for_review'::"text") AND ("cardinality"("to_users") = 1)) OR (("action" = 'approved'::"text") AND ("cardinality"("to_users") <= 1)) OR (("action" = ANY (ARRAY['completed'::"text", 'cancelled'::"text"])) AND ("cardinality"("to_users") = 0)))),
+    CONSTRAINT "delegation_events_source_check" CHECK (("source" = ANY (ARRAY['app'::"text", 'migration'::"text"])))
+);
+
+
+ALTER TABLE "public"."delegation_events" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[] DEFAULT '{}'::"uuid"[], "p_notes" "text" DEFAULT NULL::"text", "p_review_required" boolean DEFAULT NULL::boolean) RETURNS "public"."delegation_events"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_actor_user uuid := auth.uid();
+  v_actor_workspace_id uuid;
+  v_actor_name text;
+  v_task public.votum_tasks%ROWTYPE;
+  v_latest public.delegation_events%ROWTYPE;
+  v_latest_seq bigint := 0;
+  v_to_users uuid[] := COALESCE(p_to_users, '{}');
+  v_review_required boolean;
+  v_task_status smallint;
+  v_event public.delegation_events%ROWTYPE;
+  v_next_user uuid;
+BEGIN
+  IF v_actor_user IS NULL THEN
+    RAISE EXCEPTION 'Authentication is required';
+  END IF;
+
+  SELECT workspace_id, name
+    INTO v_actor_workspace_id, v_actor_name
+    FROM public.votum_users
+   WHERE id = v_actor_user;
+
+  IF v_actor_workspace_id IS NULL THEN
+    RAISE EXCEPTION 'Caller is not a workspace member';
+  END IF;
+
+  SELECT *
+    INTO v_task
+    FROM public.votum_tasks
+   WHERE id = p_task_id
+     AND workspace_id = v_actor_workspace_id
+   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Task not found in caller workspace';
+  END IF;
+
+  SELECT *
+    INTO v_latest
+    FROM public.delegation_events
+   WHERE task_id = p_task_id
+   ORDER BY event_seq DESC
+   LIMIT 1;
+
+  v_latest_seq := COALESCE(v_latest.event_seq, 0);
+  IF p_expected_event_seq IS DISTINCT FROM v_latest_seq THEN
+    RAISE EXCEPTION 'Stale delegation event sequence (expected %, current %)',
+      p_expected_event_seq, v_latest_seq
+      USING ERRCODE = '40001';
+  END IF;
+
+  IF p_action NOT IN (
+    'delegated', 'submitted_for_review', 'approved', 'completed', 'cancelled'
+  ) THEN
+    RAISE EXCEPTION 'Unsupported delegation action: %', p_action;
+  END IF;
+
+  -- ── Server-derived recipients for review actions ──────────────────────────
+  -- For submitted_for_review and approved: find "who most recently delegated
+  -- to me" — one rule for both actions. The client never passes toUsers for
+  -- these; the server computes it from history.
+  IF p_action IN ('submitted_for_review', 'approved') THEN
+    SELECT actor_user INTO v_next_user
+      FROM public.delegation_events
+     WHERE task_id = p_task_id
+       AND action  = 'delegated'
+       AND to_users @> ARRAY[v_actor_user]
+     ORDER BY event_seq DESC LIMIT 1;
+
+    v_to_users := CASE WHEN v_next_user IS NOT NULL THEN ARRAY[v_next_user] ELSE '{}'::uuid[] END;
+  END IF;
+
+  -- ── Recipient validation ──────────────────────────────────────────────────
+  IF (p_action = 'delegated' AND cardinality(v_to_users) = 0)
+    OR (p_action = 'submitted_for_review' AND cardinality(v_to_users) <> 1)
+    OR (p_action = 'approved' AND cardinality(v_to_users) > 1)
+    OR (p_action IN ('completed', 'cancelled') AND cardinality(v_to_users) <> 0) THEN
+    RAISE EXCEPTION 'Invalid recipients for delegation action %', p_action;
+  END IF;
+
+  IF p_action = 'delegated' THEN
+    IF array_position(v_to_users, NULL) IS NOT NULL
+      OR cardinality(v_to_users) <> (
+        SELECT count(*)
+          FROM (SELECT DISTINCT user_id FROM unnest(v_to_users) AS user_id) r
+      )
+      OR cardinality(v_to_users) <> (
+        SELECT count(*)
+          FROM public.votum_users
+         WHERE id = ANY(v_to_users)
+           AND workspace_id = v_actor_workspace_id
+      ) THEN
+      RAISE EXCEPTION 'Recipients must be distinct members of the task workspace';
+    END IF;
+  END IF;
+
+  -- ── Transition validation ─────────────────────────────────────────────────
+  IF v_latest_seq = 0 THEN
+    IF p_action <> 'delegated' THEN
+      RAISE EXCEPTION 'A delegation workflow must start with delegated';
+    END IF;
+
+    IF v_task.created_by IS DISTINCT FROM v_actor_user
+      AND NOT EXISTS (
+        SELECT 1 FROM public.task_assignees
+         WHERE task_id = p_task_id AND user_id = v_actor_user
+      ) THEN
+      RAISE EXCEPTION 'Only the task creator or an active assignee may start delegation';
+    END IF;
+
+    v_review_required := COALESCE(p_review_required, false);
+  ELSE
+    v_review_required := v_latest.review_required;
+
+    IF p_review_required IS NOT NULL
+      AND p_review_required IS DISTINCT FROM v_review_required THEN
+      RAISE EXCEPTION 'review_required is fixed by the initial delegation event';
+    END IF;
+
+    CASE v_latest.action
+      WHEN 'delegated' THEN
+        IF NOT EXISTS (
+          SELECT 1 FROM public.task_assignees
+           WHERE task_id = p_task_id AND user_id = v_actor_user
+        ) THEN
+          RAISE EXCEPTION 'Only an active assignee may advance delegated work';
+        END IF;
+
+        IF p_action = 'submitted_for_review' AND NOT v_review_required THEN
+          RAISE EXCEPTION 'This task does not require review';
+        ELSIF p_action NOT IN ('delegated', 'submitted_for_review', 'completed', 'cancelled') THEN
+          RAISE EXCEPTION 'Action % cannot follow delegated', p_action;
+        ELSIF p_action = 'completed' AND v_review_required THEN
+          RAISE EXCEPTION 'Reviewed work must be submitted for review';
+        END IF;
+
+      WHEN 'submitted_for_review', 'approved' THEN
+        IF v_latest.to_users[1] IS DISTINCT FROM v_actor_user THEN
+          RAISE EXCEPTION 'Only the designated reviewer may advance review';
+        END IF;
+
+        IF p_action NOT IN ('approved', 'cancelled') THEN
+          RAISE EXCEPTION 'Action % cannot follow a review event', p_action;
+        END IF;
+
+      WHEN 'completed', 'cancelled' THEN
+        RAISE EXCEPTION 'Delegation workflow is already terminal';
+    END CASE;
+  END IF;
+
+  -- ── Insert event ──────────────────────────────────────────────────────────
+  INSERT INTO public.delegation_events (
+    task_id, workspace_id, event_seq, actor_user, to_users,
+    action, notes, review_required
+  ) VALUES (
+    p_task_id, v_actor_workspace_id, v_latest_seq + 1, v_actor_user,
+    v_to_users, p_action, p_notes, v_review_required
+  )
+  RETURNING * INTO v_event;
+
+  -- ── Side effects: assignees ───────────────────────────────────────────────
+  IF p_action = 'delegated' THEN
+    IF v_latest_seq = 0 THEN
+      DELETE FROM public.task_assignees WHERE task_id = p_task_id;
+    ELSE
+      DELETE FROM public.task_assignees
+       WHERE task_id = p_task_id AND user_id = v_actor_user;
+    END IF;
+
+    INSERT INTO public.task_assignees (task_id, user_id, assigned_by)
+    SELECT p_task_id, recipient.user_id, v_actor_user
+      FROM unnest(v_to_users) AS recipient(user_id)
+    ON CONFLICT (task_id, user_id) DO NOTHING;
+  ELSIF p_action = 'cancelled' THEN
+    DELETE FROM public.task_assignees WHERE task_id = p_task_id;
+  END IF;
+
+  -- ── Side effects: task status ─────────────────────────────────────────────
+  v_task_status := CASE
+    WHEN p_action = 'delegated' THEN 1
+    WHEN p_action = 'submitted_for_review' THEN 2
+    WHEN p_action = 'approved' AND cardinality(v_to_users) = 0 THEN 3
+    WHEN p_action = 'approved' THEN 2
+    WHEN p_action = 'completed' THEN 3
+    WHEN p_action = 'cancelled' THEN 0
+  END;
+
+  UPDATE public.votum_tasks
+     SET status = v_task_status,
+         last_updated_by = v_actor_user,
+         last_updated_time = now(),
+         moved_to_done_at = CASE
+           WHEN v_task_status = 3 THEN COALESCE(v_task.moved_to_done_at, now())
+           ELSE NULL
+         END
+   WHERE id = p_task_id;
+
+  -- ── Side effects: notification ────────────────────────────────────────────
+  IF cardinality(v_to_users) > 0 THEN
+    INSERT INTO public.votum_notifications (
+      type, subtype, module, redirect_uri, title, message,
+      workspace_id, target_user_id, created_by_id,
+      related_entity_id, related_entity_type,
+      status, is_sent, is_read, is_active, is_obsolete, is_archived, channels
+    )
+    SELECT
+      'delegation',
+      CASE WHEN p_action = 'delegated' THEN 'delegated' ELSE 'review_required' END,
+      'task_management',
+      '/home/tasks/' || p_task_id,
+      CASE
+        WHEN p_action = 'delegated' THEN 'Delegated: ' || v_task.name
+        ELSE 'Review Required: ' || v_task.name
+      END,
+      CASE
+        WHEN p_action = 'delegated' THEN
+          COALESCE(v_actor_name, 'Someone') || ' delegated "' || v_task.name || '" to you'
+        ELSE
+          COALESCE(v_actor_name, 'Someone') || ' completed work on "' || v_task.name || '" — your review is required'
+      END,
+      v_actor_workspace_id,
+      recipient.user_id,
+      v_actor_user,
+      p_task_id,
+      'task',
+      'unread',
+      true, false, true, false, false,
+      ARRAY['fcm', 'email']
+    FROM unnest(v_to_users) AS recipient(user_id);
+  END IF;
+
+  RETURN v_event;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[] DEFAULT '{}'::"uuid"[], "p_notes" "text" DEFAULT NULL::"text", "p_review_required" boolean DEFAULT NULL::boolean, "p_actor_user_id" "uuid" DEFAULT NULL::"uuid") RETURNS "public"."delegation_events"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'pg_temp'
+    AS $$
+DECLARE
+  v_actor_user uuid;
+  v_actor_workspace_id uuid;
+  v_actor_name text;
+  v_task public.votum_tasks%ROWTYPE;
+  v_latest public.delegation_events%ROWTYPE;
+  v_latest_seq bigint := 0;
+  v_to_users uuid[] := COALESCE(p_to_users, '{}');
+  v_review_required boolean;
+  v_task_status smallint;
+  v_event public.delegation_events%ROWTYPE;
+  v_next_user uuid;
+BEGIN
+  -- auth.uid() is set for browser/anon callers; NULL for service-role.
+  -- Service-role may supply an explicit actor; browser callers cannot override.
+  v_actor_user := COALESCE(auth.uid(), p_actor_user_id);
+
+  IF v_actor_user IS NULL THEN
+    RAISE EXCEPTION 'Authentication is required';
+  END IF;
+
+  SELECT workspace_id, name
+    INTO v_actor_workspace_id, v_actor_name
+    FROM public.votum_users
+   WHERE id = v_actor_user;
+
+  IF v_actor_workspace_id IS NULL THEN
+    RAISE EXCEPTION 'Caller is not a workspace member';
+  END IF;
+
+  SELECT *
+    INTO v_task
+    FROM public.votum_tasks
+   WHERE id = p_task_id
+     AND workspace_id = v_actor_workspace_id
+   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Task not found in caller workspace';
+  END IF;
+
+  SELECT *
+    INTO v_latest
+    FROM public.delegation_events
+   WHERE task_id = p_task_id
+   ORDER BY event_seq DESC
+   LIMIT 1;
+
+  v_latest_seq := COALESCE(v_latest.event_seq, 0);
+  IF p_expected_event_seq IS DISTINCT FROM v_latest_seq THEN
+    RAISE EXCEPTION 'Stale delegation event sequence (expected %, current %)',
+      p_expected_event_seq, v_latest_seq
+      USING ERRCODE = '40001';
+  END IF;
+
+  IF p_action NOT IN (
+    'delegated', 'submitted_for_review', 'approved', 'completed', 'cancelled'
+  ) THEN
+    RAISE EXCEPTION 'Unsupported delegation action: %', p_action;
+  END IF;
+
+  -- Server-derived recipients for review actions.
+  IF p_action IN ('submitted_for_review', 'approved') THEN
+    SELECT actor_user INTO v_next_user
+      FROM public.delegation_events
+     WHERE task_id = p_task_id
+       AND action  = 'delegated'
+       AND to_users @> ARRAY[v_actor_user]
+     ORDER BY event_seq DESC LIMIT 1;
+
+    v_to_users := CASE WHEN v_next_user IS NOT NULL THEN ARRAY[v_next_user] ELSE '{}'::uuid[] END;
+  END IF;
+
+  -- Recipient validation.
+  IF (p_action = 'delegated' AND cardinality(v_to_users) = 0)
+    OR (p_action = 'submitted_for_review' AND cardinality(v_to_users) <> 1)
+    OR (p_action = 'approved' AND cardinality(v_to_users) > 1)
+    OR (p_action IN ('completed', 'cancelled') AND cardinality(v_to_users) <> 0) THEN
+    RAISE EXCEPTION 'Invalid recipients for delegation action %', p_action;
+  END IF;
+
+  IF p_action = 'delegated' THEN
+    IF array_position(v_to_users, NULL) IS NOT NULL
+      OR cardinality(v_to_users) <> (
+        SELECT count(*) FROM (SELECT DISTINCT user_id FROM unnest(v_to_users) AS user_id) r
+      )
+      OR cardinality(v_to_users) <> (
+        SELECT count(*) FROM public.votum_users
+         WHERE id = ANY(v_to_users) AND workspace_id = v_actor_workspace_id
+      ) THEN
+      RAISE EXCEPTION 'Recipients must be distinct members of the task workspace';
+    END IF;
+  END IF;
+
+  -- Transition validation.
+  IF v_latest_seq = 0 THEN
+    IF p_action <> 'delegated' THEN
+      RAISE EXCEPTION 'A delegation workflow must start with delegated';
+    END IF;
+
+    IF v_task.created_by IS DISTINCT FROM v_actor_user
+      AND NOT EXISTS (
+        SELECT 1 FROM public.task_assignees
+         WHERE task_id = p_task_id AND user_id = v_actor_user
+      ) THEN
+      RAISE EXCEPTION 'Only the task creator or an active assignee may start delegation';
+    END IF;
+
+    v_review_required := COALESCE(p_review_required, false);
+  ELSE
+    v_review_required := v_latest.review_required;
+
+    IF p_review_required IS NOT NULL
+      AND p_review_required IS DISTINCT FROM v_review_required THEN
+      RAISE EXCEPTION 'review_required is fixed by the initial delegation event';
+    END IF;
+
+    CASE v_latest.action
+      WHEN 'delegated' THEN
+        IF NOT EXISTS (
+          SELECT 1 FROM public.task_assignees
+           WHERE task_id = p_task_id AND user_id = v_actor_user
+        ) THEN
+          RAISE EXCEPTION 'Only an active assignee may advance delegated work';
+        END IF;
+
+        IF p_action = 'submitted_for_review' AND NOT v_review_required THEN
+          RAISE EXCEPTION 'This task does not require review';
+        ELSIF p_action NOT IN ('delegated', 'submitted_for_review', 'completed', 'cancelled') THEN
+          RAISE EXCEPTION 'Action % cannot follow delegated', p_action;
+        ELSIF p_action = 'completed' AND v_review_required THEN
+          RAISE EXCEPTION 'Reviewed work must be submitted for review';
+        END IF;
+
+      WHEN 'submitted_for_review', 'approved' THEN
+        IF v_latest.to_users[1] IS DISTINCT FROM v_actor_user THEN
+          RAISE EXCEPTION 'Only the designated reviewer may advance review';
+        END IF;
+
+        IF p_action NOT IN ('approved', 'cancelled') THEN
+          RAISE EXCEPTION 'Action % cannot follow a review event', p_action;
+        END IF;
+
+      WHEN 'completed', 'cancelled' THEN
+        RAISE EXCEPTION 'Delegation workflow is already terminal';
+    END CASE;
+  END IF;
+
+  -- Insert event.
+  INSERT INTO public.delegation_events (
+    task_id, workspace_id, event_seq, actor_user, to_users,
+    action, notes, review_required
+  ) VALUES (
+    p_task_id, v_actor_workspace_id, v_latest_seq + 1, v_actor_user,
+    v_to_users, p_action, p_notes, v_review_required
+  )
+  RETURNING * INTO v_event;
+
+  -- Side effects: assignees.
+  IF p_action = 'delegated' THEN
+    IF v_latest_seq = 0 THEN
+      DELETE FROM public.task_assignees WHERE task_id = p_task_id;
+    ELSE
+      DELETE FROM public.task_assignees
+       WHERE task_id = p_task_id AND user_id = v_actor_user;
+    END IF;
+
+    INSERT INTO public.task_assignees (task_id, user_id, assigned_by)
+    SELECT p_task_id, recipient.user_id, v_actor_user
+      FROM unnest(v_to_users) AS recipient(user_id)
+    ON CONFLICT (task_id, user_id) DO NOTHING;
+  ELSIF p_action = 'cancelled' THEN
+    DELETE FROM public.task_assignees WHERE task_id = p_task_id;
+  END IF;
+
+  -- Side effects: task status.
+  v_task_status := CASE
+    WHEN p_action = 'delegated' THEN 1
+    WHEN p_action = 'submitted_for_review' THEN 2
+    WHEN p_action = 'approved' AND cardinality(v_to_users) = 0 THEN 3
+    WHEN p_action = 'approved' THEN 2
+    WHEN p_action = 'completed' THEN 3
+    WHEN p_action = 'cancelled' THEN 0
+  END;
+
+  UPDATE public.votum_tasks
+     SET status = v_task_status,
+         last_updated_by = v_actor_user,
+         last_updated_time = now(),
+         moved_to_done_at = CASE
+           WHEN v_task_status = 3 THEN COALESCE(v_task.moved_to_done_at, now())
+           ELSE NULL
+         END
+   WHERE id = p_task_id;
+
+  -- Side effects: notification.
+  IF cardinality(v_to_users) > 0 THEN
+    INSERT INTO public.votum_notifications (
+      type, subtype, module, redirect_uri, title, message,
+      workspace_id, target_user_id, created_by_id,
+      related_entity_id, related_entity_type,
+      status, is_sent, is_read, is_active, is_obsolete, is_archived, channels
+    )
+    SELECT
+      'delegation',
+      CASE WHEN p_action = 'delegated' THEN 'delegated' ELSE 'review_required' END,
+      'task_management',
+      '/home/tasks/' || p_task_id,
+      CASE
+        WHEN p_action = 'delegated' THEN 'Delegated: ' || v_task.name
+        ELSE 'Review Required: ' || v_task.name
+      END,
+      CASE
+        WHEN p_action = 'delegated' THEN
+          COALESCE(v_actor_name, 'Someone') || ' delegated "' || v_task.name || '" to you'
+        ELSE
+          COALESCE(v_actor_name, 'Someone') || ' completed work on "' || v_task.name || '" — your review is required'
+      END,
+      v_actor_workspace_id,
+      recipient.user_id,
+      v_actor_user,
+      p_task_id,
+      'task',
+      'unread',
+      true, false, true, false, false,
+      ARRAY['fcm', 'email']
+    FROM unnest(v_to_users) AS recipient(user_id);
+  END IF;
+
+  RETURN v_event;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean, "p_actor_user_id" "uuid") OWNER TO "postgres";
+
 
 CREATE OR REPLACE FUNCTION "public"."append_to_pdf_array"("email_to_update" "text", "new_pdf_element" "uuid") RETURNS "void"
     LANGUAGE "plpgsql"
@@ -1625,10 +2134,6 @@ CREATE OR REPLACE FUNCTION "public"."check_user_postings_workspace_consistency"(
 
 
 ALTER FUNCTION "public"."check_user_postings_workspace_consistency"() OWNER TO "postgres";
-
-SET default_tablespace = '';
-
-SET default_table_access_method = "heap";
 
 
 CREATE TABLE IF NOT EXISTS "public"."keyword_alert_task_queue" (
@@ -2931,6 +3436,32 @@ $$;
 ALTER FUNCTION "public"."get_user_workspace_id"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."get_workspace_llm_usage_summary"("p_workspace_id" "text", "p_start_date" timestamp with time zone DEFAULT NULL::timestamp with time zone, "p_end_date" timestamp with time zone DEFAULT NULL::timestamp with time zone) RETURNS TABLE("feature_name" "text", "model_name" "text", "call_count" bigint, "total_prompt_tokens" numeric, "total_completion_tokens" numeric, "total_tokens" numeric, "total_cost_usd" numeric)
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        u.feature_name,
+        u.model_name,
+        COUNT(*)::BIGINT as call_count,
+        SUM(u.prompt_tokens)::NUMERIC as total_prompt_tokens,
+        SUM(u.completion_tokens)::NUMERIC as total_completion_tokens,
+        SUM(u.total_tokens)::NUMERIC as total_tokens,
+        SUM(u.estimated_cost_usd)::NUMERIC as total_cost_usd
+    FROM public.llm_workspace_usage u
+    WHERE u.workspace_id = p_workspace_id
+      AND (p_start_date IS NULL OR u.created_at >= p_start_date)
+      AND (p_end_date IS NULL OR u.created_at <= p_end_date)
+    GROUP BY u.feature_name, u.model_name
+    ORDER BY total_cost_usd DESC;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."get_workspace_llm_usage_summary"("p_workspace_id" "text", "p_start_date" timestamp with time zone, "p_end_date" timestamp with time zone) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_workspace_storage_bytes"("p_workspace_id" "uuid") RETURNS bigint
     LANGUAGE "sql" STABLE
     AS $$
@@ -3155,6 +3686,107 @@ $$;
 
 
 ALTER FUNCTION "public"."migrate_user_references_to_designations"("workspace_uuid" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."next_record_id"("p_workspace_id" "uuid", "p_prefix" "text", "p_fy" "text", "p_separator" "text" DEFAULT '/'::"text") RETURNS "text"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+declare
+  v_next integer;
+begin
+  -- Upsert the sequence row, then lock it and grab the current value.
+  insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
+  values (p_workspace_id, p_prefix, p_fy, 1)
+  on conflict (workspace_id, prefix, fy) do nothing;
+
+  select next_val into v_next
+  from public.record_id_sequences
+  where workspace_id = p_workspace_id
+    and prefix = p_prefix
+    and fy = p_fy
+  for update;
+
+  update public.record_id_sequences
+  set next_val = next_val + 1
+  where workspace_id = p_workspace_id
+    and prefix = p_prefix
+    and fy = p_fy;
+
+  return p_prefix || p_separator || lpad(v_next::text, 3, '0') || p_separator || p_fy;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."next_record_id"("p_workspace_id" "uuid", "p_prefix" "text", "p_fy" "text", "p_separator" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."next_record_ids_batch"("p_workspace_id" "uuid", "p_prefix" "text", "p_fy" "text", "p_n" integer, "p_separator" "text" DEFAULT '/'::"text") RETURNS "text"[]
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+declare
+  v_start  integer;
+  v_ids    text[];
+  i        integer;
+begin
+  insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
+  values (p_workspace_id, p_prefix, p_fy, 1)
+  on conflict (workspace_id, prefix, fy) do nothing;
+
+  select next_val into v_start
+  from public.record_id_sequences
+  where workspace_id = p_workspace_id
+    and prefix = p_prefix
+    and fy = p_fy
+  for update;
+
+  update public.record_id_sequences
+  set next_val = next_val + p_n
+  where workspace_id = p_workspace_id
+    and prefix = p_prefix
+    and fy = p_fy;
+
+  v_ids := array[]::text[];
+  for i in 0..(p_n - 1) loop
+    v_ids := v_ids || (p_prefix || p_separator || lpad((v_start + i)::text, 3, '0') || p_separator || p_fy);
+  end loop;
+
+  return v_ids;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."next_record_ids_batch"("p_workspace_id" "uuid", "p_prefix" "text", "p_fy" "text", "p_n" integer, "p_separator" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."next_seq_val"("p_workspace_id" "uuid", "p_prefix" "text", "p_fy" "text") RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    AS $$
+declare
+  v_next integer;
+begin
+  insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
+  values (p_workspace_id, p_prefix, p_fy, 1)
+  on conflict (workspace_id, prefix, fy) do nothing;
+
+  select next_val into v_next
+  from public.record_id_sequences
+  where workspace_id = p_workspace_id
+    and prefix = p_prefix
+    and fy = p_fy
+  for update;
+
+  update public.record_id_sequences
+  set next_val = next_val + 1
+  where workspace_id = p_workspace_id
+    and prefix = p_prefix
+    and fy = p_fy;
+
+  return v_next;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."next_seq_val"("p_workspace_id" "uuid", "p_prefix" "text", "p_fy" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."notify_high_usage"() RETURNS "trigger"
@@ -5468,56 +6100,6 @@ CREATE OR REPLACE VIEW "public"."daily_api_usage_trends" AS
 ALTER TABLE "public"."daily_api_usage_trends" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."delegation_chains" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "task_id" "uuid",
-    "draft_id" "uuid",
-    "workspace_id" "uuid" NOT NULL,
-    "initiated_by" "uuid" NOT NULL,
-    "current_assignee" "uuid" NOT NULL,
-    "status" "text" DEFAULT 'delegating'::"text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "completed_at" timestamp with time zone,
-    "review_required" boolean DEFAULT false,
-    "review_status" "text",
-    CONSTRAINT "delegation_chains_review_status_check" CHECK (("review_status" = ANY (ARRAY['pending'::"text", 'completed'::"text", 'cancelled'::"text"]))),
-    CONSTRAINT "delegation_chains_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'in_progress'::"text", 'in_review'::"text", 'completed'::"text"]))),
-    CONSTRAINT "delegation_entity_check" CHECK (((("task_id" IS NOT NULL) AND ("draft_id" IS NULL)) OR (("task_id" IS NULL) AND ("draft_id" IS NOT NULL))))
-);
-
-
-ALTER TABLE "public"."delegation_chains" OWNER TO "postgres";
-
-
-COMMENT ON COLUMN "public"."delegation_chains"."status" IS 'Simplified status: delegating (setting up), working (active work), completed (all done)';
-
-
-
-CREATE TABLE IF NOT EXISTS "public"."delegation_steps" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "delegation_chain_id" "uuid" NOT NULL,
-    "delegated_by" "uuid" NOT NULL,
-    "delegated_to" "uuid" NOT NULL,
-    "step_order" integer NOT NULL,
-    "status" "text" DEFAULT 'working'::"text" NOT NULL,
-    "delegated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "completed_at" timestamp with time zone,
-    "notes" "text",
-    "review_status" "text",
-    "reviewed_at" timestamp with time zone,
-    "reviewed_by" "uuid",
-    CONSTRAINT "delegation_steps_review_status_check" CHECK (("review_status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text", 'skipped'::"text"]))),
-    CONSTRAINT "delegation_steps_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'in_progress'::"text", 'in_review'::"text", 'completed'::"text"])))
-);
-
-
-ALTER TABLE "public"."delegation_steps" OWNER TO "postgres";
-
-
-COMMENT ON COLUMN "public"."delegation_steps"."status" IS 'Simplified status: working (doing work or delegating), completed (awaiting review), done (reviewed and approved)';
-
-
-
 CREATE TABLE IF NOT EXISTS "public"."designations" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "workspace_id" "uuid" NOT NULL,
@@ -5585,7 +6167,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_arrest_records" (
     "relative_address" "text",
     "relative_tel" "text",
     "sio_name" "text",
-    "arrest_batch_id" "text",
+    "file_no" "text",
     "party_name" "text" DEFAULT ''::"text" NOT NULL,
     "unit_gstin" "text" DEFAULT ''::"text" NOT NULL,
     "prosecution_filed" "text" DEFAULT ''::"text" NOT NULL,
@@ -5616,7 +6198,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_closure_records" (
     "handling_io_sio" "uuid",
     "issue_involved" "text",
     "latest_status" "text",
-    "pr_adg_comments" "text",
+    "pr_adg_comments" "jsonb",
     "detection_amount" "text",
     "recovery_itc" "text",
     "recovery_cash" "text",
@@ -5633,7 +6215,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_closure_records" (
     "closure_reason" "text",
     "transferred_to" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "total_recovery" "text"
 );
 
 
@@ -5659,7 +6242,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_computed_deadlines" (
     "officer_name" "text",
     "critical_days" integer,
     "warning_days" integer,
-    "max_reminder_days" integer
+    "max_reminder_days" integer,
+    "linked_case_id" "text"
 );
 
 
@@ -5756,7 +6340,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_other_source_records" (
     "sio_name" "text",
     "e_office_ref_no" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "pr_adg_comments" "jsonb"
 );
 
 
@@ -5792,7 +6377,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_rapid_records" (
     "sender_mobile" "text",
     "sio_name" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "pr_adg_comments" "jsonb"
 );
 
 
@@ -5872,8 +6458,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_notifications" (
     "source_table" "text" NOT NULL,
     "record_id" "text" NOT NULL,
     "row_id" "uuid",
-    "deadline_date" "date" NOT NULL,
-    "days_until" integer NOT NULL,
+    "deadline_date" "date",
+    "days_until" integer,
     "label" "text" NOT NULL,
     "legal_reference" "text",
     "read" boolean DEFAULT false NOT NULL,
@@ -5925,7 +6511,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_prosecution_non_arrest_records" (
     "sio_name" "text",
     "person_name" "text",
     "age" "text",
-    "date_of_arrest" "date",
+    "date_of_prosecution_sanction_order" "date",
     "amount_evaded_crore" "text",
     "entity_name" "text",
     "gstin" "text",
@@ -5984,7 +6570,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_provisional_attachment_records" (
     "bank_name" "text",
     "bank_ifsc" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "bank_account_no" "text",
+    "arrest" "text"
 );
 
 
@@ -6005,7 +6593,7 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_records" (
     "intelligence_action_date" "date",
     "issue_involved" "text",
     "latest_status" "text",
-    "pr_adg_comments" "text",
+    "pr_adg_comments" "jsonb",
     "is_ir" boolean DEFAULT true NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"(),
     "group" "text",
@@ -6024,11 +6612,11 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_records" (
     "assigned_user_id" "uuid",
     "handling_io_sio" "uuid",
     "transferred_to" "text",
-    "handling_io_sio_name" "text",
+    "sio_name" "text",
     "closure_reason" "text",
-    "pr_adg_comments_updated_at" timestamp with time zone,
     "created_by" "uuid",
     "created_by_name" "text",
+    "legacy_non_ir_no" "text",
     CONSTRAINT "dggi_records_group_check" CHECK (("group" = ANY (ARRAY['Group A'::"text", 'Group B'::"text", 'Group C'::"text", 'Group D'::"text", 'Group E'::"text", 'Group F'::"text"]))),
     CONSTRAINT "dggi_records_mode_of_initiation_check" CHECK (("mode_of_initiation" = ANY (ARRAY['Letter'::"text", 'Email'::"text", 'Summons'::"text", 'Inspection'::"text", 'Search'::"text"])))
 );
@@ -6067,7 +6655,6 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_scn_records" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "workspace_id" "text" NOT NULL,
     "record_id" "text",
-    "scn_no" "text",
     "date_of_scn" "date",
     "noticee_name" "text",
     "gstin_pan" "text",
@@ -6093,47 +6680,12 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_scn_records" (
     "adjudicating_authority" "text",
     "common_adjudicating_authority" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "division_and_range" "text"
 );
 
 
 ALTER TABLE "public"."dggi_scn_records" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."dggi_seizure_records" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "workspace_id" "text" NOT NULL,
-    "record_id" "text",
-    "case_file_no" "text",
-    "entity_name" "text",
-    "goods_description" "text",
-    "seizure_type" "text",
-    "quantity" "text",
-    "seizure_value" "text",
-    "mahazar_no" "text",
-    "storage_location" "text",
-    "date_of_seizure" "date",
-    "seized_by" "uuid",
-    "scn_issued" "text",
-    "scn_issue_date" "date",
-    "scn_no" "text",
-    "extended_by_commissioner" "text",
-    "extension_order_date" "date",
-    "goods_returned" "text",
-    "return_date" "date",
-    "remarks" "text",
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "linked_case_id" "text",
-    "group" "text",
-    "sio" "uuid",
-    "sio_name" "text",
-    "seized_by_name" "text",
-    "created_by" "uuid",
-    "created_by_name" "text"
-);
-
-
-ALTER TABLE "public"."dggi_seizure_records" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."dggi_str_records" (
@@ -6170,7 +6722,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_str_records" (
     "sio" "uuid",
     "sio_name" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "pr_adg_comments" "jsonb"
 );
 
 
@@ -6215,7 +6768,8 @@ CREATE TABLE IF NOT EXISTS "public"."document_folders" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "case_id" integer,
-    "metadata" "jsonb"
+    "metadata" "jsonb",
+    "ipr_matter_id" "uuid"
 );
 
 
@@ -6740,6 +7294,24 @@ CREATE TABLE IF NOT EXISTS "public"."legal_summary_sessions" (
 ALTER TABLE "public"."legal_summary_sessions" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."llm_workspace_usage" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "workspace_id" "text" NOT NULL,
+    "user_id" "uuid",
+    "feature_name" "text" NOT NULL,
+    "provider" "text" DEFAULT 'google'::"text",
+    "model_name" "text" NOT NULL,
+    "prompt_tokens" integer DEFAULT 0 NOT NULL,
+    "completion_tokens" integer DEFAULT 0 NOT NULL,
+    "total_tokens" integer DEFAULT 0 NOT NULL,
+    "estimated_cost_usd" numeric(10,6) DEFAULT 0,
+    "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"())
+);
+
+
+ALTER TABLE "public"."llm_workspace_usage" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."votum_users" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "name" "text" NOT NULL,
@@ -6772,7 +7344,7 @@ CREATE TABLE IF NOT EXISTS "public"."votum_users" (
     "dggi_role" "text",
     "enabled_modules" "text"[] DEFAULT '{}'::"text"[] NOT NULL,
     "pno" "text",
-    CONSTRAINT "votum_users_dggi_role_check" CHECK ((("dggi_role" IS NULL) OR ("dggi_role" = ANY (ARRAY['ADG'::"text", 'DD_INT'::"text", 'DD'::"text", 'AD'::"text", 'ADC'::"text", 'JD'::"text", 'SIO'::"text", 'IO'::"text"]))))
+    CONSTRAINT "votum_users_dggi_role_check" CHECK ((("dggi_role" IS NULL) OR ("dggi_role" = ANY (ARRAY['ADG'::"text", 'DD_INT'::"text", 'DD'::"text", 'AD'::"text", 'ADC'::"text", 'JD'::"text", 'SIO'::"text", 'IO'::"text", 'SIO_INT'::"text"]))))
 );
 
 
@@ -6837,7 +7409,8 @@ CREATE TABLE IF NOT EXISTS "public"."votum_workspace" (
     "settings" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     "translation_base_price" numeric(10,2) DEFAULT NULL::numeric,
     "auto_destruct" boolean DEFAULT false NOT NULL,
-    "auto_destruct_days" integer DEFAULT 0 NOT NULL
+    "auto_destruct_days" integer DEFAULT 0 NOT NULL,
+    "ai_task_extraction_enabled" boolean DEFAULT false NOT NULL
 );
 
 
@@ -7519,6 +8092,17 @@ CREATE OR REPLACE VIEW "public"."recent_activity" AS
 
 
 ALTER TABLE "public"."recent_activity" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."record_id_sequences" (
+    "workspace_id" "uuid" NOT NULL,
+    "prefix" "text" NOT NULL,
+    "fy" "text" NOT NULL,
+    "next_val" integer DEFAULT 1 NOT NULL
+);
+
+
+ALTER TABLE "public"."record_id_sequences" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."scraper_health_states" (
@@ -8460,93 +9044,6 @@ CREATE TABLE IF NOT EXISTS "public"."votum_user_tokens" (
 ALTER TABLE "public"."votum_user_tokens" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."vw_task_delegation_sync_status" AS
- SELECT "t"."id" AS "task_id",
-    "t"."name" AS "task_name",
-    "t"."status" AS "task_status",
-        CASE "t"."status"
-            WHEN 0 THEN 'TO DO'::"text"
-            WHEN 1 THEN 'IN PROGRESS'::"text"
-            WHEN 2 THEN 'IN VERIFY'::"text"
-            WHEN 3 THEN 'DONE'::"text"
-            ELSE 'UNKNOWN'::"text"
-        END AS "task_status_name",
-    "dc"."id" AS "delegation_chain_id",
-    "dc"."status" AS "delegation_status",
-    "dc"."current_assignee",
-    "cu"."name" AS "current_assignee_name",
-    "count"("ds"."id") AS "total_steps",
-    "count"(
-        CASE
-            WHEN ("ds"."status" = 'completed'::"text") THEN 1
-            ELSE NULL::integer
-        END) AS "completed_steps",
-    "count"(
-        CASE
-            WHEN ("ds"."status" = 'done'::"text") THEN 1
-            ELSE NULL::integer
-        END) AS "approved_steps",
-        CASE
-            WHEN (("dc"."status" = 'completed'::"text") AND ("t"."status" <> 3)) THEN 'NEEDS_SYNC'::"text"
-            WHEN (("dc"."status" = 'working'::"text") AND ("t"."status" = 3)) THEN 'NEEDS_SYNC'::"text"
-            WHEN (("dc"."status" = 'delegating'::"text") AND ("t"."status" <> ALL (ARRAY[1, 2]))) THEN 'NEEDS_SYNC'::"text"
-            ELSE 'SYNCED'::"text"
-        END AS "sync_status"
-   FROM ((("public"."votum_tasks" "t"
-     LEFT JOIN "public"."delegation_chains" "dc" ON (("t"."id" = "dc"."task_id")))
-     LEFT JOIN "public"."votum_users" "cu" ON (("dc"."current_assignee" = "cu"."id")))
-     LEFT JOIN "public"."delegation_steps" "ds" ON (("dc"."id" = "ds"."delegation_chain_id")))
-  WHERE ("dc"."id" IS NOT NULL)
-  GROUP BY "t"."id", "t"."name", "t"."status", "dc"."id", "dc"."status", "dc"."current_assignee", "cu"."name";
-
-
-ALTER TABLE "public"."vw_task_delegation_sync_status" OWNER TO "postgres";
-
-
-COMMENT ON VIEW "public"."vw_task_delegation_sync_status" IS 'Monitor synchronization status between tasks and their delegation chains. 
-Use sync_status = ''NEEDS_SYNC'' to identify tasks that may need manual sync.';
-
-
-
-CREATE OR REPLACE VIEW "public"."vw_user_delegations" AS
- SELECT "dc"."id" AS "chain_id",
-    "dc"."task_id",
-    "dc"."draft_id",
-    "dc"."workspace_id",
-    "dc"."status" AS "chain_status",
-    "dc"."initiated_by",
-    "dc"."current_assignee",
-    "dc"."created_at" AS "chain_created_at",
-    "ds"."id" AS "step_id",
-    "ds"."delegated_by",
-    "ds"."delegated_to",
-    "ds"."step_order",
-    "ds"."status" AS "step_status",
-    "ds"."delegated_at",
-    "ds"."completed_at",
-    "ds"."notes",
-    "delegated_by_user"."name" AS "delegated_by_name",
-    "delegated_by_user"."email" AS "delegated_by_email",
-    "delegated_to_user"."name" AS "delegated_to_name",
-    "delegated_to_user"."email" AS "delegated_to_email",
-        CASE
-            WHEN ("dc"."task_id" IS NOT NULL) THEN 'task'::"text"
-            WHEN ("dc"."draft_id" IS NOT NULL) THEN 'draft'::"text"
-            ELSE NULL::"text"
-        END AS "entity_type",
-    COALESCE("vt"."name", "d"."name") AS "entity_name"
-   FROM ((((("public"."delegation_chains" "dc"
-     JOIN "public"."delegation_steps" "ds" ON (("dc"."id" = "ds"."delegation_chain_id")))
-     JOIN "public"."votum_users" "delegated_by_user" ON (("ds"."delegated_by" = "delegated_by_user"."id")))
-     JOIN "public"."votum_users" "delegated_to_user" ON (("ds"."delegated_to" = "delegated_to_user"."id")))
-     LEFT JOIN "public"."votum_tasks" "vt" ON (("dc"."task_id" = "vt"."id")))
-     LEFT JOIN "public"."drafts" "d" ON (("dc"."draft_id" = "d"."id")))
-  WHERE ("dc"."status" <> 'completed'::"text");
-
-
-ALTER TABLE "public"."vw_user_delegations" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."wopi_locks" (
     "file_id" "text" NOT NULL,
     "lock_id" "text" NOT NULL,
@@ -8824,18 +9321,13 @@ ALTER TABLE ONLY "public"."cron_job_runs"
 
 
 
-ALTER TABLE ONLY "public"."delegation_chains"
-    ADD CONSTRAINT "delegation_chains_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."delegation_events"
+    ADD CONSTRAINT "delegation_events_pkey" PRIMARY KEY ("id");
 
 
 
-ALTER TABLE ONLY "public"."delegation_steps"
-    ADD CONSTRAINT "delegation_steps_delegation_chain_id_step_order_key" UNIQUE ("delegation_chain_id", "step_order");
-
-
-
-ALTER TABLE ONLY "public"."delegation_steps"
-    ADD CONSTRAINT "delegation_steps_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."delegation_events"
+    ADD CONSTRAINT "delegation_events_task_seq_key" UNIQUE ("task_id", "event_seq");
 
 
 
@@ -8951,11 +9443,6 @@ ALTER TABLE ONLY "public"."dggi_report_compliance_records"
 
 ALTER TABLE ONLY "public"."dggi_scn_records"
     ADD CONSTRAINT "dggi_scn_records_pkey" PRIMARY KEY ("id");
-
-
-
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_pkey" PRIMARY KEY ("id");
 
 
 
@@ -9119,6 +9606,11 @@ ALTER TABLE ONLY "public"."legal_summary_sessions"
 
 
 
+ALTER TABLE ONLY "public"."llm_workspace_usage"
+    ADD CONSTRAINT "llm_workspace_usage_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."org_units"
     ADD CONSTRAINT "org_units_pkey" PRIMARY KEY ("id");
 
@@ -9201,6 +9693,11 @@ ALTER TABLE ONLY "public"."razorpay_transactions"
 
 ALTER TABLE ONLY "public"."razorpay_transactions"
     ADD CONSTRAINT "razorpay_transactions_razorpay_order_id_key" UNIQUE ("razorpay_order_id");
+
+
+
+ALTER TABLE ONLY "public"."record_id_sequences"
+    ADD CONSTRAINT "record_id_sequences_pkey" PRIMARY KEY ("workspace_id", "prefix", "fy");
 
 
 
@@ -9790,15 +10287,15 @@ CREATE INDEX "dggi_scn_records_workspace_idx" ON "public"."dggi_scn_records" USI
 
 
 
-CREATE INDEX "dggi_seizure_records_workspace_idx" ON "public"."dggi_seizure_records" USING "btree" ("workspace_id");
-
-
-
 CREATE INDEX "dggi_str_workspace_idx" ON "public"."dggi_str_records" USING "btree" ("workspace_id");
 
 
 
 CREATE INDEX "document_folders_case_id_idx" ON "public"."document_folders" USING "btree" ("case_id");
+
+
+
+CREATE INDEX "document_folders_ipr_matter_id_idx" ON "public"."document_folders" USING "btree" ("ipr_matter_id");
 
 
 
@@ -9966,23 +10463,15 @@ CREATE INDEX "idx_credit_transactions_type" ON "public"."credit_transactions" US
 
 
 
-CREATE INDEX "idx_delegation_chains_review_status" ON "public"."delegation_chains" USING "btree" ("review_status", "workspace_id") WHERE ("review_status" = 'pending'::"text");
+CREATE INDEX "idx_delegation_events_task" ON "public"."delegation_events" USING "btree" ("task_id", "event_seq" DESC);
 
 
 
-CREATE INDEX "idx_delegation_chains_task_status" ON "public"."delegation_chains" USING "btree" ("task_id", "status") WHERE ("task_id" IS NOT NULL);
+CREATE INDEX "idx_delegation_events_to_users" ON "public"."delegation_events" USING "gin" ("to_users");
 
 
 
-CREATE INDEX "idx_delegation_steps_chain_id" ON "public"."delegation_steps" USING "btree" ("delegation_chain_id");
-
-
-
-CREATE INDEX "idx_delegation_steps_chain_status" ON "public"."delegation_steps" USING "btree" ("delegation_chain_id", "status");
-
-
-
-CREATE INDEX "idx_delegation_steps_review_status" ON "public"."delegation_steps" USING "btree" ("delegated_by", "review_status") WHERE ("review_status" = 'pending'::"text");
+CREATE INDEX "idx_delegation_events_workspace" ON "public"."delegation_events" USING "btree" ("workspace_id", "created_at" DESC);
 
 
 
@@ -10131,6 +10620,14 @@ CREATE INDEX "idx_legal_review_user_id" ON "public"."legal_review" USING "btree"
 
 
 CREATE INDEX "idx_legal_review_workspace_id" ON "public"."legal_review" USING "btree" ("workspace_id");
+
+
+
+CREATE INDEX "idx_llm_usage_feature" ON "public"."llm_workspace_usage" USING "btree" ("feature_name", "model_name");
+
+
+
+CREATE INDEX "idx_llm_usage_workspace_date" ON "public"."llm_workspace_usage" USING "btree" ("workspace_id", "created_at" DESC);
 
 
 
@@ -10554,18 +11051,6 @@ CREATE OR REPLACE TRIGGER "calculate_api_cost_trigger" BEFORE INSERT OR UPDATE O
 
 
 
-CREATE OR REPLACE TRIGGER "delegation_chain_status_sync_trigger" AFTER UPDATE OF "status" ON "public"."delegation_chains" FOR EACH ROW WHEN (("old"."status" IS DISTINCT FROM "new"."status")) EXECUTE FUNCTION "public"."sync_task_status_from_delegation"();
-
-
-
-CREATE OR REPLACE TRIGGER "delegation_chain_update_trigger" AFTER UPDATE OF "current_assignee" ON "public"."delegation_chains" FOR EACH ROW WHEN (("old"."current_assignee" IS DISTINCT FROM "new"."current_assignee")) EXECUTE FUNCTION "public"."update_entity_on_delegation"();
-
-
-
-CREATE OR REPLACE TRIGGER "delegation_step_status_sync_trigger" AFTER UPDATE OF "status" ON "public"."delegation_steps" FOR EACH ROW WHEN (("old"."status" IS DISTINCT FROM "new"."status")) EXECUTE FUNCTION "public"."sync_task_status_from_delegation_step"();
-
-
-
 CREATE OR REPLACE TRIGGER "document_folders_set_path_trigger" BEFORE INSERT OR UPDATE OF "name", "slug", "parent_id" ON "public"."document_folders" FOR EACH ROW EXECUTE FUNCTION "public"."document_folders_set_path"();
 
 
@@ -10619,10 +11104,6 @@ CREATE OR REPLACE TRIGGER "trg_enqueue_document_on_upload" AFTER INSERT ON "publ
 
 
 CREATE OR REPLACE TRIGGER "trg_sync_petitioner_respondent_text" BEFORE INSERT OR UPDATE ON "public"."votum_cases" FOR EACH ROW EXECUTE FUNCTION "public"."sync_petitioner_respondent_text"();
-
-
-
-CREATE OR REPLACE TRIGGER "trg_sync_task_assignees_delegation" AFTER UPDATE OF "current_assignee" ON "public"."delegation_chains" FOR EACH ROW EXECUTE FUNCTION "public"."sync_task_assignees_from_delegation"();
 
 
 
@@ -10790,48 +11271,18 @@ ALTER TABLE ONLY "public"."credit_transactions"
 
 
 
-ALTER TABLE ONLY "public"."delegation_chains"
-    ADD CONSTRAINT "delegation_chains_current_assignee_fkey" FOREIGN KEY ("current_assignee") REFERENCES "public"."votum_users"("id");
+ALTER TABLE ONLY "public"."delegation_events"
+    ADD CONSTRAINT "delegation_events_actor_user_fkey" FOREIGN KEY ("actor_user") REFERENCES "public"."votum_users"("id");
 
 
 
-ALTER TABLE ONLY "public"."delegation_chains"
-    ADD CONSTRAINT "delegation_chains_draft_id_fkey" FOREIGN KEY ("draft_id") REFERENCES "public"."drafts"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."delegation_events"
+    ADD CONSTRAINT "delegation_events_task_id_fkey" FOREIGN KEY ("task_id") REFERENCES "public"."votum_tasks"("id") ON DELETE CASCADE;
 
 
 
-ALTER TABLE ONLY "public"."delegation_chains"
-    ADD CONSTRAINT "delegation_chains_initiated_by_fkey" FOREIGN KEY ("initiated_by") REFERENCES "public"."votum_users"("id");
-
-
-
-ALTER TABLE ONLY "public"."delegation_chains"
-    ADD CONSTRAINT "delegation_chains_task_id_fkey" FOREIGN KEY ("task_id") REFERENCES "public"."votum_tasks"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."delegation_chains"
-    ADD CONSTRAINT "delegation_chains_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."delegation_steps"
-    ADD CONSTRAINT "delegation_steps_delegated_by_fkey" FOREIGN KEY ("delegated_by") REFERENCES "public"."votum_users"("id");
-
-
-
-ALTER TABLE ONLY "public"."delegation_steps"
-    ADD CONSTRAINT "delegation_steps_delegated_to_fkey" FOREIGN KEY ("delegated_to") REFERENCES "public"."votum_users"("id");
-
-
-
-ALTER TABLE ONLY "public"."delegation_steps"
-    ADD CONSTRAINT "delegation_steps_delegation_chain_id_fkey" FOREIGN KEY ("delegation_chain_id") REFERENCES "public"."delegation_chains"("id") ON DELETE CASCADE;
-
-
-
-ALTER TABLE ONLY "public"."delegation_steps"
-    ADD CONSTRAINT "delegation_steps_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "public"."votum_users"("id");
+ALTER TABLE ONLY "public"."delegation_events"
+    ADD CONSTRAINT "delegation_events_workspace_id_fkey" FOREIGN KEY ("workspace_id") REFERENCES "public"."votum_workspace"("id") ON DELETE CASCADE;
 
 
 
@@ -11000,21 +11451,6 @@ ALTER TABLE ONLY "public"."dggi_scn_records"
 
 
 
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
-
-
-
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_seized_by_fkey" FOREIGN KEY ("seized_by") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
-ALTER TABLE ONLY "public"."dggi_seizure_records"
-    ADD CONSTRAINT "dggi_seizure_records_sio_fkey" FOREIGN KEY ("sio") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
-
-
-
 ALTER TABLE ONLY "public"."dggi_str_records"
     ADD CONSTRAINT "dggi_str_records_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id");
 
@@ -11037,6 +11473,11 @@ ALTER TABLE ONLY "public"."document_folders"
 
 ALTER TABLE ONLY "public"."document_folders"
     ADD CONSTRAINT "document_folders_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."votum_users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."document_folders"
+    ADD CONSTRAINT "document_folders_ipr_matter_id_fkey" FOREIGN KEY ("ipr_matter_id") REFERENCES "public"."ipr_matters"("id") ON DELETE CASCADE;
 
 
 
@@ -11217,6 +11658,11 @@ ALTER TABLE ONLY "public"."keyword_alert_task_subs"
 
 ALTER TABLE ONLY "public"."keyword_alert_task_subs"
     ADD CONSTRAINT "keyword_alert_task_subs_task_id_fkey" FOREIGN KEY ("task_id") REFERENCES "public"."keyword_alert_task_queue"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."llm_workspace_usage"
+    ADD CONSTRAINT "llm_workspace_usage_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
@@ -11743,6 +12189,10 @@ CREATE POLICY "Anyone can view credit costs" ON "public"."credit_costs" FOR SELE
 
 
 
+CREATE POLICY "Authenticated users can select workspace LLM usage" ON "public"."llm_workspace_usage" FOR SELECT TO "authenticated" USING (true);
+
+
+
 CREATE POLICY "Enable insert for all users" ON "public"."votum_invoice_reminders" FOR INSERT WITH CHECK (true);
 
 
@@ -11836,65 +12286,12 @@ ALTER TABLE "public"."credit_packages" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."credit_transactions" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."delegation_chains" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."delegation_events" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "delegation_chains_delete" ON "public"."delegation_chains" FOR DELETE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
+CREATE POLICY "delegation_events_select" ON "public"."delegation_events" FOR SELECT USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
    FROM "public"."votum_users"
   WHERE ("votum_users"."id" = "auth"."uid"()))));
-
-
-
-CREATE POLICY "delegation_chains_insert" ON "public"."delegation_chains" FOR INSERT WITH CHECK (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
-   FROM "public"."votum_users"
-  WHERE ("votum_users"."id" = "auth"."uid"()))));
-
-
-
-CREATE POLICY "delegation_chains_select" ON "public"."delegation_chains" FOR SELECT USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
-   FROM "public"."votum_users"
-  WHERE ("votum_users"."id" = "auth"."uid"()))));
-
-
-
-CREATE POLICY "delegation_chains_update" ON "public"."delegation_chains" FOR UPDATE USING (("workspace_id" IN ( SELECT "votum_users"."workspace_id"
-   FROM "public"."votum_users"
-  WHERE ("votum_users"."id" = "auth"."uid"()))));
-
-
-
-ALTER TABLE "public"."delegation_steps" ENABLE ROW LEVEL SECURITY;
-
-
-CREATE POLICY "delegation_steps_delete" ON "public"."delegation_steps" FOR DELETE USING ((EXISTS ( SELECT 1
-   FROM "public"."delegation_chains" "c"
-  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
-           FROM "public"."votum_users"
-          WHERE ("votum_users"."id" = "auth"."uid"())))))));
-
-
-
-CREATE POLICY "delegation_steps_insert" ON "public"."delegation_steps" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
-   FROM "public"."delegation_chains" "c"
-  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
-           FROM "public"."votum_users"
-          WHERE ("votum_users"."id" = "auth"."uid"())))))));
-
-
-
-CREATE POLICY "delegation_steps_select" ON "public"."delegation_steps" FOR SELECT USING ((EXISTS ( SELECT 1
-   FROM "public"."delegation_chains" "c"
-  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
-           FROM "public"."votum_users"
-          WHERE ("votum_users"."id" = "auth"."uid"())))))));
-
-
-
-CREATE POLICY "delegation_steps_update" ON "public"."delegation_steps" FOR UPDATE USING ((EXISTS ( SELECT 1
-   FROM "public"."delegation_chains" "c"
-  WHERE (("c"."id" = "delegation_steps"."delegation_chain_id") AND ("c"."workspace_id" IN ( SELECT "votum_users"."workspace_id"
-           FROM "public"."votum_users"
-          WHERE ("votum_users"."id" = "auth"."uid"())))))));
 
 
 
@@ -11928,7 +12325,14 @@ CREATE POLICY "designations_update" ON "public"."designations" FOR UPDATE USING 
 ALTER TABLE "public"."dggi_computed_deadlines" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."dggi_notifications" ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "dggi_notifications_insert" ON "public"."dggi_notifications" FOR INSERT TO "authenticated" WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."votum_users"
+  WHERE ((("votum_users"."id")::"text" = ("auth"."uid"())::"text") AND ("votum_users"."dggi_role" = 'ADG'::"text") AND (("votum_users"."workspace_id")::"text" = "dggi_notifications"."workspace_id")))));
+
+
+
+CREATE POLICY "dggi_notifications_select" ON "public"."dggi_notifications" FOR SELECT TO "authenticated" USING ((("user_id")::"text" = ("auth"."uid"())::"text"));
+
 
 
 CREATE POLICY "email_accounts_user_isolation" ON "public"."votum_email_accounts" USING (("user_id" = "auth"."uid"())) WITH CHECK (("user_id" = "auth"."uid"()));
@@ -11968,6 +12372,9 @@ CREATE POLICY "ipr_matters_update_policy" ON "public"."ipr_matters" FOR UPDATE U
 
 
 
+ALTER TABLE "public"."llm_workspace_usage" ENABLE ROW LEVEL SECURITY;
+
+
 CREATE POLICY "public insert intake_submissions" ON "public"."intake_submissions" FOR INSERT TO "anon" WITH CHECK (true);
 
 
@@ -11977,6 +12384,9 @@ CREATE POLICY "public read active intake_forms" ON "public"."intake_forms" FOR S
 
 
 ALTER TABLE "public"."razorpay_transactions" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."record_id_sequences" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."task_assignees" ENABLE ROW LEVEL SECURITY;
@@ -12139,7 +12549,7 @@ CREATE POLICY "workspace members can insert compliance records" ON "public"."com
 
 
 
-CREATE POLICY "workspace members can mark notifications read" ON "public"."dggi_notifications" FOR UPDATE USING (true);
+CREATE POLICY "workspace members can manage their sequences" ON "public"."record_id_sequences" USING (true);
 
 
 
@@ -12150,10 +12560,6 @@ CREATE POLICY "workspace members can read compliance records" ON "public"."compl
 
 
 CREATE POLICY "workspace members can read computed deadlines" ON "public"."dggi_computed_deadlines" FOR SELECT USING (true);
-
-
-
-CREATE POLICY "workspace members can read their notifications" ON "public"."dggi_notifications" FOR SELECT USING (true);
 
 
 
@@ -12432,6 +12838,23 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
+
+
+
+GRANT SELECT ON TABLE "public"."delegation_events" TO "authenticated";
+GRANT ALL ON TABLE "public"."delegation_events" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean, "p_actor_user_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean, "p_actor_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."append_delegation_event"("p_task_id" "uuid", "p_expected_event_seq" bigint, "p_action" "text", "p_to_users" "uuid"[], "p_notes" "text", "p_review_required" boolean, "p_actor_user_id" "uuid") TO "service_role";
 
 
 
@@ -12753,18 +13176,6 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."daily_api_usage_trends" TO 
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."delegation_chains" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."delegation_chains" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."delegation_chains" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."delegation_steps" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."delegation_steps" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."delegation_steps" TO "service_role";
-
-
-
 GRANT ALL ON TABLE "public"."designations" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."designations" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."designations" TO "service_role";
@@ -12880,12 +13291,6 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_report_compliance_reco
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_scn_records" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_scn_records" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_scn_records" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."dggi_seizure_records" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_seizure_records" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."dggi_seizure_records" TO "service_role";
 
 
 
@@ -13198,6 +13603,11 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."recent_activity" TO "servic
 
 
 
+GRANT ALL ON TABLE "public"."record_id_sequences" TO "authenticated";
+GRANT ALL ON TABLE "public"."record_id_sequences" TO "service_role";
+
+
+
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."scraper_health_states" TO PUBLIC;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."scraper_health_states" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."scraper_health_states" TO "service_role";
@@ -13463,18 +13873,6 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."votum_user_events" TO "auth
 GRANT ALL ON TABLE "public"."votum_user_tokens" TO "authenticated";
 GRANT ALL ON TABLE "public"."votum_user_tokens" TO PUBLIC;
 GRANT ALL ON TABLE "public"."votum_user_tokens" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_delegation_sync_status" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_delegation_sync_status" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_task_delegation_sync_status" TO "service_role";
-
-
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_user_delegations" TO PUBLIC;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_user_delegations" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "public"."vw_user_delegations" TO "service_role";
 
 
 
