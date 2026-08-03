@@ -78,7 +78,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import {
   AdgCommentThread,
@@ -1134,11 +1134,7 @@ function UserFilter({
 
   const filtered = users
     .filter((u) => u.dggi_role === "SIO")
-    .filter(
-      (u) =>
-        u.name?.toLowerCase().includes(query.toLowerCase()) ||
-        u.email?.toLowerCase().includes(query.toLowerCase()),
-    );
+    .filter((u) => u.name?.toLowerCase().includes(query.toLowerCase()));
 
   const selectedName = users.find((u) => u.id === value)?.name ?? "";
 
@@ -3260,6 +3256,11 @@ const DGGIComponent = () => {
   const [userRole, setUserRole] = useState<string>("");
   const [userGroups, setUserGroups] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+
+  const workspaceIdRef = useRef<string>("");
+  const userRoleRef = useRef<string>("");
+  const userGroupsRef = useRef<string[]>([]);
+  const currentUserIdRef = useRef<string>("");
   const caseOptions = useMemo<DGGICaseOption[]>(
     () =>
       records.map((r) => ({
@@ -3377,10 +3378,12 @@ const DGGIComponent = () => {
     const init = async () => {
       const wid = await getWorkspaceId();
       setWorkspaceId(wid);
+      workspaceIdRef.current = wid;
 
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id ?? "";
       setCurrentUserId(uid);
+      currentUserIdRef.current = uid;
 
       const [userRow, groupRows] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
@@ -3394,7 +3397,9 @@ const DGGIComponent = () => {
         (g: { group_name: string }) => g.group_name,
       );
       setUserRole(role);
+      userRoleRef.current = role;
       setUserGroups(groups);
+      userGroupsRef.current = groups;
 
       const [, usersRes, allGroupAssignments] = await Promise.all([
         fetchRecords(wid, role, groups, uid),
@@ -3433,6 +3438,7 @@ const DGGIComponent = () => {
     role?: string,
     groups?: string[],
     uid?: string,
+    handlingIoFilter?: string,
   ) => {
     let query = supabase
       .from("dggi_records")
@@ -3444,9 +3450,14 @@ const DGGIComponent = () => {
         query = query.eq("handling_io_sio", uid ?? "__none__");
       } else if (groups && groups.length > 0) {
         query = query.in("group", groups);
+        if (handlingIoFilter) {
+          query = query.eq("handling_io_sio", handlingIoFilter);
+        }
       } else {
         query = query.eq("group", "__none__");
       }
+    } else if (handlingIoFilter) {
+      query = query.eq("handling_io_sio", handlingIoFilter);
     }
 
     const { data, error } = await query.order("created_at", {
@@ -3458,6 +3469,11 @@ const DGGIComponent = () => {
     }
     setRecords(data ?? []);
   };
+
+  useEffect(() => {
+    if (!workspaceIdRef.current) return;
+    fetchRecords(workspaceIdRef.current, userRoleRef.current, userGroupsRef.current, currentUserIdRef.current, filters.handlingIo);
+  }, [filters.handlingIo]);
 
   // ── Unseen ADG comments (for SIO only) ────────────────────────────────
   // newer than the timestamp we last stored in localStorage for that record id.
@@ -3528,9 +3544,6 @@ const DGGIComponent = () => {
         filters.modes.length > 0 &&
         !filters.modes.includes(r.mode_of_initiation)
       )
-        return false;
-
-      if (filters.handlingIo && r.handling_io_sio !== filters.handlingIo)
         return false;
 
       if (filters.dateFrom && r.date_of_receipt < filters.dateFrom)

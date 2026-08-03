@@ -18,7 +18,6 @@ import {
   ChevronRight,
   Clock,
   FileSearch,
-  HardDrive,
   HelpCircle,
   Paperclip,
   RefreshCw,
@@ -84,7 +83,6 @@ const TABLE_RBAC_FIELDS: Record<
   },
   dggi_str_records: { groupField: "assigned_group", sioField: "sio" },
   dggi_records: { groupField: "group", sioField: "handling_io_sio" },
-  dggi_dfl_records: { groupField: "group", sioField: "sio" },
 };
 
 // Metric tables that need RBAC filtering (provisional attachments, arrests, investigations)
@@ -137,7 +135,6 @@ const TABLE_HREF: Record<string, string> = {
   dggi_prosecution_non_arrest_records: "/tasks/prosecution-register",
   dggi_intel_rapid_records: "/tasks/intelligence-allocation",
   dggi_str_records: "/tasks/intelligence-allocation",
-  dggi_dfl_records: "/tasks/dfl-register",
 };
 
 // ─── Register Metadata ───────────────────────────────────────────────────────
@@ -253,15 +250,6 @@ const REGISTERS: RegisterMeta[] = [
   //   accentColor: "#0891B2",
   //   category: "register",
   // },
-  {
-    href: "/tasks/dfl-register",
-    label: "DFL Register",
-    shortLabel: "DFL",
-    icon: HardDrive,
-    table: "dggi_dfl_records",
-    accentColor: "#1E40AF",
-    category: "monitoring",
-  },
   // {
   //   href: "/tasks/report-compliance",
   //   label: "Report Compliance",
@@ -282,13 +270,20 @@ function getCurrentFYStart(): string {
   return `${year}-04-01`;
 }
 
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function getMonthRange(offset: number): { start: string; end: string } {
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
   const end = new Date(d.getFullYear(), d.getMonth() + 1, 1);
   return {
-    start: d.toISOString().split("T")[0],
-    end: end.toISOString().split("T")[0],
+    start: toLocalDateStr(d),
+    end: toLocalDateStr(end),
   };
 }
 const TODAY_STR = new Date().toLocaleDateString("en-IN", {
@@ -994,15 +989,17 @@ export default function DGGIDashboard() {
     ComputedDeadlineRow[]
   >([]);
   const [investigationCount, setInvestigationCount] = useState(0);
-  const [fyProvRecordsRaw, setFyProvRecordsRaw] = useState<
-    { created_at: string; group: string | null }[]
-  >([]);
-  const [fyArrRecordsRaw, setFyArrRecordsRaw] = useState<
-    { created_at: string; group: string | null }[]
-  >([]);
-  const [fyInvRecordsRaw, setFyInvRecordsRaw] = useState<
-    { created_at: string; group: string | null }[]
-  >([]);
+  const [zoneIntelCounts, setZoneIntelCounts] = useState({
+    fyProv: 0,
+    fyArr: 0,
+    fyInv: 0,
+    currProv: 0,
+    currArr: 0,
+    currInv: 0,
+    prevProv: 0,
+    prevArr: 0,
+    prevInv: 0,
+  });
   const [detectionRecoveryData, setDetectionRecoveryData] = useState<
     DetectionRecoveryRow[]
   >([]);
@@ -1110,13 +1107,47 @@ export default function DGGIDashboard() {
 
       const fyStart = getCurrentFYStart();
 
+      const currMonth = getMonthRange(0);
+      const prevMonth = getMonthRange(-1);
+
+      function countQuery(table: string, gte: string, lt: string) {
+        return applyRbacFilter(
+          supabase
+            .from(table)
+            .select("*", { count: "exact", head: true })
+            .eq("workspace_id", wid)
+            .gte("created_at", gte)
+            .lt("created_at", lt),
+          table,
+          rbac,
+        ).then((r: { count: number | null }) => r.count ?? 0);
+      }
+
+      function countQueryFrom(table: string, gte: string) {
+        return applyRbacFilter(
+          supabase
+            .from(table)
+            .select("*", { count: "exact", head: true })
+            .eq("workspace_id", wid)
+            .gte("created_at", gte),
+          table,
+          rbac,
+        ).then((r: { count: number | null }) => r.count ?? 0);
+      }
+
       const [
         deadlineRes,
         countResults,
         invRes,
-        fyProvRes,
-        fyArrRes,
-        fyInvRes,
+        fyProvCount,
+        fyArrCount,
+        fyInvCount,
+        currProvCount,
+        currArrCount,
+        currInvCount,
+        prevProvCount,
+        prevArrCount,
+        prevInvCount,
         irRecordsRes,
         caseRecordsRes,
       ] = await Promise.all([
@@ -1175,34 +1206,32 @@ export default function DGGIDashboard() {
           INVESTIGATIONS_TABLE,
           rbac,
         ),
-        // Fetch FY records with group field so group filter can be applied client-side
-        applyRbacFilter(
-          supabase
-            .from("dggi_provisional_attachment_records")
-            .select("created_at,group")
-            .eq("workspace_id", wid)
-            .gte("created_at", fyStart),
+        // Zone Intelligence: server-side count queries (no row data transferred)
+        countQueryFrom("dggi_provisional_attachment_records", fyStart),
+        countQueryFrom("dggi_prosecution_arrest_records", fyStart),
+        countQueryFrom(INVESTIGATIONS_TABLE, fyStart),
+        countQuery(
           "dggi_provisional_attachment_records",
-          rbac,
+          currMonth.start,
+          currMonth.end,
         ),
-        applyRbacFilter(
-          supabase
-            .from("dggi_prosecution_arrest_records")
-            .select("created_at,group")
-            .eq("workspace_id", wid)
-            .gte("created_at", fyStart),
+        countQuery(
           "dggi_prosecution_arrest_records",
-          rbac,
+          currMonth.start,
+          currMonth.end,
         ),
-        applyRbacFilter(
-          supabase
-            .from(INVESTIGATIONS_TABLE)
-            .select("created_at,group")
-            .eq("workspace_id", wid)
-            .gte("created_at", fyStart),
-          INVESTIGATIONS_TABLE,
-          rbac,
+        countQuery(INVESTIGATIONS_TABLE, currMonth.start, currMonth.end),
+        countQuery(
+          "dggi_provisional_attachment_records",
+          prevMonth.start,
+          prevMonth.end,
         ),
+        countQuery(
+          "dggi_prosecution_arrest_records",
+          prevMonth.start,
+          prevMonth.end,
+        ),
+        countQuery(INVESTIGATIONS_TABLE, prevMonth.start, prevMonth.end),
         applyRbacFilter(
           supabase
             .from("dggi_records")
@@ -1232,24 +1261,17 @@ export default function DGGIDashboard() {
       for (const { table, count } of countResults) countsMap[table] = count;
       setRegisterCounts(countsMap);
       setInvestigationCount(invRes.count ?? 0);
-      setFyProvRecordsRaw(
-        ((fyProvRes.data ?? []) as AnyRecord[]).map((r) => ({
-          created_at: r.created_at as string,
-          group: (r.group as string | null) ?? null,
-        })),
-      );
-      setFyArrRecordsRaw(
-        ((fyArrRes.data ?? []) as AnyRecord[]).map((r) => ({
-          created_at: r.created_at as string,
-          group: (r.group as string | null) ?? null,
-        })),
-      );
-      setFyInvRecordsRaw(
-        ((fyInvRes.data ?? []) as AnyRecord[]).map((r) => ({
-          created_at: r.created_at as string,
-          group: (r.group as string | null) ?? null,
-        })),
-      );
+      setZoneIntelCounts({
+        fyProv: fyProvCount,
+        fyArr: fyArrCount,
+        fyInv: fyInvCount,
+        currProv: currProvCount,
+        currArr: currArrCount,
+        currInv: currInvCount,
+        prevProv: prevProvCount,
+        prevArr: prevArrCount,
+        prevInv: prevInvCount,
+      });
 
       // Detection vs Recovery by group
       const irRows = (irRecordsRes.data ?? []) as AnyRecord[];
@@ -1361,64 +1383,6 @@ export default function DGGIDashboard() {
     }
     return items;
   }, [computedDeadlineRows, usersMap]);
-
-  // ─── Zone Intelligence counts (group-filter-aware) ────────────────────────
-
-  function filterByGroup<
-    T extends { created_at: string; group: string | null },
-  >(rows: T[]): T[] {
-    if (groupFilter === "all") return rows;
-    return rows.filter((r) => r.group === groupFilter);
-  }
-
-  const fyProvisionalAttachments = useMemo(
-    () => filterByGroup(fyProvRecordsRaw).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fyProvRecordsRaw, groupFilter],
-  );
-  const fyArrests = useMemo(
-    () => filterByGroup(fyArrRecordsRaw).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fyArrRecordsRaw, groupFilter],
-  );
-  const fyInvestigations = useMemo(
-    () => filterByGroup(fyInvRecordsRaw).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fyInvRecordsRaw, groupFilter],
-  );
-
-  const currMonthStart = getMonthRange(0).start;
-  const currMonthEnd = getMonthRange(0).end;
-  const prevMonthStart = getMonthRange(-1).start;
-  const prevMonthEnd = getMonthRange(-1).end;
-
-  const currMonthCounts = useMemo(() => {
-    const prov = filterByGroup(fyProvRecordsRaw).filter(
-      (r) => r.created_at >= currMonthStart && r.created_at < currMonthEnd,
-    ).length;
-    const arr = filterByGroup(fyArrRecordsRaw).filter(
-      (r) => r.created_at >= currMonthStart && r.created_at < currMonthEnd,
-    ).length;
-    const inv = filterByGroup(fyInvRecordsRaw).filter(
-      (r) => r.created_at >= currMonthStart && r.created_at < currMonthEnd,
-    ).length;
-    return { provisionalAttachments: prov, arrests: arr, investigations: inv };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fyProvRecordsRaw, fyArrRecordsRaw, fyInvRecordsRaw, groupFilter]);
-
-  const prevMonthCounts = useMemo(() => {
-    const prov = filterByGroup(fyProvRecordsRaw).filter(
-      (r) => r.created_at >= prevMonthStart && r.created_at < prevMonthEnd,
-    ).length;
-    const arr = filterByGroup(fyArrRecordsRaw).filter(
-      (r) => r.created_at >= prevMonthStart && r.created_at < prevMonthEnd,
-    ).length;
-    const inv = filterByGroup(fyInvRecordsRaw).filter(
-      (r) => r.created_at >= prevMonthStart && r.created_at < prevMonthEnd,
-    ).length;
-    return { provisionalAttachments: prov, arrests: arr, investigations: inv };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fyProvRecordsRaw, fyArrRecordsRaw, fyInvRecordsRaw, groupFilter]);
 
   // Step 2: derive available groups from raw items (sorted alphabetically)
   const availableGroups = useMemo(
@@ -2001,17 +1965,15 @@ export default function DGGIDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
               <div className="lg:col-span-3">
                 <ZoneIntelligencePanel
-                  provisionalAttachments={fyProvisionalAttachments}
-                  arrests={fyArrests}
-                  investigations={fyInvestigations}
+                  provisionalAttachments={zoneIntelCounts.fyProv}
+                  arrests={zoneIntelCounts.fyArr}
+                  investigations={zoneIntelCounts.fyInv}
                   momDeltas={{
                     provisionalAttachments:
-                      currMonthCounts.provisionalAttachments -
-                      prevMonthCounts.provisionalAttachments,
-                    arrests: currMonthCounts.arrests - prevMonthCounts.arrests,
+                      zoneIntelCounts.currProv - zoneIntelCounts.prevProv,
+                    arrests: zoneIntelCounts.currArr - zoneIntelCounts.prevArr,
                     investigations:
-                      currMonthCounts.investigations -
-                      prevMonthCounts.investigations,
+                      zoneIntelCounts.currInv - zoneIntelCounts.prevInv,
                   }}
                   loading={loading}
                 />
