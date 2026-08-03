@@ -893,16 +893,18 @@ const IntelligenceAllocationComponent = () => {
   const [workspaceId, setWorkspaceId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const highlightId = searchParams.get("highlight") ?? "";
-  const initialTab = highlightId.startsWith("STR")
+  const filterId = searchParams.get("filter") ?? searchParams.get("highlight") ?? "";
+  const initialTab = filterId.startsWith("STR")
     ? "str"
-    : highlightId.startsWith("IOS")
+    : filterId.startsWith("IOS")
       ? "other"
       : "rapid";
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const [rapidRecords, setRapidRecords] = useState<RapidRecord[]>([]);
-  const [rapidSearch, setRapidSearch] = useState("");
+  const [rapidSearch, setRapidSearch] = useState(
+    initialTab === "rapid" ? filterId : "",
+  );
   const [rapidSortCol, setRapidSortCol] = useState<string | null>(null);
   const [rapidSortDir, setRapidSortDir] = useState<"asc" | "desc">("asc");
   const [rapidSaving, setRapidSaving] = useState(false);
@@ -913,7 +915,9 @@ const IntelligenceAllocationComponent = () => {
   >({});
 
   const [otherRecords, setOtherRecords] = useState<OtherSourceRecord[]>([]);
-  const [otherSearch, setOtherSearch] = useState("");
+  const [otherSearch, setOtherSearch] = useState(
+    initialTab === "other" ? filterId : "",
+  );
   const [otherSortCol, setOtherSortCol] = useState<string | null>(null);
   const [otherSortDir, setOtherSortDir] = useState<"asc" | "desc">("asc");
   const [otherSaving, setOtherSaving] = useState(false);
@@ -924,7 +928,9 @@ const IntelligenceAllocationComponent = () => {
   >({});
 
   const [strRecords, setStrRecords] = useState<STRRecord[]>([]);
-  const [strSearch, setStrSearch] = useState("");
+  const [strSearch, setStrSearch] = useState(
+    initialTab === "str" ? filterId : "",
+  );
   const [strSortCol, setStrSortCol] = useState<string | null>(null);
   const [strSortDir, setStrSortDir] = useState<"asc" | "desc">("asc");
   const [strSaving, setStrSaving] = useState(false);

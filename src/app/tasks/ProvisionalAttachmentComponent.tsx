@@ -78,6 +78,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { useDebounce } from "@/hooks/useDebounce";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
@@ -146,6 +147,7 @@ interface Filters {
   dateFrom: string;
   dateTo: string;
   alarmOnly: boolean;
+  group: string;
 }
 
 const EMPTY_FILTERS: Filters = {
@@ -153,6 +155,7 @@ const EMPTY_FILTERS: Filters = {
   dateFrom: "",
   dateTo: "",
   alarmOnly: false,
+  group: "",
 };
 
 const today = () => format(new Date(), "yyyy-MM-dd");
@@ -986,11 +989,15 @@ const ProvisionalAttachmentComponent = () => {
   const supabase = clientConnectionWithSupabase();
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>("");
   const [records, setRecords] = useState<ProvisionalAttachmentRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
 
-  const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
+  const searchParams = useSearchParams();
+  const initialSearch = searchParams.get("filter") || searchParams.get("highlight") || "";
+
+  const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS, search: initialSearch });
   const debouncedSearch = useDebounce(filters.search, 400);
   const fetchIdRef = useRef(0);
   const [currentUserId, setCurrentUserId] = useState<string>("");
@@ -1004,6 +1011,7 @@ const ProvisionalAttachmentComponent = () => {
     loading: usersLoading,
   } = useGroupFilteredSioUsers();
 
+  const [userGroups, setUserGroups] = useState<string[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [alarmCount, setAlarmCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -1053,14 +1061,20 @@ const ProvisionalAttachmentComponent = () => {
           .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
+      setUserRole(role);
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
       authCtx.current = { wid, role, groups, uid: uid! };
+      const fullAccess = !role || role === "ADG" || role === "DD_INT";
+      setUserGroups(fullAccess ? DGGI_GROUPS.slice() : groups);
 
       const [cases] = await Promise.all([
         fetchCaseOptions(supabase, wid),
-        fetchRecords(wid, role, groups, uid!, 1, EMPTY_FILTERS),
+        fetchRecords(wid, role, groups, uid!, 1, {
+          ...EMPTY_FILTERS,
+          search: initialSearch,
+        }),
       ]);
       setCaseOptions(cases);
       setLoading(false);
@@ -1212,10 +1226,13 @@ const ProvisionalAttachmentComponent = () => {
     (filters.search ? 1 : 0) +
     (filters.dateFrom ? 1 : 0) +
     (filters.dateTo ? 1 : 0) +
-    (filters.alarmOnly ? 1 : 0);
+    (filters.alarmOnly ? 1 : 0) +
+    (filters.group ? 1 : 0);
 
-  // records is already the current page (20 batches) from the server
-  const tableRecords = records;
+  // records is already the current page (20 batches) from the server; apply group filter client-side
+  const tableRecords = filters.group
+    ? records.filter((r) => r.group === filters.group)
+    : records;
 
   // ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -1632,6 +1649,7 @@ const ProvisionalAttachmentComponent = () => {
             >
               <Pencil size={13} />
             </Button>
+            {userRole === "DD_INT" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -1661,6 +1679,7 @@ const ProvisionalAttachmentComponent = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
           </div>
         </TableCell>
       </TableRow>
@@ -1981,6 +2000,21 @@ const ProvisionalAttachmentComponent = () => {
                 </button>
               )}
             </div>
+
+            {/* Group filter */}
+            {userGroups.length > 1 && (
+              <Select value={filters.group} onValueChange={(v) => setFilter("group", v === "__all__" ? "" : v)}>
+                <SelectTrigger className="h-9 min-w-[130px] border-[#EDEDEA] text-base rounded-lg shadow-none">
+                  <SelectValue placeholder="All Groups" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Groups</SelectItem>
+                  {userGroups.map((g) => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <button
               onClick={() => setFilter("alarmOnly", !filters.alarmOnly)}

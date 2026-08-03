@@ -3,41 +3,51 @@
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-const HIGHLIGHT_CLASS = "record-highlight-flash";
-
 export default function RecordHighlighter() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
-  const highlightId = searchParams.get("highlight");
+  const filterId = searchParams.get("filter") || searchParams.get("highlight");
 
   useEffect(() => {
-    if (!highlightId) return;
+    if (!filterId) return;
 
     let attempts = 0;
-    const maxAttempts = 50; // 50 × 300ms = 15s window — covers slow data fetches
+    const maxAttempts = 30;
     const interval = setInterval(() => {
       attempts++;
-      const el = document.querySelector(
-        `[data-record-id="${CSS.escape(highlightId)}"]`,
+      // Look for a search input element on the page (common across register components)
+      const input = document.querySelector<HTMLInputElement>(
+        'input[placeholder*="Search"], input[placeholder*="search"]',
       );
-      if (el) {
+      if (input) {
         clearInterval(interval);
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add(HIGHLIGHT_CLASS);
-        setTimeout(() => el.classList.remove(HIGHLIGHT_CLASS), 3000);
+        // Set search filter value and dispatch native input event so React state updates
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )?.set;
+        if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(input, filterId);
+        } else {
+          input.value = filterId;
+        }
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+
+        // Clean up URL query parameters
         const params = new URLSearchParams(searchParams.toString());
+        params.delete("filter");
         params.delete("highlight");
         const qs = params.toString();
         router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
       } else if (attempts >= maxAttempts) {
         clearInterval(interval);
       }
-    }, 300);
+    }, 200);
 
     return () => clearInterval(interval);
-  }, [highlightId, router, pathname, searchParams]);
+  }, [filterId, router, pathname, searchParams]);
 
   return null;
 }

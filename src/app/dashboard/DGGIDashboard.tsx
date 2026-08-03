@@ -173,7 +173,7 @@ const REGISTERS: RegisterMeta[] = [
     category: "register",
   },
   {
-    href: "/tasks",
+    href: "/tasks/investigation-cases",
     label: "IR/NON-IR Cases",
     shortLabel: "Intel Exec.",
     icon: Shield,
@@ -406,12 +406,23 @@ function dbRowToDeadlineItem(
           : "safe";
 
   const reg = REGISTER_BY_TABLE.get(row.source_table);
+  let registerLabel = reg?.label ?? row.source_table;
+  let registerHref = TABLE_HREF[row.source_table] ?? "/tasks";
+  if (row.source_table === "dggi_records") {
+    if (row.rule_id === "ir_closure_deadline") {
+      registerLabel = "IR Register";
+      registerHref = "/tasks/incident-report";
+    } else {
+      registerLabel = "NON-IR Register";
+      registerHref = "/tasks/investigation-cases?tab=non-ir";
+    }
+  }
   return {
     ruleId: row.rule_id,
     ruleLabel: row.label,
     legalRef: row.legal_reference ?? "",
-    registerLabel: reg?.label ?? row.source_table,
-    registerHref: TABLE_HREF[row.source_table] ?? "/tasks",
+    registerLabel,
+    registerHref,
     sourceTable: row.source_table,
     recordId: row.record_id || "—",
     rowId: row.row_id,
@@ -674,7 +685,6 @@ function DeadlineTable({
             <tr>
               <th className={TH_CLS}>Register</th>
               <th className={TH_CLS}>Record ID</th>
-              <th className={TH_CLS}>Linked Case</th>
               <th className={TH_CLS}>Entity</th>
               <th className={TH_CLS}>Deadline</th>
               <th className={TH_CLS}>Due Date</th>
@@ -704,28 +714,19 @@ function DeadlineTable({
                 </td>
                 <td className="px-4 py-2.5 whitespace-nowrap">
                   <Link
-                    href={`${item.registerHref}?highlight=${encodeURIComponent(item.recordId)}`}
+                    href={`${item.registerHref}${item.registerHref.includes("?") ? "&" : "?"}highlight=${encodeURIComponent(item.recordId)}`}
                     className="font-mono text-[11px] text-[#4A5FD4] hover:underline"
                   >
                     {item.recordId}
                   </Link>
-                </td>
-                <td className="px-4 py-2.5 whitespace-nowrap">
-                  {item.linkedCaseId ? (
-                    <span className="font-mono text-[11px] text-[#4A5FD4]">
-                      {item.linkedCaseId}
-                    </span>
-                  ) : (
-                    <span className="text-[#C4C3BE]">—</span>
-                  )}
                 </td>
                 <td className="px-4 py-2.5 max-w-[150px]">
                   <span className="block truncate font-medium text-[#1a1a1a]">
                     {item.entityName}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 max-w-[220px]">
-                  <div className="truncate font-medium text-[#1a1a1a]">
+                <td className="px-4 py-2.5 min-w-[200px]">
+                  <div className="font-medium text-[#1a1a1a]">
                     {item.ruleLabel}
                   </div>
                 </td>

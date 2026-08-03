@@ -140,10 +140,20 @@ export const generateClosureRecordId = async (
   supabase: SupabaseClient,
   workspaceId: string,
   closureBy: string,
+  isIr: boolean = true,
 ): Promise<string> => {
+  if (!isIr) {
+    const fy = currentFY();
+    const { data, error } = await supabase.rpc("next_seq_val", {
+      p_workspace_id: workspaceId,
+      p_prefix: "CNR",
+      p_fy: fy,
+    });
+    if (error) throw new Error(`Failed to generate closure record ID: ${error.message}`);
+    return `CNR-${String(data as number).padStart(3, "0")}-${fy}`;
+  }
   const isFP = closureBy === "Closed After Payment of Tax";
   const fy = currentFYFull();
-  // Use distinct prefix keys so FP and NSP counters don't share the same sequence.
   const seqPrefix = isFP ? "CR_FP" : "CR_NSP";
   const { data, error } = await supabase.rpc("next_seq_val", {
     p_workspace_id: workspaceId,

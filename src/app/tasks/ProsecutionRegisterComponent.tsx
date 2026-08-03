@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -105,14 +106,17 @@ const EMPTY_NON_ARREST: Omit<NonArrestRecord, "id"> = {
 const ProsecutionRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
   const [workspaceId, setWorkspaceId] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [loading, setLoading] = useState(true);
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const [arrestOptions, setArrestOptions] = useState<ArrestOption[]>([]);
+  const [userGroups, setUserGroups] = useState<string[]>([]);
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   // Annexure I state
   const [arrestRecords, setArrestRecords] = useState<ArrestCaseRecord[]>([]);
   const [arrestSearch, setArrestSearch] = useState("");
+  const [arrestGroup, setArrestGroup] = useState("");
   const [arrestSaving, setArrestSaving] = useState(false);
   const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
 
@@ -123,6 +127,7 @@ const ProsecutionRegisterComponent = () => {
   // Annexure II state
   const [nonArrestRecords, setNonArrestRecords] = useState<NonArrestRecord[]>([]);
   const [nonArrestSearch, setNonArrestSearch] = useState("");
+  const [nonArrestGroup, setNonArrestGroup] = useState("");
   const [nonArrestSaving, setNonArrestSaving] = useState(false);
   const [nonArrestSort, setNonArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
 
@@ -144,7 +149,10 @@ const ProsecutionRegisterComponent = () => {
         supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
+      setUserRole(role);
       const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      const fullAccess = !role || role === "ADG" || role === "DD_INT";
+      setUserGroups(fullAccess ? DGGI_GROUPS.slice() : groups);
 
       let arrestQuery = supabase.from("dggi_prosecution_arrest_records").select("*").eq("workspace_id", wid);
       let nonArrestQuery = supabase.from("dggi_prosecution_non_arrest_records").select("*").eq("workspace_id", wid);
@@ -178,9 +186,10 @@ const ProsecutionRegisterComponent = () => {
 
   // ── Arrest CRUD ──
   const filteredArrest = arrestRecords.filter((r) => {
+    if (arrestGroup && r.group !== arrestGroup) return false;
     if (!arrestSearch) return true;
     const q = arrestSearch.toLowerCase();
-    return [r.arrested_person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
+    return [r.record_id, r.arrested_person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
     if (!arrestSort.col) {
       const ac = (a as any).created_at ?? "";
@@ -247,9 +256,10 @@ const ProsecutionRegisterComponent = () => {
 
   // ── Non-Arrest CRUD ──
   const filteredNonArrest = nonArrestRecords.filter((r) => {
+    if (nonArrestGroup && r.group !== nonArrestGroup) return false;
     if (!nonArrestSearch) return true;
     const q = nonArrestSearch.toLowerCase();
-    return [r.person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
+    return [r.record_id, r.person_name, r.entity_name, r.gstin].some((v) => v?.toLowerCase().includes(q));
   }).sort((a, b) => {
     if (!nonArrestSort.col) {
       const ac = (a as any).created_at ?? "";
@@ -365,13 +375,24 @@ const ProsecutionRegisterComponent = () => {
           <TabsContent value="arrest" className="space-y-4">
             <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-base text-[#6b6b6b]"><SlidersHorizontal size={14} /><span className="font-medium">Search</span></div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-base text-[#6b6b6b]"><SlidersHorizontal size={14} /><span className="font-medium">Filters</span></div>
                   <div className="relative flex items-center">
                     <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
                     <Input value={arrestSearch} onChange={(e) => { setArrestSearch(e.target.value); setArrestPage(1); }} placeholder="Search person, entity…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
                   </div>
-                  {arrestSearch && <button onClick={() => { setArrestSearch(""); setArrestPage(1); }} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
+                  {userGroups.length > 1 && (
+                    <Select value={arrestGroup} onValueChange={(v) => { setArrestGroup(v === "__all__" ? "" : v); setArrestPage(1); }}>
+                      <SelectTrigger className="h-9 min-w-[130px] border-[#EDEDEA] text-base rounded-lg shadow-none">
+                        <SelectValue placeholder="All Groups" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">All Groups</SelectItem>
+                        {userGroups.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {(arrestSearch || arrestGroup) && <button onClick={() => { setArrestSearch(""); setArrestGroup(""); setArrestPage(1); }} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-base text-[#9a9a96]">{filteredArrest.length} record{filteredArrest.length !== 1 ? "s" : ""}</span>
@@ -413,7 +434,7 @@ const ProsecutionRegisterComponent = () => {
                         <TableCell className="px-3 py-2">
                           <div className="flex items-center gap-1">
                             <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setArrestDialogMode("edit"); setArrestDialogDraft({ ...record }); setArrestDialogOpen(true); }}><Pencil size={13} /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteArrest(record.id)}><Trash2 size={13} /></Button>
+                            {userRole === "DD_INT" && <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteArrest(record.id)}><Trash2 size={13} /></Button>}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -453,13 +474,24 @@ const ProsecutionRegisterComponent = () => {
           <TabsContent value="non-arrest" className="space-y-4">
             <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-base text-[#6b6b6b]"><SlidersHorizontal size={14} /><span className="font-medium">Search</span></div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 text-base text-[#6b6b6b]"><SlidersHorizontal size={14} /><span className="font-medium">Filters</span></div>
                   <div className="relative flex items-center">
                     <Search size={13} className="absolute left-3 text-[#9a9a96] pointer-events-none" />
                     <Input value={nonArrestSearch} onChange={(e) => { setNonArrestSearch(e.target.value); setNonArrestPage(1); }} placeholder="Search person, entity…" className="h-9 pl-8 pr-3 min-w-[220px] border-[#EDEDEA] text-base rounded-lg" />
                   </div>
-                  {nonArrestSearch && <button onClick={() => { setNonArrestSearch(""); setNonArrestPage(1); }} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
+                  {userGroups.length > 1 && (
+                    <Select value={nonArrestGroup} onValueChange={(v) => { setNonArrestGroup(v === "__all__" ? "" : v); setNonArrestPage(1); }}>
+                      <SelectTrigger className="h-9 min-w-[130px] border-[#EDEDEA] text-base rounded-lg shadow-none">
+                        <SelectValue placeholder="All Groups" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">All Groups</SelectItem>
+                        {userGroups.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {(nonArrestSearch || nonArrestGroup) && <button onClick={() => { setNonArrestSearch(""); setNonArrestGroup(""); setNonArrestPage(1); }} className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"><X size={13} />Clear</button>}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-base text-[#9a9a96]">{filteredNonArrest.length} record{filteredNonArrest.length !== 1 ? "s" : ""}</span>
@@ -501,7 +533,7 @@ const ProsecutionRegisterComponent = () => {
                         <TableCell className="px-3 py-2">
                           <div className="flex items-center gap-1">
                             <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setNonArrestDialogMode("edit"); setNonArrestDialogDraft({ ...record }); setNonArrestDialogOpen(true); }}><Pencil size={13} /></Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteNonArrest(record.id)}><Trash2 size={13} /></Button>
+                            {userRole === "DD_INT" && <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteNonArrest(record.id)}><Trash2 size={13} /></Button>}
                           </div>
                         </TableCell>
                       </TableRow>

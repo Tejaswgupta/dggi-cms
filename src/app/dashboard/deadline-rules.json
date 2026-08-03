@@ -110,7 +110,10 @@
           "reminder_days_before": [30, 14, 7],
           "critical_days": 14,
           "warning_days": 30,
-          "skip_if": { "field": "prosecution_complaint_status", "value": "Filed" },
+          "skip_if": {
+            "field": "prosecution_complaint_status",
+            "value": "Filed"
+          },
           "skip_if_not_null": ["date_of_filing"],
           "apply_only_if": { "field": "bail_status", "value": "Bail Given" }
         }
@@ -176,21 +179,6 @@
           "warning_days": 30,
           "apply_only_if": { "field": "is_ir", "value": "true" },
           "skip_if_not_null": ["closure_by"]
-        }
-      ]
-    },
-    {
-      "source_table": "dggi_scn_records",
-      "deadlines": [
-        {
-          "rule_id": "scn_oio_due",
-          "label": "Last date to pass OIO",
-          "legal_reference": "Sec 73(10) / 74(10) CGST",
-          "reference_field": "last_date_oio",
-          "offset_days": 0,
-          "reminder_days_before": [60, 30, 7, 1],
-          "critical_days": 30,
-          "warning_days": 60
         }
       ]
     }

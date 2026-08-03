@@ -573,6 +573,13 @@ const NON_IR_COLUMNS: ColDef[] = [
     width: "170px",
   },
   {
+    key: "issue_involved",
+    label: "Issue Involved",
+    type: "select-with-other",
+    options: ISSUE_INVOLVED_OPTIONS,
+    width: "160px",
+  },
+  {
     key: "latest_status",
     label: "Latest Status",
     type: "select-with-other",
@@ -1133,6 +1140,8 @@ function UserFilter({
         u.email?.toLowerCase().includes(query.toLowerCase()),
     );
 
+  const selectedName = users.find((u) => u.id === value)?.name ?? "";
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -1144,7 +1153,7 @@ function UserFilter({
           }`}
         >
           <span className="max-w-[120px] truncate">
-            {value || "Handling SIO"}
+            {selectedName || "Handling SIO"}
           </span>
           {value ? (
             <span
@@ -1182,7 +1191,7 @@ function UserFilter({
                   key={u.id}
                   value={u.name}
                   onSelect={() => {
-                    onChange(value === u.name ? "" : u.name);
+                    onChange(value === u.id ? "" : u.id);
                     setOpen(false);
                     setQuery("");
                   }}
@@ -1190,7 +1199,7 @@ function UserFilter({
                 >
                   <Check
                     size={13}
-                    className={`mr-2 shrink-0 ${value === u.name ? "opacity-100" : "opacity-0"}`}
+                    className={`mr-2 shrink-0 ${value === u.id ? "opacity-100" : "opacity-0"}`}
                   />
                   <div className="flex flex-col min-w-0">
                     <span className="truncate">{u.name}</span>
@@ -2817,6 +2826,10 @@ export function DGGIRecordDialog({
                           !(
                             ["taxpayer_name", "gstins"].includes(col.key) &&
                             mode === "add"
+                          ) &&
+                          !(
+                            col.key === "date_of_receipt" &&
+                            draft.intel_source === "Group"
                           ),
                       )
                       .map((col) => (
@@ -3399,9 +3412,15 @@ const DGGIComponent = () => {
       setUserGroupMap(gMap);
 
       const caseId = searchParams?.get("caseId");
-      if (caseId) {
-        setFilters((prev) => ({ ...prev, search: caseId }));
-        if (caseId.startsWith("NIR-")) setTopFilter("non-ir");
+      const highlight = searchParams?.get("highlight");
+      const tabParam = searchParams?.get("tab");
+      if (tabParam === "non-ir") setTopFilter("non-ir");
+      else if (tabParam === "ir") setTopFilter("ir");
+      const activeId = caseId || highlight;
+      if (activeId) {
+        setFilters((prev) => ({ ...prev, search: activeId }));
+        if (activeId.startsWith("NIR-")) setTopFilter("non-ir");
+        else setTopFilter("ir");
       }
 
       setLoading(false);
@@ -3704,6 +3723,7 @@ const DGGIComponent = () => {
         supabase,
         workspaceId,
         dialogDraft.closure_by as string,
+        isIrRecord,
       );
       const { error: closureErr } = await supabase
         .from("dggi_closure_records")
@@ -4127,6 +4147,7 @@ const DGGIComponent = () => {
           supabase,
           workspaceId,
           sourceDraft.closure_by as string,
+          false,
         );
         const { error: closureErr } = await supabase
           .from("dggi_closure_records")
@@ -4940,6 +4961,7 @@ const DGGIComponent = () => {
                 <ArrowLeftRight size={13} />
               </Button>
             )}
+            {userRole === "DD_INT" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -4969,6 +4991,7 @@ const DGGIComponent = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
           </div>
         </TableCell>
       </TableRow>
@@ -5041,9 +5064,9 @@ const DGGIComponent = () => {
         onEditArrest={openEditArrest}
         onEditProvisional={openEditProvisional}
         onEditSCN={openEditSCN}
-        onDeleteArrest={deleteArrestRecord}
-        onDeleteProvisional={deleteProvisionalRecord}
-        onDeleteSCN={deleteScnRecord}
+        onDeleteArrest={userRole === "DD_INT" ? deleteArrestRecord : undefined}
+        onDeleteProvisional={userRole === "DD_INT" ? deleteProvisionalRecord : undefined}
+        onDeleteSCN={userRole === "DD_INT" ? deleteScnRecord : undefined}
       />
 
       {/* ── Arrest sub-dialog ─────────────────────────────────────────────── */}

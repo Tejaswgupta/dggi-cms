@@ -196,6 +196,7 @@ function EditableCell({
 const AlertCircularRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
   const [workspaceId, setWorkspaceId] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [records, setRecords] = useState<AlertCircularRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -230,6 +231,7 @@ const AlertCircularRegisterComponent = () => {
           .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
+      setUserRole(role);
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
@@ -260,6 +262,7 @@ const AlertCircularRegisterComponent = () => {
       if (!search) return true;
       const q = search.toLowerCase();
       return [
+        r.record_id,
         r.gstin,
         r.legal_trade_name,
         r.alert_circular_no_date,
@@ -397,6 +400,7 @@ const AlertCircularRegisterComponent = () => {
           >
             <Pencil size={13} />
           </Button>
+          {userRole === "DD_INT" && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -425,6 +429,7 @@ const AlertCircularRegisterComponent = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          )}
         </div>
       </TableCell>
     </TableRow>

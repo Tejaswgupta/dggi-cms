@@ -48,11 +48,17 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
-import { currentFY, exportRegisterToExcel, fetchCaseOptions, fmtLakhs, nullifyEmpty, REGISTER_PREFIXES } from "./register-utils";
+import {
+  currentFY,
+  exportRegisterToExcel,
+  fetchCaseOptions,
+  fmtLakhs,
+  nullifyEmpty,
+  REGISTER_PREFIXES,
+} from "./register-utils";
 import {
   RegisterRecordDialog,
   type RegisterColumn,
-  type WorkspaceUser,
 } from "./RegisterRecordDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -482,6 +488,7 @@ const SCNRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>("");
   const [records, setRecords] = useState<SCNRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -492,7 +499,11 @@ const SCNRegisterComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
-  const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
+  const {
+    allUsers: workspaceUsers,
+    sioUsers,
+    loading: usersLoading,
+  } = useGroupFilteredSioUsers();
 
   const [activeTab, setActiveTab] = useState<string>("SIO Competency");
   const [currentPage, setCurrentPage] = useState(1);
@@ -523,6 +534,7 @@ const SCNRegisterComponent = () => {
           .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
+      setUserRole(role);
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
@@ -615,7 +627,10 @@ const SCNRegisterComponent = () => {
       const bv = (b as any)[sortCol] ?? "";
       const na = Number(av);
       const nb = Number(bv);
-      const cmp = !isNaN(na) && !isNaN(nb) ? na - nb : String(av).localeCompare(String(bv));
+      const cmp =
+        !isNaN(na) && !isNaN(nb)
+          ? na - nb
+          : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });
 
@@ -626,7 +641,9 @@ const SCNRegisterComponent = () => {
     setSavingRow(true);
     const { record_id: _locked, ...editableFields } = dialogDraft as SCNRecord;
     const updatePayload = nullifyEmpty({ ...editableFields }, COLUMNS);
-    (updatePayload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
+    (updatePayload as any).sio_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
+      null;
     const { error } = await supabase
       .from("dggi_scn_records")
       .update(updatePayload)
@@ -681,14 +698,20 @@ const SCNRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload = nullifyEmpty({
-      ...dialogDraft,
-      record_id: await generateSCNRecordId(dialogDraft),
-      workspace_id: workspaceId,
-    }, COLUMNS);
-    (payload as any).sio_name = workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null;
+    const payload = nullifyEmpty(
+      {
+        ...dialogDraft,
+        record_id: await generateSCNRecordId(dialogDraft),
+        workspace_id: workspaceId,
+      },
+      COLUMNS,
+    );
+    (payload as any).sio_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
+      null;
     (payload as any).created_by = currentUserId || null;
-    (payload as any).created_by_name = workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
+    (payload as any).created_by_name =
+      workspaceUsers.find((u) => u.id === currentUserId)?.name || null;
     const { data, error } = await supabase
       .from("dggi_scn_records")
       .insert(payload)
@@ -728,7 +751,8 @@ const SCNRegisterComponent = () => {
       p_prefix: prefix,
       p_fy: fy,
     });
-    if (error) throw new Error(`Failed to generate record ID: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to generate record ID: ${error.message}`);
     const seq = String(data as number).padStart(2, "0");
     const grp = (draft.group ?? "").split(" ").pop() ?? "";
     const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
@@ -782,19 +806,28 @@ const SCNRegisterComponent = () => {
   };
 
   const handleExport = () => {
-    exportRegisterToExcel(tableRecords, COLUMNS, "SCN", (msg) =>
-      toast.success(msg),
+    exportRegisterToExcel(
+      tableRecords,
+      COLUMNS,
+      "SCN",
+      (msg) => toast.success(msg),
       workspaceUsers,
     );
   };
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
-  const renderCell = (value: string, type: RegisterColumn["type"], storedName?: string) => {
+  const renderCell = (
+    value: string,
+    type: RegisterColumn["type"],
+    storedName?: string,
+  ) => {
     if (type === "usercombobox")
       return (
         <span>
-          {workspaceUsers.find((u) => u.id === value)?.name || storedName || "—"}
+          {workspaceUsers.find((u) => u.id === value)?.name ||
+            storedName ||
+            "—"}
         </span>
       );
     if (type === "caselink")
@@ -819,7 +852,10 @@ const SCNRegisterComponent = () => {
   const PAGE_SIZE = 20;
   const totalPages = Math.max(1, Math.ceil(tableRecords.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
-  const pagedRecords = tableRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedRecords = tableRecords.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -874,7 +910,14 @@ const SCNRegisterComponent = () => {
         </div>
 
         {/* ── Competency Tabs ─────────────────────────────────────────────── */}
-        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setCurrentPage(1); }} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            setActiveTab(v);
+            setCurrentPage(1);
+          }}
+          className="w-full"
+        >
           <TabsList className="mb-4 rounded-xl border border-[#EDEDEA] bg-white h-10 p-1">
             {COMPETENCY_OPTIONS.map((opt) => (
               <TabsTrigger
@@ -977,21 +1020,12 @@ const SCNRegisterComponent = () => {
                     )}
                   </div>
 
-                  {/* No OIO Date toggle */}
-                  <button
-                    onClick={() => setFilter("noOioDate", !filters.noOioDate)}
-                    className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-base transition-all ${
-                      filters.noOioDate
-                        ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4] font-medium"
-                        : "border-[#EDEDEA] bg-white text-[#6b6b6b] hover:bg-[#F3F2EF]"
-                    }`}
-                  >
-                    No OIO Date
-                  </button>
-
                   {activeFilterCount > 0 && (
                     <button
-                      onClick={() => { setFilters({ ...EMPTY_FILTERS }); setCurrentPage(1); }}
+                      onClick={() => {
+                        setFilters({ ...EMPTY_FILTERS });
+                        setCurrentPage(1);
+                      }}
                       className="ml-auto flex items-center gap-1 rounded-lg border border-[#EDEDEA] px-3 py-1.5 text-base text-[#6b6b6b] hover:bg-[#F3F2EF] transition-all"
                     >
                       <X size={12} />
@@ -1006,142 +1040,150 @@ const SCNRegisterComponent = () => {
 
               {/* ── Records table ───────────────────────────────────────────── */}
               <div className="rounded-2xl border border-[#EDEDEA] bg-white shadow-none overflow-auto max-h-[90vh]">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-10 bg-white">
-                      <TableRow className="bg-white border-b border-[#EDEDEA]">
-                        {COLUMNS.map((col) => (
-                          <TableHead
-                            key={col.key}
-                            style={{ minWidth: col.width }}
-                            className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
-                            onClick={() => toggleSort(col.key)}
-                          >
-                            <span className="flex items-center gap-1">
-                              {col.label}
-                              {sortCol === col.key &&
-                                (sortDir === "asc" ? (
-                                  <ChevronUp size={12} />
-                                ) : (
-                                  <ChevronDown size={12} />
-                                ))}
-                            </span>
-                          </TableHead>
-                        ))}
-                        <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
-                          Actions
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-
-                    <TableBody>
-                      {pagedRecords.map((record) => (
-                        <TableRow
-                          key={record.id}
-                          data-record-id={record.record_id}
-                          className="border-b border-[#EDEDEA] text-base hover:bg-white"
+                <Table>
+                  <TableHeader className="sticky top-0 z-10 bg-white">
+                    <TableRow className="bg-white border-b border-[#EDEDEA]">
+                      {COLUMNS.map((col) => (
+                        <TableHead
+                          key={col.key}
+                          style={{ minWidth: col.width }}
+                          className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap cursor-pointer select-none hover:text-[#1a1a1a]"
+                          onClick={() => toggleSort(col.key)}
                         >
-                          {COLUMNS.map((col) => (
-                            <TableCell
-                              key={col.key}
-                              className="px-3 py-2 text-[#1a1a1a]"
-                            >
-                              {col.key === "record_id" ? (
-                                <button
-                                  className="text-[#4A5FD4] hover:underline font-medium text-left"
-                                  onClick={() => {
-                                    setDialogMode("edit");
-                                    setDialogDraft({ ...record });
-                                    setDialogOpen(true);
-                                  }}
-                                >
-                                  {record.record_id || "—"}
-                                </button>
-                              ) : renderCell(
-                                (record as any)[col.key] ?? "",
-                                col.type,
-                                col.key === "sio" ? (record as any).sio_name : undefined,
-                              )}
-                            </TableCell>
-                          ))}
-                          <TableCell className="px-3 py-2">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                          <span className="flex items-center gap-1">
+                            {col.label}
+                            {sortCol === col.key &&
+                              (sortDir === "asc" ? (
+                                <ChevronUp size={12} />
+                              ) : (
+                                <ChevronDown size={12} />
+                              ))}
+                          </span>
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 w-[80px]">
+                        Actions
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {pagedRecords.map((record) => (
+                      <TableRow
+                        key={record.id}
+                        data-record-id={record.record_id}
+                        className="border-b border-[#EDEDEA] text-base hover:bg-white"
+                      >
+                        {COLUMNS.map((col) => (
+                          <TableCell
+                            key={col.key}
+                            className="px-3 py-2 text-[#1a1a1a]"
+                          >
+                            {col.key === "record_id" ? (
+                              <button
+                                className="text-[#4A5FD4] hover:underline font-medium text-left"
                                 onClick={() => {
                                   setDialogMode("edit");
                                   setDialogDraft({ ...record });
                                   setDialogOpen(true);
                                 }}
                               >
-                                <Pencil size={13} />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
-                                  >
-                                    <Trash2 size={13} />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      Delete SCN record?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will permanently delete{" "}
-                                      {record.record_id} and cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                      Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      className="bg-[#C0432A] hover:bg-[#a83823] text-white"
-                                      onClick={() => deleteRecord(record.id)}
-                                    >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-
-                      {tableRecords.length === 0 && (
-                        <TableRow>
-                          <TableCell
-                            colSpan={TOTAL_COLS}
-                            className="py-12 text-center text-base text-[#9a9a96]"
-                          >
-                            No SCN records match the current filters.{" "}
-                            {activeFilterCount > 0 && (
-                              <button
-                                className="text-[#4A5FD4] underline"
-                                onClick={() => { setFilters({ ...EMPTY_FILTERS }); setCurrentPage(1); }}
-                              >
-                                Clear filters
+                                {record.record_id || "—"}
                               </button>
+                            ) : (
+                              renderCell(
+                                (record as any)[col.key] ?? "",
+                                col.type,
+                                col.key === "sio"
+                                  ? (record as any).sio_name
+                                  : undefined,
+                              )
                             )}
                           </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                        ))}
+                        <TableCell className="px-3 py-2">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]"
+                              onClick={() => {
+                                setDialogMode("edit");
+                                setDialogDraft({ ...record });
+                                setDialogOpen(true);
+                              }}
+                            >
+                              <Pencil size={13} />
+                            </Button>
+                            {userRole === "DD_INT" && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                                >
+                                  <Trash2 size={13} />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Delete SCN record?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete{" "}
+                                    {record.record_id} and cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-[#C0432A] hover:bg-[#a83823] text-white"
+                                    onClick={() => deleteRecord(record.id)}
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+
+                    {tableRecords.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={TOTAL_COLS}
+                          className="py-12 text-center text-base text-[#9a9a96]"
+                        >
+                          No SCN records match the current filters.{" "}
+                          {activeFilterCount > 0 && (
+                            <button
+                              className="text-[#4A5FD4] underline"
+                              onClick={() => {
+                                setFilters({ ...EMPTY_FILTERS });
+                                setCurrentPage(1);
+                              }}
+                            >
+                              Clear filters
+                            </button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
 
               {/* ── Pagination ────────────────────────────────────────────── */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between px-1">
                   <span className="text-base text-[#9a9a96]">
-                    Page {safePage} of {totalPages} &middot; {tableRecords.length} record
+                    Page {safePage} of {totalPages} &middot;{" "}
+                    {tableRecords.length} record
                     {tableRecords.length !== 1 ? "s" : ""}
                   </span>
                   <div className="flex items-center gap-1">
@@ -1178,7 +1220,10 @@ const SCNRegisterComponent = () => {
                       }, [])
                       .map((p, i) =>
                         p === "…" ? (
-                          <span key={`ellipsis-${i}`} className="px-1 text-[#9a9a96]">
+                          <span
+                            key={`ellipsis-${i}`}
+                            className="px-1 text-[#9a9a96]"
+                          >
                             …
                           </span>
                         ) : (
@@ -1202,7 +1247,9 @@ const SCNRegisterComponent = () => {
                       variant="outline"
                       className="h-8 px-3 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none disabled:opacity-40"
                       disabled={safePage === totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
                     >
                       Next ›
                     </Button>

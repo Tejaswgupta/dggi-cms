@@ -477,6 +477,7 @@ const STRRegisterComponent = () => {
                         >
                           <Pencil size={13} />
                         </Button>
+                        {userRole === "DD_INT" && (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -485,6 +486,7 @@ const STRRegisterComponent = () => {
                         >
                           <Trash2 size={13} />
                         </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

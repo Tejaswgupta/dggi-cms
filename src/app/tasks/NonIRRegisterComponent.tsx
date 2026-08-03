@@ -314,6 +314,7 @@ const NonIRRegisterComponent = () => {
       if (!search) return true;
       const q = search.toLowerCase();
       return [
+        r.record_id,
         r.taxpayer_name,
         r.file_no,
         r.bo_id,

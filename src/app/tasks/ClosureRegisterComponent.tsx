@@ -179,7 +179,9 @@ const SHARED_COLUMNS: ColDef[] = [
 ];
 
 const NON_IR_COLUMNS: ColDef[] = [
-  ...SHARED_COLUMNS,
+  ...SHARED_COLUMNS.map((c) =>
+    c.key === "source_record_id" ? { ...c, label: "NON-IR No." } : c
+  ),
   {
     key: "date_of_non_ir",
     label: "Date of NON-IR",

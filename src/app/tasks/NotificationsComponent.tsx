@@ -75,7 +75,7 @@ function notifHref(n: Notif): string {
   const base = TABLE_HREF[n.source_table] ?? "/tasks/investigation-cases";
   if (n.source_table === "dggi_records")
     return `${base}?caseId=${encodeURIComponent(n.record_id)}`;
-  return `${base}?highlight=${encodeURIComponent(n.record_id)}`;
+  return `${base}?filter=${encodeURIComponent(n.record_id)}`;
 }
 
 function liveDaysUntil(deadline_date: string): number {

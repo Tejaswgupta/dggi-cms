@@ -799,6 +799,7 @@ const ArrestRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
+  const [userRole, setUserRole] = useState<string>("");
   const [records, setRecords] = useState<ArrestRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -844,6 +845,7 @@ const ArrestRegisterComponent = () => {
           .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
+      setUserRole(role);
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
@@ -917,6 +919,7 @@ const ArrestRegisterComponent = () => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
         const hit = [
+          r.record_id,
           r.arrested_name,
           r.arrested_designation,
           r.party_name,
@@ -1229,6 +1232,7 @@ const ArrestRegisterComponent = () => {
           >
             <Pencil size={13} />
           </Button>
+          {userRole === "DD_INT" && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -1258,6 +1262,7 @@ const ArrestRegisterComponent = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          )}
         </div>
       </TableCell>
     </TableRow>
