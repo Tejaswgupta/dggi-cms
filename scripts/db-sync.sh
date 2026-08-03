@@ -61,7 +61,7 @@ echo ""
 echo "→ Dumping remote database ..."
 
 echo "  [1/3] Schema ..."
-supabase db dump --db-url "$REMOTE_DB_URL" --schema-only -f "$DUMP_DIR/schema.sql"
+supabase db dump --db-url "$REMOTE_DB_URL" -f "$DUMP_DIR/schema.sql"
 
 echo "  [2/3] Data ..."
 supabase db dump --db-url "$REMOTE_DB_URL" --data-only -f "$DUMP_DIR/data.sql"
