@@ -15,7 +15,7 @@ set -euo pipefail
 
 # ── CONFIGURE THESE ───────────────────────────────────────────────────────────
 # Remote DB URL — Supabase dashboard → Settings → Database → Connection string (URI)
-REMOTE_DB_URL="postgresql://postgres:YOUR_PASSWORD_HERE@db.zrkvvedwycdcjjheewef.supabase.co:5432/postgres"
+REMOTE_DB_URL="postgresql://postgres:inVAIFRtVEmU4RQ5@db.zrkvvedwycdcjjheewef.supabase.co:5432/postgres"
 
 # Local DB URL — leave blank to auto-detect from Docker containers
 # The pooler (supabase-pooler) is what listens on the host; override if needed.
