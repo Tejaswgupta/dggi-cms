@@ -26,14 +26,14 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'ARR', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'ARR', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
 
   -- PAR — dggi_provisional_attachment_records (next entry: 166)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'PAR', '26-27', 166
+  select distinct workspace_id::uuid, 'PAR', '26-27', 166
   from dggi_provisional_attachment_records
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
@@ -48,21 +48,21 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'SCN', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'SCN', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
 
   -- PRA — dggi_prosecution_arrest_records (next entry: 55)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'PRA', '26-27', 55
+  select distinct workspace_id::uuid, 'PRA', '26-27', 55
   from dggi_prosecution_arrest_records
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- PRN — dggi_prosecution_non_arrest_records (next entry: 55)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'PRN', '26-27', 55
+  select distinct workspace_id::uuid, 'PRN', '26-27', 55
   from dggi_prosecution_non_arrest_records
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
@@ -77,7 +77,7 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'STR', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'STR', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
@@ -92,55 +92,12 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'ALC', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'ALC', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
 
-  -- SZR — dggi_seizure_records
-  for r in
-    select workspace_id,
-           split_part(record_id, '/', 3) as fy,
-           max(split_part(record_id, '/', 2)::integer) as max_seq
-    from dggi_seizure_records
-    where record_id ~ '^SZR/[0-9]+/[0-9]{2}-[0-9]{2}$'
-    group by workspace_id, fy
-  loop
-    insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'SZR', r.fy, r.max_seq + 1)
-    on conflict (workspace_id, prefix, fy)
-    do update set next_val = excluded.next_val;
-  end loop;
 
-  -- EVR — dggi_evidence_room_records
-  for r in
-    select workspace_id,
-           split_part(record_id, '/', 3) as fy,
-           max(split_part(record_id, '/', 2)::integer) as max_seq
-    from dggi_evidence_room_records
-    where record_id ~ '^EVR/[0-9]+/[0-9]{2}-[0-9]{2}$'
-    group by workspace_id, fy
-  loop
-    insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'EVR', r.fy, r.max_seq + 1)
-    on conflict (workspace_id, prefix, fy)
-    do update set next_val = excluded.next_val;
-  end loop;
-
-  -- DFL — dggi_dfl_records
-  for r in
-    select workspace_id,
-           split_part(record_id, '/', 3) as fy,
-           max(split_part(record_id, '/', 2)::integer) as max_seq
-    from dggi_dfl_records
-    where record_id ~ '^DFL/[0-9]+/[0-9]{2}-[0-9]{2}$'
-    group by workspace_id, fy
-  loop
-    insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'DFL', r.fy, r.max_seq + 1)
-    on conflict (workspace_id, prefix, fy)
-    do update set next_val = excluded.next_val;
-  end loop;
 
   -- RPC — dggi_report_compliance_records
   for r in
@@ -152,7 +109,7 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'RPC', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'RPC', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
@@ -167,7 +124,7 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'MOC', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'MOC', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
@@ -182,7 +139,7 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'RPD', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'RPD', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
@@ -197,7 +154,7 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'IOS', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'IOS', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
@@ -213,7 +170,7 @@ begin
     group by workspace_id, fy
   loop
     insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id, 'NIR_CASE', r.fy, r.max_seq + 1)
+    values (r.workspace_id::uuid, 'NIR_CASE', r.fy, r.max_seq + 1)
     on conflict (workspace_id, prefix, fy)
     do update set next_val = excluded.next_val;
   end loop;
@@ -221,7 +178,7 @@ begin
   -- ── IR cases: {NNN}/GST/{YYYY-YY}  ─────────────────────────────────────────
   -- Sequence key: prefix='IR', fy='2026-27' — next entry: 93
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'IR', '2026-27', 93
+  select distinct workspace_id::uuid, 'IR', '2026-27', 93
   from dggi_records
   where is_ir = true
   on conflict (workspace_id, prefix, fy)
@@ -230,7 +187,7 @@ begin
   -- ── NON-IR cases: NIR-{NNN}-{YY-YY}  ───────────────────────────────────────
   -- Sequence key: prefix='NIR', fy='26-27' — next entry: 137 overall (82 from Apr 2026)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'NIR', '26-27', 137
+  select distinct workspace_id::uuid, 'NIR', '26-27', 137
   from dggi_records
   where is_ir = false
   on conflict (workspace_id, prefix, fy)
@@ -242,14 +199,14 @@ begin
 
   -- CR_FP: DGGI/MZU/CR/FP/2026-27/{NNN} — next entry: 028
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'CR_FP', '2026-27', 28
+  select distinct workspace_id::uuid, 'CR_FP', '2026-27', 28
   from dggi_closure_records
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- CR_NSP: DGGI/MZU/CR-NSP-{YYYY-YY}/{NNN} — next entry: 005
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'CR_NSP', '2026-27', 5
+  select distinct workspace_id::uuid, 'CR_NSP', '2026-27', 5
   from dggi_closure_records
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
