@@ -33,8 +33,7 @@ begin
 
   -- PAR — dggi_provisional_attachment_records (next entry: 166)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id::uuid, 'PAR', '26-27', 166
-  from dggi_provisional_attachment_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'PAR', '26-27', 166)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
@@ -55,15 +54,13 @@ begin
 
   -- PRA — dggi_prosecution_arrest_records (next entry: 55)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id::uuid, 'PRA', '26-27', 55
-  from dggi_prosecution_arrest_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'PRA', '26-27', 55)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- PRN — dggi_prosecution_non_arrest_records (next entry: 55)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id::uuid, 'PRN', '26-27', 55
-  from dggi_prosecution_non_arrest_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'PRN', '26-27', 55)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
@@ -178,18 +175,14 @@ begin
   -- ── IR cases: {NNN}/GST/{YYYY-YY}  ─────────────────────────────────────────
   -- Sequence key: prefix='IR', fy='2026-27' — next entry: 93
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id::uuid, 'IR', '2026-27', 93
-  from dggi_records
-  where is_ir = true
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'IR', '2026-27', 93)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- ── NON-IR cases: NIR-{NNN}-{YY-YY}  ───────────────────────────────────────
   -- Sequence key: prefix='NIR', fy='26-27' — next entry: 137 overall (82 from Apr 2026)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id::uuid, 'NIR', '26-27', 137
-  from dggi_records
-  where is_ir = false
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'NIR', '26-27', 137)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
@@ -199,15 +192,13 @@ begin
 
   -- CR_FP: DGGI/MZU/CR/FP/2026-27/{NNN} — next entry: 028
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id::uuid, 'CR_FP', '2026-27', 28
-  from dggi_closure_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'CR_FP', '2026-27', 28)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- CR_NSP: DGGI/MZU/CR-NSP-{YYYY-YY}/{NNN} — next entry: 005
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id::uuid, 'CR_NSP', '2026-27', 5
-  from dggi_closure_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'CR_NSP', '2026-27', 5)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 

@@ -8,22 +8,19 @@ do $$
 begin
   -- JC/ADC Competency (ADD/JD level) → prefix ADC-JC — next entry: 19
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'ADC-JC', '26-27', 19
-  from dggi_scn_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'ADC-JC', '26-27', 19)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- AD/DD Competency → prefix AD-DD — next entry: 11
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'AD-DD', '26-27', 11
-  from dggi_scn_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'AD-DD', '26-27', 11)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- SIO Competency → prefix SIO — next entry: 02
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  select distinct workspace_id, 'SIO', '26-27', 2
-  from dggi_scn_records
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'SIO', '26-27', 2)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 end;
