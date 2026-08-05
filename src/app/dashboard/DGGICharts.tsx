@@ -323,36 +323,36 @@ export function DeadlineHeatmap({
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
+      <div className="bg-white rounded-xl border border-[#EDEDEA] p-4">
         <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
           Deadline Heat Map
         </h3>
-        <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-3">
+        <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-2">
           {format(new Date(year, month), "MMMM yyyy")} · click a day to see
           details
         </p>
         {loading ? (
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-0.5 max-w-[260px]">
             {Array.from({ length: 35 }).map((_, i) => (
               <div
                 key={i}
-                className="aspect-square rounded-md bg-[#F3F2EF] animate-pulse"
+                className="aspect-square rounded bg-[#F3F2EF] animate-pulse"
               />
             ))}
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-7 gap-1 mb-1">
+            <div className="grid grid-cols-7 gap-0.5 mb-0.5 max-w-[260px]">
               {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
                 <div
                   key={i}
-                  className="text-center text-[9px] font-semibold text-[#9a9a96]"
+                  className="text-center text-[8px] font-semibold text-[#9a9a96]"
                 >
                   {d}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-0.5 max-w-[260px]">
               {cells.map((day, i) => {
                 if (!day) return <div key={i} />;
                 const counts = byDay[day];
@@ -385,8 +385,8 @@ export function DeadlineHeatmap({
                   <button
                     key={i}
                     onClick={() => (hasItems ? setSelectedDay(day) : undefined)}
-                    className={`aspect-square rounded-md flex flex-col items-center justify-center ${bg} ${
-                      isToday ? "ring-2 ring-[#4A5FD4] ring-offset-1" : ""
+                    className={`aspect-square rounded flex flex-col items-center justify-center ${bg} ${
+                      isToday ? "ring-1 ring-[#4A5FD4] ring-offset-[1px]" : ""
                     } ${hasItems ? "cursor-pointer hover:opacity-80 transition-opacity" : "cursor-default"}`}
                     title={
                       hasItems
@@ -395,13 +395,13 @@ export function DeadlineHeatmap({
                     }
                   >
                     <span
-                      className={`text-[10px] font-medium leading-none ${textCls}`}
+                      className={`text-[9px] font-medium leading-none ${textCls}`}
                     >
                       {day}
                     </span>
                     {total > 0 && (
                       <span
-                        className={`text-[7.5px] leading-none mt-px ${textCls} opacity-90`}
+                        className={`text-[6.5px] leading-none mt-px ${textCls} opacity-90`}
                       >
                         {total}
                       </span>
@@ -410,7 +410,7 @@ export function DeadlineHeatmap({
                 );
               })}
             </div>
-            <div className="flex items-center gap-3 mt-3 flex-wrap">
+            <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
               {[
                 { cls: "bg-red-400", label: "Overdue" },
                 { cls: "bg-orange-300", label: "Critical" },
@@ -419,8 +419,8 @@ export function DeadlineHeatmap({
                 { cls: "bg-[#F3F2EF]", label: "None" },
               ].map(({ cls, label }) => (
                 <div key={label} className="flex items-center gap-1">
-                  <div className={`w-2.5 h-2.5 rounded-sm ${cls}`} />
-                  <span className="text-[9.5px] text-[#9a9a96]">{label}</span>
+                  <div className={`w-2 h-2 rounded-sm ${cls}`} />
+                  <span className="text-[9px] text-[#9a9a96]">{label}</span>
                 </div>
               ))}
             </div>
@@ -1126,6 +1126,139 @@ export function RegisterPendencyCards({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ─── NonIrConversionChart ─────────────────────────────────────────────────────
+// Bar chart showing monthly NON-IR → IR conversion rate (%).
+
+export interface NonIrConversionRow {
+  month: string; // display label, e.g. "Jan 26"
+  nonIrTotal: number;
+  converted: number; // subset of nonIrTotal that became IR cases
+}
+
+export function NonIrConversionChart({
+  data,
+  loading,
+}: {
+  data: NonIrConversionRow[];
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
+        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+          NON-IR → IR Conversion Rate
+        </h3>
+        <div className="h-[200px] bg-[#F3F2EF] rounded-xl animate-pulse mt-4" />
+      </div>
+    );
+  }
+
+  const rates = data.map((d) =>
+    d.nonIrTotal > 0 ? Math.round((d.converted / d.nonIrTotal) * 100) : 0,
+  );
+  const avgRate =
+    data.length > 0 ? Math.round(rates.reduce((s, r) => s + r, 0) / data.length) : 0;
+
+  const chartData = {
+    labels: data.map((d) => d.month),
+    datasets: [
+      {
+        label: "Conversion Rate (%)",
+        data: rates,
+        backgroundColor: rates.map((r) =>
+          r >= 50 ? "#10B981" : r >= 25 ? "#F59E0B" : "#EF4444",
+        ),
+        borderRadius: 5,
+        barPercentage: 0.65,
+        categoryPercentage: 0.7,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx: { dataIndex: number; parsed: { y: number } }) => {
+            const row = data[ctx.dataIndex];
+            return [
+              `Rate: ${ctx.parsed.y}%`,
+              `Converted: ${row.converted} of ${row.nonIrTotal}`,
+            ];
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 10, family: "DM Sans" }, color: "#9a9a96" },
+      },
+      y: {
+        min: 0,
+        max: 100,
+        grid: { color: "#F3F2EF" },
+        ticks: {
+          font: { size: 10, family: "DM Sans" },
+          color: "#9a9a96",
+          callback: (value: number | string) => `${value}%`,
+        },
+      },
+    },
+  };
+
+  const totalConverted = data.reduce((s, d) => s + d.converted, 0);
+  const totalNonIr = data.reduce((s, d) => s + d.nonIrTotal, 0);
+
+  return (
+    <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
+      <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        NON-IR → IR Conversion Rate
+      </h3>
+      <div className="flex items-center gap-4 mt-1 mb-3 flex-wrap">
+        <span className="text-[10.5px] text-[#9a9a96]">
+          Total converted:{" "}
+          <span className="font-medium text-[#4A5FD4]">
+            {totalConverted} / {totalNonIr}
+          </span>
+        </span>
+        <span className="text-[10.5px] text-[#9a9a96]">
+          Avg rate:{" "}
+          <span
+            className={`font-medium ${avgRate >= 50 ? "text-emerald-600" : avgRate >= 25 ? "text-amber-500" : "text-red-500"}`}
+          >
+            {avgRate}%
+          </span>
+        </span>
+        <div className="flex items-center gap-2 ml-auto flex-wrap">
+          {[
+            { cls: "bg-emerald-500", label: "≥50%" },
+            { cls: "bg-amber-400", label: "25–49%" },
+            { cls: "bg-red-400", label: "<25%" },
+          ].map(({ cls, label }) => (
+            <div key={label} className="flex items-center gap-1">
+              <div className={`w-2 h-2 rounded-sm ${cls}`} />
+              <span className="text-[9.5px] text-[#9a9a96]">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {data.length === 0 ? (
+        <div className="h-[200px] flex items-center justify-center text-[11px] text-[#9a9a96]">
+          No conversion data available
+        </div>
+      ) : (
+        <div className="h-[200px]">
+          <Bar data={chartData} options={options} />
+        </div>
+      )}
     </div>
   );
 }

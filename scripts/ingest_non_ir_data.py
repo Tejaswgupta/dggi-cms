@@ -5,16 +5,16 @@ Source: 'MZU_ Non-IR Pending.xlsx'
         Sheet: 'Pending Non-IR'  (~71 rows)
 
 Column mapping:
-  Col 0  Sr. No.             → (row key for logging)
-  Col 1  Non-IR Register No. → legacy_non_ir_no
-  Col 2  Name of TP          → taxpayer_name
-  Col 3  GSTIN               → gstins
-  Col 4  Initiation date     → date_of_non_ir (used for FY sequencing)
-  Col 5  REIC/Co-lending     → (skipped)
-  Col 6  SIO                 → sio_name
-  Col 7  Group               → group (prefixed "Group " + letter)
-  Col 8  Mode                → mode_of_initiation
-  Col 9  Current Status      → latest_status
+  Col 0  Non-IR Register No. → legacy_non_ir_no
+  Col 1  Name of TP          → taxpayer_name
+  Col 2  GSTIN               → gstins
+  Col 3  Initiation date     → date_of_non_ir (used for FY sequencing)
+  Col 4  REIC/Co-lending     → (skipped)
+  Col 5  SIO                 → sio_name
+  Col 6  Group               → group (prefixed "Group " + letter)
+  Col 7  Mode                → mode_of_initiation
+  Col 8  Current Status      → latest_status
+  Col 9  email SIO           → sio_email
 
 record_id generation (FY-based, date-sequenced):
   - Extract short FY from date_of_non_ir (e.g. 2026-05-01 → "26-27")
@@ -112,6 +112,25 @@ def fy_from_date(date_str: str | None) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Batch email → votum_users.id resolver
+# ---------------------------------------------------------------------------
+
+def resolve_sio_emails(sb, workspace_id: str, emails: list[str]) -> dict[str, str]:
+    """Return {email: user_id} for all emails found in votum_users."""
+    unique = [e for e in set(emails) if e]
+    if not unique:
+        return {}
+    res = (
+        sb.table("votum_users")
+        .select("id,email")
+        .eq("workspace_id", workspace_id)
+        .in_("email", unique)
+        .execute()
+    )
+    return {row["email"]: row["id"] for row in (res.data or [])}
+
+
+# ---------------------------------------------------------------------------
 # Upsert: legacy_non_ir_no match → update; no match → insert
 # ---------------------------------------------------------------------------
 
@@ -170,27 +189,24 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
 
     # Skip row 0 (title) and row 1 (header); data starts at index 2
     raw_records = []
-    for row in rows[2:]:
-        if row[0] is None:
-            continue
-        try:
-            sr_no = int(row[0])
-        except (ValueError, TypeError):
+    for idx, row in enumerate(rows[2:], start=1):
+        if row[0] is None and row[1] is None:
             continue
 
-        nir_date = parse_date(row[4])
-        group_raw = clean(row[7])
+        nir_date = parse_date(row[3])
+        group_raw = clean(row[6])
 
         raw_records.append({
-            "sr_no": sr_no,
-            "legacy_non_ir_no": clean(row[1]),
+            "sr_no": idx,
+            "legacy_non_ir_no": clean(row[0]),
             "date": nir_date,
-            "taxpayer_name": clean(row[2]),
-            "gstins": clean(row[3]),
-            "officer_name": clean(row[6]),
+            "taxpayer_name": clean(row[1]),
+            "gstins": clean(row[2]),
+            "officer_name": clean(row[5]),
             "group_val": f"Group {group_raw}" if group_raw else None,
-            "mode": clean(row[8]),
-            "latest_status": clean(row[9]),
+            "mode": clean(row[7]),
+            "latest_status": clean(row[8]),
+            "sio_email": clean(row[9]),
         })
 
     # Group by FY, sort by date within each FY, assign sequential record_ids
@@ -207,10 +223,18 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
             rec["record_id"] = f"NIR-{seq:03d}-{fy}"
             assigned.append(rec)
 
+    # Batch-resolve sio emails → user IDs
+    all_emails = [r.get("sio_email") for r in assigned if r.get("sio_email")]
+    email_to_user_id = resolve_sio_emails(sb, workspace_id, all_emails) if not dry_run else {}
+    if dry_run:
+        print(f"  (dry run: skipping email→user_id resolution; {len(all_emails)} emails to resolve)\n")
+
     inserted = updated = skipped_count = 0
 
     for rec in assigned:
         sr_no = rec["sr_no"]
+        sio_email = rec.get("sio_email")
+        sio_user_id = email_to_user_id.get(sio_email) if sio_email else None
 
         payload = {
             "record_id": rec["record_id"],
@@ -220,6 +244,7 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
             "date_of_non_ir": rec["date"],
             "group": rec["group_val"],
             "sio_name": rec["officer_name"],
+            "handling_io_sio": sio_user_id,
             "mode_of_initiation": rec["mode"],
             "latest_status": rec["latest_status"],
             "is_ir": False,
@@ -232,6 +257,7 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
             print(
                 f"  [#{sr_no:03d}] taxpayer={rec['taxpayer_name']!r} | date={rec['date']}"
                 f" | group={rec['group_val']!r} | sio={rec['officer_name']!r}"
+                f" | sio_email={sio_email!r}"
                 f" → {rec['record_id']}  legacy_non_ir_no={rec['legacy_non_ir_no']!r}"
             )
 

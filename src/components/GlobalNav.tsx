@@ -5,6 +5,7 @@ import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   AlertTriangle,
   Archive,
   BarChart3,
@@ -24,6 +25,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const USERS_MGMT_ROLES = ["ADG", "DD_INT"];
+const OFFICER_ACTIVITY_ROLES = ["ADG"];
 const NOTIF_ROLES = ["SIO", "DD", "DD_INT", "IO"];
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
@@ -31,6 +33,7 @@ type SidebarItem = { href: string; label: string; icon: LucideIcon };
 const DASHBOARD_ITEMS: SidebarItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/users", label: "Users", icon: Users },
+  { href: "/dashboard/officer-activity", label: "Officer Activity", icon: Activity },
 ];
 
 const REGISTER_ITEMS: SidebarItem[] = [
@@ -170,11 +173,14 @@ export default function GlobalNav() {
   }, []);
 
   const canManageUsers = USERS_MGMT_ROLES.includes(dggiRole ?? "");
+  const canViewOfficerActivity = OFFICER_ACTIVITY_ROLES.includes(dggiRole ?? "");
   const showNotifications = NOTIF_ROLES.includes(dggiRole ?? "");
 
-  const visibleDashboardItems = DASHBOARD_ITEMS.filter(
-    (item) => item.href !== "/users" || canManageUsers,
-  );
+  const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
+    if (item.href === "/users") return canManageUsers;
+    if (item.href === "/dashboard/officer-activity") return canViewOfficerActivity;
+    return true;
+  });
 
   const visibleInvestigationItems = [
     ...INVESTIGATION_ITEMS,
@@ -208,7 +214,10 @@ export default function GlobalNav() {
             </p>
             <div className="flex flex-col gap-0.5">
               {section.items.map((item) => {
-                const active = pathname.startsWith(item.href);
+                const active =
+                  item.href === "/dashboard"
+                    ? pathname === "/dashboard"
+                    : pathname.startsWith(item.href);
                 const Icon = item.icon;
                 const isNotif = item.href === "/tasks/notifications";
                 return (

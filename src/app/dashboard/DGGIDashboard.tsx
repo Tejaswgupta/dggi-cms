@@ -31,6 +31,7 @@ import { toast } from "react-toastify";
 import type {
   DetectionRecoveryRow,
   IssueInvolvedRow,
+  NonIrConversionRow,
   RegisterActivityDataset,
   RegisterPendencyCardRow,
 } from "./DGGICharts";
@@ -39,6 +40,7 @@ import {
   DeadlineHeatmap,
   DetectionRecoveryChart,
   IssueInvolvedChart,
+  NonIrConversionChart,
   OfficerExposureChart,
   ZoneIntelligencePanel,
 } from "./DGGICharts";
@@ -915,6 +917,7 @@ function GraphView({
   allItemsRaw,
   detectionRecoveryData,
   issueInvolvedData,
+  nonIrConversionData,
   activityDatasets,
   registerRows,
   loading,
@@ -927,6 +930,7 @@ function GraphView({
   allItemsRaw: DeadlineItem[];
   detectionRecoveryData: DetectionRecoveryRow[];
   issueInvolvedData: IssueInvolvedRow[];
+  nonIrConversionData: NonIrConversionRow[];
   activityDatasets: RegisterActivityDataset[];
   registerRows: RegisterPendencyCardRow[];
   loading: boolean;
@@ -963,6 +967,9 @@ function GraphView({
         <IssueInvolvedChart data={issueInvolvedData} loading={loading} />
         <OfficerExposureChart items={allItemsRaw} loading={loading} />
       </div>
+
+      {/* NON-IR → IR Conversion Rate */}
+      <NonIrConversionChart data={nonIrConversionData} loading={loading} />
 
       {/* Deadline heatmap */}
       <DeadlineHeatmap items={allItems} loading={loading} />
@@ -1009,12 +1016,16 @@ export default function DGGIDashboard() {
   const [activityDatasets, setActivityDatasets] = useState<
     RegisterActivityDataset[]
   >([]);
+  const [nonIrConversionData, setNonIrConversionData] = useState<
+    NonIrConversionRow[]
+  >([]);
   const [usersMap, setUsersMap] = useState<Map<string, string>>(new Map());
 
   // Deadline Tracker state
   const [regFilter, setRegFilter] = useState<string>("all");
   const [healthFilter, setHealthFilter] = useState<Urgency | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "graph">("table");
+  const [uniqueMode, setUniqueMode] = useState(false);
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [showRulesDialog, setShowRulesDialog] = useState(false);
   const [unreadCommentCount, setUnreadCommentCount] = useState(0);
@@ -1170,6 +1181,7 @@ export default function DGGIDashboard() {
         prevInvCount,
         irRecordsRes,
         caseRecordsRes,
+        nonIrRecordsRes,
       ] = await Promise.all([
         // Single query replaces 9 source-table fetches — DB already computed & stored everything
         (async () => {
@@ -1255,6 +1267,17 @@ export default function DGGIDashboard() {
           "dggi_records",
           rbac,
         ),
+        // NON-IR conversion: fetch all dggi_records with date_of_non_ir set (current FY)
+        applyRbacFilter(
+          supabase
+            .from("dggi_records")
+            .select("date_of_non_ir, is_ir")
+            .eq("workspace_id", wid)
+            .not("date_of_non_ir", "is", null)
+            .gte("date_of_non_ir", fyStart),
+          "dggi_records",
+          rbac,
+        ),
       ]);
 
       setComputedDeadlineRows(
@@ -1321,6 +1344,34 @@ export default function DGGIDashboard() {
         Array.from(issueMap.entries())
           .sort(([, a], [, b]) => b - a)
           .map(([issue, count]) => ({ issue, count })),
+      );
+
+      // NON-IR → IR conversion by month
+      const nonIrRows = (nonIrRecordsRes.data ?? []) as AnyRecord[];
+      const conversionMap = new Map<
+        string,
+        { nonIrTotal: number; converted: number }
+      >();
+      for (const row of nonIrRows) {
+        if (!row.date_of_non_ir) continue;
+        const d = new Date(row.date_of_non_ir as string);
+        if (isNaN(d.getTime())) continue;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const entry = conversionMap.get(key) ?? { nonIrTotal: 0, converted: 0 };
+        entry.nonIrTotal++;
+        if (row.is_ir === true) entry.converted++;
+        conversionMap.set(key, entry);
+      }
+      setNonIrConversionData(
+        Array.from(conversionMap.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([key, vals]) => ({
+            month: new Date(key + "-01").toLocaleDateString("en-IN", {
+              month: "short",
+              year: "2-digit",
+            }),
+            ...vals,
+          })),
       );
 
       // Activity batch: monthly new-record counts per register for current FY
@@ -1404,6 +1455,7 @@ export default function DGGIDashboard() {
     warningItems,
     safeItems,
     pendencyBreakdown,
+    uniqueCounts,
   } = useMemo(() => {
     const filtered =
       groupFilter === "all"
@@ -1461,12 +1513,17 @@ export default function DGGIDashboard() {
       breakdown[table][urgency]++;
     }
 
+    // Unique case counts per urgency (worst urgency per sourceTable|recordId)
+    const uniqueCounts = { expired: 0, critical: 0, warning: 0, safe: 0 };
+    for (const u of worstUrgency.values()) uniqueCounts[u]++;
+
     return {
       expiredItems: expired,
       criticalItems: critical,
       warningItems: warning,
       safeItems: safe,
       pendencyBreakdown: breakdown,
+      uniqueCounts,
     };
   }, [allDeadlineItemsRaw, groupFilter]);
 
@@ -1736,29 +1793,56 @@ export default function DGGIDashboard() {
               >
                 <HelpCircle size={14} />
               </button>
-              {/* View mode toggle */}
+              {/* Unique / total toggle */}
               <div className="flex items-center bg-[#F3F2EF] rounded-lg p-0.5 text-[11.5px] font-medium">
                 <button
-                  onClick={() => setViewMode("table")}
+                  onClick={() => setUniqueMode(false)}
                   className={`px-3 py-1.5 rounded-md transition-all ${
-                    viewMode === "table"
+                    !uniqueMode
                       ? "bg-white text-[#1a1a1a] shadow-sm"
                       : "text-[#6b6b6b] hover:text-[#1a1a1a]"
                   }`}
+                  title="Count each deadline trigger"
                 >
-                  Table
+                  All Deadlines
                 </button>
                 <button
-                  onClick={() => setViewMode("graph")}
+                  onClick={() => setUniqueMode(true)}
                   className={`px-3 py-1.5 rounded-md transition-all ${
-                    viewMode === "graph"
+                    uniqueMode
                       ? "bg-white text-[#1a1a1a] shadow-sm"
                       : "text-[#6b6b6b] hover:text-[#1a1a1a]"
                   }`}
+                  title="Count each case once (worst deadline)"
                 >
-                  Graph
+                  Unique Cases
                 </button>
               </div>
+              {/* View mode toggle — Graph tab is ADG-only */}
+              {isAdg && (
+                <div className="flex items-center bg-[#F3F2EF] rounded-lg p-0.5 text-[11.5px] font-medium">
+                  <button
+                    onClick={() => setViewMode("table")}
+                    className={`px-3 py-1.5 rounded-md transition-all ${
+                      viewMode === "table"
+                        ? "bg-white text-[#1a1a1a] shadow-sm"
+                        : "text-[#6b6b6b] hover:text-[#1a1a1a]"
+                    }`}
+                  >
+                    Table
+                  </button>
+                  <button
+                    onClick={() => setViewMode("graph")}
+                    className={`px-3 py-1.5 rounded-md transition-all ${
+                      viewMode === "graph"
+                        ? "bg-white text-[#1a1a1a] shadow-sm"
+                        : "text-[#6b6b6b] hover:text-[#1a1a1a]"
+                    }`}
+                  >
+                    Graph
+                  </button>
+                </div>
+              )}
               {/* <Link
                 href="/tasks"
                 className="flex items-center gap-1.5 bg-white hover:bg-[#F3F2EF] border border-[#EDEDEA] rounded-lg px-3 py-1.5 text-[11.5px] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all"
@@ -1885,22 +1969,20 @@ export default function DGGIDashboard() {
               )}
             </div>
             <span className="text-[11px] text-[#9a9a96]">
-              {expiredItems.length +
-                criticalItems.length +
-                warningItems.length +
-                safeItems.length}{" "}
-              total deadline triggers tracked
+              {uniqueMode
+                ? `${Object.values(uniqueCounts).reduce((s, c) => s + c, 0)} unique cases tracked`
+                : `${expiredItems.length + criticalItems.length + warningItems.length + safeItems.length} total deadline triggers tracked`}
             </span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#F3F2EF]">
             {(
               [
-                { urgency: "expired" as Urgency, count: expiredItems.length },
-                { urgency: "critical" as Urgency, count: criticalItems.length },
-                { urgency: "warning" as Urgency, count: warningItems.length },
-                { urgency: "safe" as Urgency, count: safeItems.length },
+                { urgency: "expired" as Urgency, count: expiredItems.length, uniqueCount: uniqueCounts.expired },
+                { urgency: "critical" as Urgency, count: criticalItems.length, uniqueCount: uniqueCounts.critical },
+                { urgency: "warning" as Urgency, count: warningItems.length, uniqueCount: uniqueCounts.warning },
+                { urgency: "safe" as Urgency, count: safeItems.length, uniqueCount: uniqueCounts.safe },
               ] as const
-            ).map(({ urgency, count }) => {
+            ).map(({ urgency, count, uniqueCount }) => {
               const cfg = URGENCY_CFG[urgency];
               const isActive = healthFilter === urgency;
               const isDimmed = healthFilter !== null && !isActive;
@@ -1916,7 +1998,7 @@ export default function DGGIDashboard() {
                   <p
                     className={`text-[28px] font-bold leading-none tabular-nums ${cfg.numCls}`}
                   >
-                    {loading ? "—" : count}
+                    {loading ? "—" : uniqueMode ? uniqueCount : count}
                   </p>
                   <div className="flex items-center justify-between mt-1.5">
                     <div>
@@ -1949,7 +2031,7 @@ export default function DGGIDashboard() {
         </div>
 
         {/* ── Main Grid (conditional on view mode) ── */}
-        {viewMode === "graph" ? (
+        {viewMode === "graph" && isAdg ? (
           <GraphView
             expiredItems={expiredItems}
             criticalItems={criticalItems}
@@ -1959,6 +2041,7 @@ export default function DGGIDashboard() {
             allItemsRaw={allDeadlineItemsRaw}
             detectionRecoveryData={detectionRecoveryData}
             issueInvolvedData={issueInvolvedData}
+            nonIrConversionData={nonIrConversionData}
             activityDatasets={activityDatasets}
             registerRows={allRegisterRows}
             loading={loading}

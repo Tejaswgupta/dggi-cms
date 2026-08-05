@@ -1,26 +1,11 @@
 "use client";
 
-import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { getWorkspaceId } from "@/lib/action/workspace";
+import { DGGI_GROUPS, DGGI_ROLE_LABELS, DGGI_ROLES, type DggiRole } from "@/lib/dggi-constants";
+import clientConnectionWithSupabase from "@/lib/supabase/client";
+import { ChevronDown, Search, Trash2, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { Users, ChevronDown, X, Search, Trash2, UserPlus } from "lucide-react";
-import { DGGI_GROUPS } from "@/lib/dggi-constants";
-
-const DGGI_ROLES = ["ADG", "DD_INT", "DD", "AD", "ADC", "JD", "SIO", "SIO_INT", "IO"] as const;
-type DggiRole = (typeof DGGI_ROLES)[number];
-
-const ROLE_LABELS: Record<DggiRole, string> = {
-  ADG: "Additional Director General",
-  DD_INT: "Deputy Director (Intelligence)",
-  DD: "Deputy Director",
-  AD: "Assistant Director",
-  ADC: "Assistant Deputy Commissioner",
-  JD: "Joint Director",
-  SIO: "Senior Intelligence Officer",
-  SIO_INT: "Senior Intelligence Officer (Intelligence)",
-  IO: "Intelligence Officer",
-};
 
 interface User {
   id: string;
@@ -50,14 +35,20 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<UserWithGroups | null>(null);
   const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState<AddUserForm>({ name: "", email: "", dggi_role: "" });
+  const [addForm, setAddForm] = useState<AddUserForm>({
+    name: "",
+    email: "",
+    dggi_role: "",
+  });
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const loadCurrentUser = async () => {
     const supabase = clientConnectionWithSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase
       .from("votum_users")
@@ -75,7 +66,11 @@ export default function UsersPage() {
       if (!workspace_id) return;
 
       const [{ data: usersData }, { data: groupData }] = await Promise.all([
-        supabase.from("votum_users").select("*").eq("workspace_id", workspace_id).order("name"),
+        supabase
+          .from("votum_users")
+          .select("*")
+          .eq("workspace_id", workspace_id)
+          .order("name"),
         supabase.from("dggi_user_group_assignments").select("*"),
       ]);
 
@@ -89,7 +84,7 @@ export default function UsersPage() {
         (usersData ?? []).map((u) => ({
           ...u,
           groups: groupsByUser[u.id] ?? [],
-        }))
+        })),
       );
     } catch (err) {
       console.error(err);
@@ -112,7 +107,10 @@ export default function UsersPage() {
 
   const removeGroup = (group: string) => {
     if (!editingUser) return;
-    setEditingUser({ ...editingUser, groups: editingUser.groups.filter((g) => g !== group) });
+    setEditingUser({
+      ...editingUser,
+      groups: editingUser.groups.filter((g) => g !== group),
+    });
   };
 
   const saveUser = async () => {
@@ -133,9 +131,14 @@ export default function UsersPage() {
 
       if (updateError) throw updateError;
 
-      const originalGroups = users.find((u) => u.id === editingUser.id)?.groups ?? [];
-      const toRemove = originalGroups.filter((g) => !editingUser.groups.includes(g));
-      const toAdd = editingUser.groups.filter((g) => !originalGroups.includes(g));
+      const originalGroups =
+        users.find((u) => u.id === editingUser.id)?.groups ?? [];
+      const toRemove = originalGroups.filter(
+        (g) => !editingUser.groups.includes(g),
+      );
+      const toAdd = editingUser.groups.filter(
+        (g) => !originalGroups.includes(g),
+      );
 
       if (toRemove.length > 0) {
         const { error: deleteError } = await supabase
@@ -155,7 +158,7 @@ export default function UsersPage() {
               user_id: editingUser.id,
               group_name,
               workspace_id: editingUser.workspace_id,
-            }))
+            })),
           );
 
         if (insertError) throw insertError;
@@ -164,9 +167,14 @@ export default function UsersPage() {
       setUsers((prev) =>
         prev.map((u) =>
           u.id === editingUser.id
-            ? { ...u, name: trimmedName, dggi_role: editingUser.dggi_role, groups: editingUser.groups }
-            : u
-        )
+            ? {
+                ...u,
+                name: trimmedName,
+                dggi_role: editingUser.dggi_role,
+                groups: editingUser.groups,
+              }
+            : u,
+        ),
       );
       setEditingUser(null);
       toast.success("User updated");
@@ -204,7 +212,11 @@ export default function UsersPage() {
 
       if (error) throw error;
 
-      setUsers((prev) => [...prev, { ...data, groups: [] }].sort((a, b) => a.name.localeCompare(b.name)));
+      setUsers((prev) =>
+        [...prev, { ...data, groups: [] }].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+      );
       setShowAddModal(false);
       setAddForm({ name: "", email: "", dggi_role: "" });
       toast.success("User added");
@@ -247,7 +259,7 @@ export default function UsersPage() {
   const filtered = users.filter(
     (u) =>
       u.name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.toLowerCase())
+      u.email?.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -256,14 +268,19 @@ export default function UsersPage() {
       <div className="bg-white border-b border-[#EDEDEA] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <Users size={18} className="text-[#4A5FD4]" />
-          <h1 className="text-base font-semibold text-[#1a1a1a]">User Management</h1>
+          <h1 className="text-base font-semibold text-[#1a1a1a]">
+            User Management
+          </h1>
           <span className="text-xs text-[#9a9a96] bg-[#F3F2EF] px-2 py-0.5 rounded-full">
             {users.length} users
           </span>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a9a96]" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a9a96]"
+            />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -294,17 +311,28 @@ export default function UsersPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#EDEDEA] bg-[#FAFAF8]">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Name</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Email</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">DGGI Role</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">Groups</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+                    Email
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+                    DGGI Role
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
+                    Groups
+                  </th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-12 text-[#9a9a96] text-sm">
+                    <td
+                      colSpan={5}
+                      className="text-center py-12 text-[#9a9a96] text-sm"
+                    >
                       No users found
                     </td>
                   </tr>
@@ -319,7 +347,9 @@ export default function UsersPage() {
                           <div className="w-7 h-7 rounded-full bg-[#EEF2FF] text-[#4A5FD4] flex items-center justify-center text-xs font-semibold shrink-0">
                             {user.name?.charAt(0)?.toUpperCase() ?? "?"}
                           </div>
-                          <span className="font-medium text-[#1a1a1a]">{user.name}</span>
+                          <span className="font-medium text-[#1a1a1a]">
+                            {user.name}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-[#6b6b6b]">{user.email}</td>
@@ -386,7 +416,9 @@ export default function UsersPage() {
                   {editingUser.name?.charAt(0)?.toUpperCase() ?? "?"}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-[#1a1a1a]">{editingUser.name}</p>
+                  <p className="text-sm font-semibold text-[#1a1a1a]">
+                    {editingUser.name}
+                  </p>
                   <p className="text-xs text-[#9a9a96]">{editingUser.email}</p>
                 </div>
               </div>
@@ -406,7 +438,9 @@ export default function UsersPage() {
                 </label>
                 <input
                   value={editingUser.name}
-                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                  onChange={(e) =>
+                    setEditingUser({ ...editingUser, name: e.target.value })
+                  }
                   className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg outline-none focus:border-[#4A5FD4]"
                   placeholder="Full name"
                 />
@@ -421,18 +455,24 @@ export default function UsersPage() {
                   <select
                     value={editingUser.dggi_role ?? ""}
                     onChange={(e) =>
-                      setEditingUser({ ...editingUser, dggi_role: e.target.value || null })
+                      setEditingUser({
+                        ...editingUser,
+                        dggi_role: e.target.value || null,
+                      })
                     }
                     className="w-full appearance-none px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] pr-8"
                   >
                     <option value="">No role assigned</option>
                     {DGGI_ROLES.map((r) => (
                       <option key={r} value={r}>
-                        {r} — {ROLE_LABELS[r]}
+                        {r} — {DGGI_ROLE_LABELS[r as DggiRole]}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none" />
+                  <ChevronDown
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none"
+                  />
                 </div>
               </div>
 
@@ -468,18 +508,28 @@ export default function UsersPage() {
                       const val = e.target.value;
                       if (!val || !editingUser) return;
                       if (!editingUser.groups.includes(val)) {
-                        setEditingUser({ ...editingUser, groups: [...editingUser.groups, val] });
+                        setEditingUser({
+                          ...editingUser,
+                          groups: [...editingUser.groups, val],
+                        });
                       }
                       e.target.value = "";
                     }}
                     className="w-full appearance-none px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] pr-8"
                   >
                     <option value="">Add a group...</option>
-                    {DGGI_GROUPS.filter((g) => !editingUser?.groups.includes(g)).map((g) => (
-                      <option key={g} value={g}>{g}</option>
+                    {DGGI_GROUPS.filter(
+                      (g) => !editingUser?.groups.includes(g),
+                    ).map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
                     ))}
                   </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none" />
+                  <ChevronDown
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none"
+                  />
                 </div>
               </div>
             </div>
@@ -512,10 +562,15 @@ export default function UsersPage() {
                 <div className="w-8 h-8 rounded-full bg-[#EEF2FF] text-[#4A5FD4] flex items-center justify-center">
                   <UserPlus size={16} />
                 </div>
-                <p className="text-sm font-semibold text-[#1a1a1a]">Add New User</p>
+                <p className="text-sm font-semibold text-[#1a1a1a]">
+                  Add New User
+                </p>
               </div>
               <button
-                onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", dggi_role: "" }); }}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setAddForm({ name: "", email: "", dggi_role: "" });
+                }}
                 className="text-[#9a9a96] hover:text-[#1a1a1a] transition-colors"
               >
                 <X size={16} />
@@ -529,7 +584,9 @@ export default function UsersPage() {
                 </label>
                 <input
                   value={addForm.name}
-                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, name: e.target.value })
+                  }
                   className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg outline-none focus:border-[#4A5FD4]"
                   placeholder="Full name"
                   autoFocus
@@ -543,7 +600,9 @@ export default function UsersPage() {
                 <input
                   type="email"
                   value={addForm.email}
-                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                  onChange={(e) =>
+                    setAddForm({ ...addForm, email: e.target.value })
+                  }
                   onKeyDown={(e) => e.key === "Enter" && addUser()}
                   className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg outline-none focus:border-[#4A5FD4]"
                   placeholder="user@example.com"
@@ -557,24 +616,32 @@ export default function UsersPage() {
                 <div className="relative">
                   <select
                     value={addForm.dggi_role}
-                    onChange={(e) => setAddForm({ ...addForm, dggi_role: e.target.value })}
+                    onChange={(e) =>
+                      setAddForm({ ...addForm, dggi_role: e.target.value })
+                    }
                     className="w-full appearance-none px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg bg-white outline-none focus:border-[#4A5FD4] pr-8"
                   >
                     <option value="">No role assigned</option>
                     {DGGI_ROLES.map((r) => (
                       <option key={r} value={r}>
-                        {r} — {ROLE_LABELS[r]}
+                        {r} — {DGGI_ROLE_LABELS[r as DggiRole]}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none" />
+                  <ChevronDown
+                    size={14}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9a9a96] pointer-events-none"
+                  />
                 </div>
               </div>
             </div>
 
             <div className="px-5 py-4 border-t border-[#EDEDEA] flex justify-end gap-2">
               <button
-                onClick={() => { setShowAddModal(false); setAddForm({ name: "", email: "", dggi_role: "" }); }}
+                onClick={() => {
+                  setShowAddModal(false);
+                  setAddForm({ name: "", email: "", dggi_role: "" });
+                }}
                 className="px-4 py-2 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors"
               >
                 Cancel
@@ -599,7 +666,9 @@ export default function UsersPage() {
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-4">
                 <Trash2 size={18} className="text-red-500" />
               </div>
-              <p className="text-sm font-semibold text-[#1a1a1a] mb-1">Remove user?</p>
+              <p className="text-sm font-semibold text-[#1a1a1a] mb-1">
+                Remove user?
+              </p>
               <p className="text-sm text-[#6b6b6b]">
                 This will remove{" "}
                 <span className="font-medium text-[#1a1a1a]">

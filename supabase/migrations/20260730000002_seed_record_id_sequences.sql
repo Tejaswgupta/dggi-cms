@@ -156,31 +156,34 @@ begin
     do update set next_val = excluded.next_val;
   end loop;
 
-  -- NIR_CASE — dggi_non_ir_case_records  (NIR/{NNN}/{YY-YY})
-  -- Uses key "NIR_CASE" to avoid sharing a counter with dggi_records NIR cases.
-  for r in
-    select workspace_id,
-           split_part(record_id, '/', 3) as fy,
-           max(split_part(record_id, '/', 2)::integer) as max_seq
-    from dggi_non_ir_case_records
-    where record_id ~ '^NIR/[0-9]+/[0-9]{2}-[0-9]{2}$'
-    group by workspace_id, fy
-  loop
-    insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-    values (r.workspace_id::uuid, 'NIR_CASE', r.fy, r.max_seq + 1)
-    on conflict (workspace_id, prefix, fy)
-    do update set next_val = excluded.next_val;
-  end loop;
-
   -- ── IR cases: {NNN}/GST/{YYYY-YY}  ─────────────────────────────────────────
-  -- Sequence key: prefix='IR', fy='2026-27' — next entry: 93
+  -- Sequence key: prefix='IR', fy='2026-27' (long form — matches currentFYFull() in app)
+  -- next entry: 93
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
   values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'IR', '2026-27', 93)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
+  -- Fix: reassign the one record issued from the rogue IR/26-27 row to the correct seq
+  update dggi_records
+  set record_id = lpad(
+      next_seq_val(
+          'e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid,
+          'IR',
+          '2026-27'
+      )::text,
+      3, '0'
+  ) || '/GST/2026-27'
+  where record_id = '001/GST/2026-27'
+    and workspace_id = 'e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid;
+
+  -- Remove the rogue short-form IR row that caused the duplicate
+  delete from public.record_id_sequences
+  where workspace_id = 'e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid
+    and prefix = 'IR' and fy = '26-27';
+
   -- ── NON-IR cases: NIR-{NNN}-{YY-YY}  ───────────────────────────────────────
-  -- Sequence key: prefix='NIR', fy='26-27' — next entry: 137 overall (82 from Apr 2026)
+  -- Sequence key: prefix='NIR', fy='26-27' — next entry: 137 (136 already in data)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
   values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'NIR', '26-27', 137)
   on conflict (workspace_id, prefix, fy)
@@ -199,6 +202,32 @@ begin
   -- CR_NSP: DGGI/MZU/CR-NSP-{YYYY-YY}/{NNN} — next entry: 005
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
   values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'CR_NSP', '2026-27', 5)
+  on conflict (workspace_id, prefix, fy)
+  do update set next_val = excluded.next_val;
+
+  -- ── Adjudication / other registers  ─────────────────────────────────────────
+
+  -- AD-DD — next entry: 11
+  insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'AD-DD', '26-27', 11)
+  on conflict (workspace_id, prefix, fy)
+  do update set next_val = excluded.next_val;
+
+  -- ADC-JC — next entry: 19 (18 already in data)
+  insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'ADC-JC', '26-27', 19)
+  on conflict (workspace_id, prefix, fy)
+  do update set next_val = excluded.next_val;
+
+  -- CNR — next entry: 3
+  insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'CNR', '26-27', 3)
+  on conflict (workspace_id, prefix, fy)
+  do update set next_val = excluded.next_val;
+
+  -- SIO — next entry: 2
+  insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
+  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'SIO', '26-27', 2)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 

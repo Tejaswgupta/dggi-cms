@@ -8,12 +8,12 @@
     "db_id": "d325a7f7-af19-40f8-a608-76c03100099d"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 2,
     "sheet": "IR Issued (2026-27)",
     "record_id": "02/GST/2026-27",
-    "db_id": "a160ea27-d54e-4e7c-93a0-4d2c035d58fa",
-    "digit_id": "2026041513000-782"
+    "db_id": "a160ea27-d54e-4e7c-93a0-4d2c035d58fa"
   },
   {
     "action": "skip",
@@ -40,36 +40,36 @@
     "db_id": "ffefd985-a9cc-42f0-a17f-88f2438b4810"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 6,
     "sheet": "IR Issued (2026-27)",
     "record_id": "07 /GST/2026-27",
-    "db_id": "178c80fe-44a7-43b3-a611-ab0ac967bae0",
-    "digit_id": "20260408131135-615"
+    "db_id": "178c80fe-44a7-43b3-a611-ab0ac967bae0"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 7,
     "sheet": "IR Issued (2026-27)",
     "record_id": "08 /GST/2026-27",
-    "db_id": "347a920f-aed8-457b-bf7e-63afae8f9e30",
-    "digit_id": "202604008132559-501"
+    "db_id": "347a920f-aed8-457b-bf7e-63afae8f9e30"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 8,
     "sheet": "IR Issued (2026-27)",
     "record_id": "09 /GST/2026-27",
-    "db_id": "4fc6f3a9-6c51-4949-b65d-a187d7f07aca",
-    "digit_id": "20260408131834-506"
+    "db_id": "4fc6f3a9-6c51-4949-b65d-a187d7f07aca"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 9,
     "sheet": "IR Issued (2026-27)",
     "record_id": "10 /GST/2026-27",
-    "db_id": "cbef1720-732e-4cfd-a2d0-cfe3c9ce2514",
-    "digit_id": "20260408133647-407"
+    "db_id": "cbef1720-732e-4cfd-a2d0-cfe3c9ce2514"
   },
   {
     "action": "skip",
@@ -96,12 +96,12 @@
     "db_id": "2e8383f8-87cf-4565-b422-b3c33b7bbca0"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 13,
     "sheet": "IR Issued (2026-27)",
     "record_id": "14/GST/2026-27",
-    "db_id": "0acf11f4-53c8-4a2f-a846-31cfedfeb5b2",
-    "digit_id": "20260410121116-248"
+    "db_id": "0acf11f4-53c8-4a2f-a846-31cfedfeb5b2"
   },
   {
     "action": "skip",
@@ -168,12 +168,12 @@
     "db_id": "3f3b1347-560f-4687-bd51-35ed8f4eafe9"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 22,
     "sheet": "IR Issued (2026-27)",
     "record_id": "24/GST/2026-27",
-    "db_id": "10f79fa2-28ed-4f6b-9996-c7a294d09414",
-    "digit_id": "20260422140738-429"
+    "db_id": "10f79fa2-28ed-4f6b-9996-c7a294d09414"
   },
   {
     "action": "skip",
@@ -200,36 +200,36 @@
     "db_id": "a1775b77-c762-48b0-bac9-61c97bac220a"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 26,
     "sheet": "IR Issued (2026-27)",
     "record_id": "32/GST/2026-27",
-    "db_id": "95866ec5-6163-4c72-9c3b-48f1701ac6d4",
-    "digit_id": "20260512162921-645"
+    "db_id": "95866ec5-6163-4c72-9c3b-48f1701ac6d4"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 27,
     "sheet": "IR Issued (2026-27)",
     "record_id": "36/GST/2026-27",
-    "db_id": "0ec09e01-4440-4b3d-aea2-6e41e2b169d1",
-    "digit_id": "20260519132236-339"
+    "db_id": "0ec09e01-4440-4b3d-aea2-6e41e2b169d1"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 28,
     "sheet": "IR Issued (2026-27)",
     "record_id": "38/GST/2026-27",
-    "db_id": "4d234c4e-9d15-4039-a2f8-a6f9ec2f8e69",
-    "digit_id": "20260519131241-303"
+    "db_id": "4d234c4e-9d15-4039-a2f8-a6f9ec2f8e69"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 29,
     "sheet": "IR Issued (2026-27)",
     "record_id": "29/GST/2026-27",
-    "db_id": "45af2581-a68f-46b0-83f7-15a4243cd11a",
-    "digit_id": "20260505170719-694"
+    "db_id": "45af2581-a68f-46b0-83f7-15a4243cd11a"
   },
   {
     "action": "skip",
@@ -272,20 +272,20 @@
     "db_id": "1c4cc226-c1f6-4713-99a5-c6c774da54fe"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 35,
     "sheet": "IR Issued (2026-27)",
     "record_id": "26/GST/2026-27",
-    "db_id": "37d1b86f-62d0-464b-baf7-d05309109595",
-    "digit_id": "20260506122822-164"
+    "db_id": "37d1b86f-62d0-464b-baf7-d05309109595"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 36,
     "sheet": "IR Issued (2026-27)",
     "record_id": "25/GST/2026-27",
-    "db_id": "d119b119-f014-4fe4-960e-c039a4f2b3d4",
-    "digit_id": "20260507123025-905"
+    "db_id": "d119b119-f014-4fe4-960e-c039a4f2b3d4"
   },
   {
     "action": "skip",
@@ -336,12 +336,12 @@
     "db_id": "38b4ba73-445d-439a-9a72-4eee8e5adf0f"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 43,
     "sheet": "IR Issued (2026-27)",
     "record_id": "56/GST/2026-27",
-    "db_id": "231bc795-2302-4ae3-8308-df49e90968a6",
-    "digit_id": "20260605163351-447"
+    "db_id": "231bc795-2302-4ae3-8308-df49e90968a6"
   },
   {
     "action": "skip",
@@ -384,12 +384,12 @@
     "db_id": "c4a8fa94-0161-42bc-a9da-1da14991bc85"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 49,
     "sheet": "IR Issued (2026-27)",
     "record_id": "48/GST/2026-27",
-    "db_id": "4ccd9ea2-de9e-4915-bc13-10a290b89a60",
-    "digit_id": "20260601184636-309"
+    "db_id": "4ccd9ea2-de9e-4915-bc13-10a290b89a60"
   },
   {
     "action": "skip",
@@ -408,12 +408,12 @@
     "db_id": "23af765f-b2b7-4be9-87b5-6e37b811bcff"
   },
   {
-    "action": "insert",
+    "action": "skip",
+    "reason": "record_id exists",
     "sr_no": 52,
     "sheet": "IR Issued (2026-27)",
     "record_id": "47/GST/2026-27",
-    "db_id": "87145412-69b6-40be-8fce-2293615597b8",
-    "digit_id": "20260601183434-314"
+    "db_id": "87145412-69b6-40be-8fce-2293615597b8"
   },
   {
     "action": "skip",
@@ -542,5 +542,157 @@
     "sheet": "IR Issued (2026-27)",
     "record_id": "49/GST/2026-27",
     "db_id": "98c1464b-fec0-4026-8a59-42e8292f4bfb"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 69,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "74/GST/2026-27",
+    "db_id": "d017e355-4004-46b3-85ce-aaf0606b7b4a"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 70,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "75/GST/2026-27",
+    "db_id": "52592872-fba8-4030-a660-dbce5a0b1443"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 71,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "76/GST/2026-27",
+    "db_id": "ca1ed5fc-81ef-4c43-ba81-ad1af0f143e6"
+  },
+  {
+    "action": "insert",
+    "sr_no": 72,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "77/GST/2026-27",
+    "db_id": "5ce2955a-9095-42de-b714-fd1fd1910885",
+    "digit_id": null
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 73,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "78/GST/2026-27",
+    "db_id": "c1336c9c-5e7c-42d4-9784-ea1bdec6921e"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 74,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "79/GST/2026-27",
+    "db_id": "9bd2476e-5893-420a-a722-ebdda8ad2c0c"
+  },
+  {
+    "action": "insert",
+    "sr_no": 75,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "80/GST/2026-27",
+    "db_id": "baffb893-9772-4aa4-b779-73526f9bd2ba",
+    "digit_id": null
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 76,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "81/GST/2026-27",
+    "db_id": "4e3bf9aa-16bf-40d7-9918-047fdae42542"
+  },
+  {
+    "action": "insert",
+    "sr_no": 77,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "82/GST/2026-27",
+    "db_id": "3240321b-b466-48bc-90a9-91e43364142f",
+    "digit_id": null
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 78,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "83/GST/2026-27",
+    "db_id": "d8ddba93-8f8c-430d-a70d-05f634aa9747"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 79,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "84/GST/2026-27",
+    "db_id": "f4409271-02a6-4df7-bd21-65c37231c79f"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 80,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "85/GST/2026-27",
+    "db_id": "562f5c09-c864-4446-95d7-3d51d12cac74"
+  },
+  {
+    "action": "insert",
+    "sr_no": 81,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "86/GST/2026-27",
+    "db_id": "5aceb869-3f7f-4d5a-afee-91063877022b",
+    "digit_id": null
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 82,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "87/GST/2026-27",
+    "db_id": "916028c7-786d-4776-95c2-7e5b67859f9e"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 83,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "88/GST/2026-27",
+    "db_id": "2dec6ffe-89a5-44c6-9d0c-435ec2a00063"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 84,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "89/GST/2026-27",
+    "db_id": "f35adb32-508d-4da3-b2ed-fe8b67a330a7"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 85,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "90/GST/2026-27",
+    "db_id": "3478176e-6e6f-43e5-a9c5-e3e574560f95"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 86,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "91/GST/2026-27",
+    "db_id": "57066f29-85f8-4f64-aeea-cfe51f68a5ae"
+  },
+  {
+    "action": "skip",
+    "reason": "record_id exists",
+    "sr_no": 87,
+    "sheet": "IR Issued (2026-27)",
+    "record_id": "92/GST/2026-27",
+    "db_id": "03d84b61-1042-420a-8dfc-892f8ff1a3e9"
   }
 ]
