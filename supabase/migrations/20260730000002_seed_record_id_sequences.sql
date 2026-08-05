@@ -160,7 +160,7 @@ begin
   -- Sequence key: prefix='IR', fy='2026-27' (long form — matches currentFYFull() in app)
   -- next entry: 93
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'IR', '2026-27', 93)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'IR', '2026-27', 94)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
