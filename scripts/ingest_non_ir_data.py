@@ -1,10 +1,9 @@
 """
 Ingest NON-IR pending cases data into Supabase dggi_records.
 
-Source: 'MZU_ Non-IR Pending.xlsx'
-        Sheet: 'Pending Non-IR'  (~71 rows)
+Supports two Excel layouts (auto-detected from header row):
 
-Column mapping:
+Layout A — original ('MZU_ Non-IR Pending.xlsx', sheet 'Pending Non-IR'):
   Col 0  Non-IR Register No. → legacy_non_ir_no
   Col 1  Name of TP          → taxpayer_name
   Col 2  GSTIN               → gstins
@@ -15,6 +14,19 @@ Column mapping:
   Col 7  Mode                → mode_of_initiation
   Col 8  Current Status      → latest_status
   Col 9  email SIO           → sio_email
+
+Layout B — new ('MZU_ Non-IR Pending (70).xlsx', sheet 'Pending Non-IR (70)'):
+  Col 0  Sr. No.             → (skipped)
+  Col 1  Non-IR Register No. → legacy_non_ir_no
+  Col 2  Name of TP          → taxpayer_name
+  Col 3  GSTIN               → gstins
+  Col 4  Initiation date     → date_of_non_ir (used for FY sequencing)
+  Col 5  REIC/Co-lending     → (skipped)
+  Col 6  SIO                 → sio_name
+  Col 7  Group               → group (prefixed "Group " + letter)
+  Col 8  Mode                → mode_of_initiation
+  Col 9  Current Status      → latest_status
+  (no email column)
 
 record_id generation (FY-based, date-sequenced):
   - Extract short FY from date_of_non_ir (e.g. 2026-05-01 → "26-27")
@@ -51,10 +63,11 @@ DEFAULT_EXCEL_PATH = os.path.join(
     os.path.dirname(__file__),
     "..",
     "data",
-    "MZU_ Non-IR Pending.xlsx",
+    "MZU_ Non-IR Pending (70).xlsx",
 )
 
-SHEET_NAME = "Pending Non-IR"
+# Both sheet names accepted; the correct one is selected at runtime
+SHEET_NAMES = ["Pending Non-IR (70)", "Pending Non-IR"]
 
 SKIPPED_CSV = os.path.join(os.path.dirname(__file__), "ingest_non_ir_skipped.csv")
 LOG_JSON = os.path.join(os.path.dirname(__file__), "ingest_non_ir_log.json")
@@ -184,30 +197,50 @@ def upsert_non_ir_record(
 # Sheet processor — groups by FY, sorts by date, assigns record_ids
 # ---------------------------------------------------------------------------
 
+def _detect_col_offsets(header_row) -> tuple[int, bool]:
+    """
+    Return (offset, has_email) based on the header row.
+
+    Layout B has 'Sr. No.' in col 0, shifting every column right by 1.
+    Layout A starts directly with 'Non-IR Register No.' in col 0.
+    """
+    first = str(header_row[0] or "").lower()
+    if "sr" in first or "no" in first.split():
+        # Layout B: Sr. No. prepended
+        return 1, False
+    # Layout A: original layout, email in col 9
+    return 0, True
+
+
 def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: bool = False):
     rows = list(ws.iter_rows(values_only=True))
 
     # Skip row 0 (title) and row 1 (header); data starts at index 2
+    header_row = rows[1]
+    offset, has_email = _detect_col_offsets(header_row)
+    print(f"  Column layout: {'B (Sr.No. prefix, no email)' if offset else 'A (original, with email)'}")
+
     raw_records = []
     for idx, row in enumerate(rows[2:], start=1):
-        if row[0] is None and row[1] is None:
+        # Skip blank rows: both the non-ir-no cell and the name cell are None
+        if row[offset] is None and row[offset + 1] is None:
             continue
 
-        nir_date = parse_date(row[3]) or date.today().isoformat()
-        group_raw = clean(row[6])
-        officer_name = clean(row[5])
+        nir_date = parse_date(row[offset + 3]) or date.today().isoformat()
+        group_raw = clean(row[offset + 6])
+        officer_name = clean(row[offset + 5])
 
         raw_records.append({
             "sr_no": idx,
-            "legacy_non_ir_no": clean(row[0]),
+            "legacy_non_ir_no": clean(row[offset]),
             "date": nir_date,
-            "taxpayer_name": clean(row[1]) or officer_name,
-            "gstins": clean(row[2]),
+            "taxpayer_name": clean(row[offset + 1]) or officer_name,
+            "gstins": clean(row[offset + 2]),
             "officer_name": officer_name,
             "group_val": f"Group {group_raw}" if group_raw else None,
-            "mode": clean(row[7]),
-            "latest_status": clean(row[8]),
-            "sio_email": clean(row[9]),
+            "mode": clean(row[offset + 7]),
+            "latest_status": clean(row[offset + 8]),
+            "sio_email": clean(row[offset + 9]) if has_email else None,
         })
 
     # Group by FY, sort by date within each FY, assign sequential record_ids
@@ -298,8 +331,10 @@ def main():
     print(f"Loading: {excel_path}")
     wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
 
-    if SHEET_NAME not in wb.sheetnames:
-        raise SystemExit(f"Sheet {SHEET_NAME!r} not found. Available: {wb.sheetnames}")
+    sheet_name = next((s for s in SHEET_NAMES if s in wb.sheetnames), None)
+    if sheet_name is None:
+        raise SystemExit(f"No recognised sheet found. Available: {wb.sheetnames}")
+    print(f"Sheet: {sheet_name!r}\n")
 
     sb = create_client(SUPABASE_URL, SERVICE_ROLE_KEY)
 
@@ -317,7 +352,7 @@ def main():
 
     skipped = []
     log = []
-    process_sheet(wb[SHEET_NAME], sb, workspace_id, skipped, log, dry_run)
+    process_sheet(wb[sheet_name], sb, workspace_id, skipped, log, dry_run)
 
     if log:
         with open(LOG_JSON, "w") as f:
