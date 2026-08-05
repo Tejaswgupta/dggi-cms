@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { nullifyEmpty, currentFY, generateWorkspaceRecordId, REGISTER_PREFIXES } from "@/app/tasks/register-utils";
+import {
+  nullifyEmpty,
+  currentFY,
+  currentFYFull,
+  generateWorkspaceRecordId,
+  generateIRCaseRecordId,
+  generateClosureRecordId,
+  REGISTER_PREFIXES,
+} from "@/app/tasks/register-utils";
 
 // ─── nullifyEmpty ─────────────────────────────────────────────────────────────
 
@@ -201,6 +209,200 @@ describe("generateWorkspaceRecordId", () => {
     await expect(
       generateWorkspaceRecordId(supabase as any, "table", "PRE", "ws-1"),
     ).rejects.toThrow("Failed to generate record ID: DB down");
+  });
+});
+
+// ─── currentFYFull ────────────────────────────────────────────────────────────
+
+describe("currentFYFull", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("returns YYYY-YY format for April onwards", () => {
+    vi.setSystemTime(new Date("2026-04-01"));
+    expect(currentFYFull()).toBe("2026-27");
+  });
+
+  it("returns YYYY-YY format for January (still old FY)", () => {
+    vi.setSystemTime(new Date("2026-01-15"));
+    expect(currentFYFull()).toBe("2025-26");
+  });
+
+  it("is always different from currentFY for the same date", () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    expect(currentFYFull()).not.toBe(currentFY());
+    expect(currentFYFull()).toBe("2026-27");
+    expect(currentFY()).toBe("26-27");
+  });
+});
+
+// ─── Sequence FY format audit ─────────────────────────────────────────────────
+//
+// The DB seed uses two FY formats:
+//   short  "YY-YY"   (currentFY)   — for all standard registers
+//   long   "YYYY-YY" (currentFYFull) — only for IR, CR_FP, CR_NSP
+//
+// Each test below verifies that the generator function passes the correct FY
+// format so it hits the seeded row instead of creating a rogue new row at 1.
+
+describe("sequence FY format — standard registers use currentFY (short form)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  const makeRpcSpy = (returnVal: any = "PREFIX/001/26-27") =>
+    vi.fn().mockReturnValue({ data: returnVal, error: null });
+
+  // Registers whose DB sequence is keyed on fy='26-27' (short form).
+  const STANDARD_PREFIXES = [
+    REGISTER_PREFIXES.ARREST,           // ARR
+    REGISTER_PREFIXES.PROVISIONAL_ATTACHMENT, // PAR
+    REGISTER_PREFIXES.STR,              // STR
+    REGISTER_PREFIXES.ALERT_CIRCULAR,   // ALC
+    REGISTER_PREFIXES.REPORT_COMPLIANCE, // RPC
+    REGISTER_PREFIXES.MODUS_OPERANDI,   // MOC
+    REGISTER_PREFIXES.INTEL_RAPID,      // RPD
+    REGISTER_PREFIXES.INTEL_OTHER,      // IOS
+    REGISTER_PREFIXES.PROSECUTION_ARREST, // PRA
+    REGISTER_PREFIXES.PROSECUTION_NON_ARREST, // PRN
+    REGISTER_PREFIXES.SCN,              // SCN
+  ];
+
+  for (const prefix of STANDARD_PREFIXES) {
+    it(`${prefix} — generateWorkspaceRecordId passes fy='26-27'`, async () => {
+      vi.setSystemTime(new Date("2026-06-01")); // FY 26-27
+      const rpcSpy = makeRpcSpy(`${prefix}/001/26-27`);
+      await generateWorkspaceRecordId({ rpc: rpcSpy } as any, "table", prefix, "ws-1");
+      expect(rpcSpy).toHaveBeenCalledWith(
+        "next_record_id",
+        expect.objectContaining({ p_prefix: prefix, p_fy: "26-27" }),
+      );
+    });
+  }
+
+  it("NON-IR (NIR) — generateIRCaseRecordId passes fy='26-27' (short form)", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 137, error: null });
+    await generateIRCaseRecordId({ rpc: rpcSpy } as any, "ws-1", false);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      "next_seq_val",
+      expect.objectContaining({ p_prefix: "NIR", p_fy: "26-27" }),
+    );
+  });
+});
+
+describe("sequence FY format — IR and closure registers use currentFYFull (long form)", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("IR — generateIRCaseRecordId passes fy='2026-27' (long form)", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 93, error: null });
+    await generateIRCaseRecordId({ rpc: rpcSpy } as any, "ws-1", true);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      "next_seq_val",
+      expect.objectContaining({ p_prefix: "IR", p_fy: "2026-27" }),
+    );
+  });
+
+  it("Closure FP — generateClosureRecordId passes fy='2026-27' (long form)", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 28, error: null });
+    await generateClosureRecordId({ rpc: rpcSpy } as any, "ws-1", "Closed After Payment of Tax", true);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      "next_seq_val",
+      expect.objectContaining({ p_prefix: "CR_FP", p_fy: "2026-27" }),
+    );
+  });
+
+  it("Closure NSP — generateClosureRecordId passes fy='2026-27' (long form)", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 5, error: null });
+    await generateClosureRecordId({ rpc: rpcSpy } as any, "ws-1", "On Merit", true);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      "next_seq_val",
+      expect.objectContaining({ p_prefix: "CR_NSP", p_fy: "2026-27" }),
+    );
+  });
+
+  it("Closure NON-IR (CNR) — generateClosureRecordId passes fy='26-27' (short form)", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 3, error: null });
+    await generateClosureRecordId({ rpc: rpcSpy } as any, "ws-1", "Closed", false);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      "next_seq_val",
+      expect.objectContaining({ p_prefix: "CNR", p_fy: "26-27" }),
+    );
+  });
+});
+
+// ─── ID format output verification ───────────────────────────────────────────
+
+describe("generated ID format matches DB record_id format", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("IR produces {NNN}/GST/{YYYY-YY} format", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 93, error: null });
+    const id = await generateIRCaseRecordId({ rpc: rpcSpy } as any, "ws-1", true);
+    expect(id).toMatch(/^\d{3}\/GST\/\d{4}-\d{2}$/);
+    expect(id).toBe("093/GST/2026-27");
+  });
+
+  it("NON-IR produces NIR-{NNN}-{YY-YY} format", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 137, error: null });
+    const id = await generateIRCaseRecordId({ rpc: rpcSpy } as any, "ws-1", false);
+    expect(id).toMatch(/^NIR-\d{3}-\d{2}-\d{2}$/);
+    expect(id).toBe("NIR-137-26-27");
+  });
+
+  it("Closure FP produces DGGI/MZU/CR/FP/{YYYY-YY}/{NNN} format", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 28, error: null });
+    const id = await generateClosureRecordId({ rpc: rpcSpy } as any, "ws-1", "Closed After Payment of Tax", true);
+    expect(id).toMatch(/^DGGI\/MZU\/CR\/FP\/\d{4}-\d{2}\/\d{3}$/);
+    expect(id).toBe("DGGI/MZU/CR/FP/2026-27/028");
+  });
+
+  it("Closure NSP produces DGGI/MZU/CR-NSP-{YYYY-YY}/{NNN} format", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 5, error: null });
+    const id = await generateClosureRecordId({ rpc: rpcSpy } as any, "ws-1", "On Merit", true);
+    expect(id).toMatch(/^DGGI\/MZU\/CR-NSP-\d{4}-\d{2}\/\d{3}$/);
+    expect(id).toBe("DGGI/MZU/CR-NSP-2026-27/005");
+  });
+
+  it("Closure CNR produces CNR-{NNN}-{YY-YY} format", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 3, error: null });
+    const id = await generateClosureRecordId({ rpc: rpcSpy } as any, "ws-1", "Closed", false);
+    expect(id).toMatch(/^CNR-\d{3}-\d{2}-\d{2}$/);
+    expect(id).toBe("CNR-003-26-27");
+  });
+
+  it("ARR produces ARR/{NNN}/{YY-YY} format", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: "ARR/050/26-27", error: null });
+    const id = await generateWorkspaceRecordId({ rpc: rpcSpy } as any, "table", "ARR", "ws-1");
+    expect(id).toMatch(/^ARR\/\d{3}\/\d{2}-\d{2}$/);
+    expect(id).toBe("ARR/050/26-27");
+  });
+
+  it("NIR must NOT use YYYY-YY format (regression guard)", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 137, error: null });
+    const id = await generateIRCaseRecordId({ rpc: rpcSpy } as any, "ws-1", false);
+    expect(id).not.toContain("2026");
+    expect(id).toBe("NIR-137-26-27");
+  });
+
+  it("IR must NOT use YY-YY short form (regression guard)", async () => {
+    vi.setSystemTime(new Date("2026-06-01"));
+    const rpcSpy = vi.fn().mockReturnValue({ data: 93, error: null });
+    const id = await generateIRCaseRecordId({ rpc: rpcSpy } as any, "ws-1", true);
+    expect(id).not.toMatch(/\/GST\/\d{2}-\d{2}$/);
+    expect(id).toBe("093/GST/2026-27");
   });
 });
 
