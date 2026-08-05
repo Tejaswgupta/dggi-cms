@@ -453,6 +453,13 @@ type ColDef = {
 // Fields used in the NON-IR form but not shown as table columns
 const NON_IR_FORM_EXTRA: ColDef[] = [
   {
+    key: "legacy_non_ir_no",
+    label: "Legacy NON-IR No.",
+    type: "text",
+    width: "150px",
+    readOnly: true,
+  },
+  {
     key: "taxpayer_name",
     label: "Taxpayer Name",
     type: "text",
@@ -2264,6 +2271,7 @@ const NON_IR_STAGES: {
   {
     label: "Case Details",
     fields: [
+      "legacy_non_ir_no",
       "group",
       "date_of_receipt",
       "taxpayer_name",
@@ -2821,7 +2829,7 @@ export function DGGIRecordDialog({
                       .filter(
                         (col) =>
                           !(
-                            ["taxpayer_name", "gstins"].includes(col.key) &&
+                            ["taxpayer_name", "gstins", "legacy_non_ir_no"].includes(col.key) &&
                             mode === "add"
                           ) &&
                           !(
@@ -2847,6 +2855,7 @@ export function DGGIRecordDialog({
                           {renderField(
                             col,
                             !unlocked ||
+                              col.readOnly ||
                               (mode === "edit" &&
                                 FROZEN_ON_EDIT.has(
                                   col.key as keyof DGGIRecord,

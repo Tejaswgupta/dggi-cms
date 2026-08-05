@@ -144,12 +144,12 @@ const COLUMNS: RegisterColumn[] = [
     type: "usercombobox",
     width: "160px",
   },
-  // {
-  //   key: "legacy_non_ir_no",
-  //   label: "Legacy Register No.",
-  //   type: "text",
-  //   width: "160px",
-  // },
+  {
+    key: "legacy_non_ir_no",
+    label: "Legacy Register No.",
+    type: "text",
+    width: "160px",
+  },
 ];
 
 // ─── Main component ───────────────────────────────────────────────────────────
