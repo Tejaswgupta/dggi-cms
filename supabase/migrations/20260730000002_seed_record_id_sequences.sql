@@ -33,7 +33,7 @@ begin
 
   -- PAR — dggi_provisional_attachment_records (next entry: 166)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'PAR', '26-27', 166)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'PAR', '26-27', 166)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
@@ -54,13 +54,13 @@ begin
 
   -- PRA — dggi_prosecution_arrest_records (next entry: 55)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'PRA', '26-27', 55)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'PRA', '26-27', 55)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- PRN — dggi_prosecution_non_arrest_records (next entry: 55)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'PRN', '26-27', 55)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'PRN', '26-27', 25)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
@@ -160,20 +160,20 @@ begin
   -- Sequence key: prefix='IR', fy='2026-27' (long form — matches currentFYFull() in app)
   -- next entry: 93
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'IR', '2026-27', 93)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'IR', '2026-27', 93)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
 
   -- Remove the rogue short-form IR row that caused the duplicate
   delete from public.record_id_sequences
-  where workspace_id = 'e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid
+  where workspace_id = 'c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid
     and prefix = 'IR' and fy = '26-27';
 
   -- ── NON-IR cases: NIR-{NNN}-{YY-YY}  ───────────────────────────────────────
   -- Sequence key: prefix='NIR', fy='26-27' — next entry: 137 (136 already in data)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'NIR', '26-27', 137)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'NIR', '26-27', 140)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
@@ -183,13 +183,13 @@ begin
 
   -- CR_FP: DGGI/MZU/CR/FP/2026-27/{NNN} — next entry: 028
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'CR_FP', '2026-27', 28)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'CR_FP', '2026-27', 28)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- CR_NSP: DGGI/MZU/CR-NSP-{YYYY-YY}/{NNN} — next entry: 005
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'CR_NSP', '2026-27', 5)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'CR_NSP', '2026-27', 5)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
@@ -197,25 +197,25 @@ begin
 
   -- AD-DD — next entry: 11
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'AD-DD', '26-27', 11)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'AD-DD', '26-27', 11)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- ADC-JC — next entry: 19 (18 already in data)
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'ADC-JC', '26-27', 19)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'ADC-JC', '26-27', 19)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- CNR — next entry: 3
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'CNR', '26-27', 3)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'CNR', '26-27', 3)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
   -- SIO — next entry: 2
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
-  values ('e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid, 'SIO', '26-27', 2)
+  values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'SIO', '26-27', 2)
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
