@@ -6,8 +6,8 @@ export async function middleware(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const pathname = request.nextUrl.pathname;
 
-  // Skip middleware for auth routes
-  if (pathname.startsWith("/auth")) {
+  // Skip middleware for auth routes and password reset
+  if (pathname.startsWith("/auth") || pathname.startsWith("/reset-password")) {
     return NextResponse.next();
   }
 
@@ -46,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/tasks/:path*", "/dashboard/:path*", "/users/:path*", "/users"],
+  matcher: ["/", "/tasks/:path*", "/dashboard/:path*", "/users/:path*", "/users", "/settings"],
 };

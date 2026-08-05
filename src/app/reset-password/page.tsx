@@ -1,0 +1,178 @@
+"use client";
+
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { updatePassword } from "@/auth/client";
+
+export default function ResetPasswordPage() {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters.", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "colored",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match.", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "colored",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const result = await updatePassword(newPassword);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to reset password.");
+      }
+      toast.success("Password reset successfully. You can now sign in.", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "colored",
+      });
+      router.push("/auth/signin");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to reset password.",
+        {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          theme: "colored",
+        },
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex w-[100vw] flex-col h-[100vh]">
+      <div className="w-[100%] min-h-[90vh] flex justify-center items-center">
+        <Card className="mx-auto max-w-sm base:w-[94%] tv:w-auto">
+          <CardHeader>
+            <CardTitle className="text-2xl">Reset Password</CardTitle>
+            <CardDescription>Enter your new password below.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="new-password"
+                    type={showNew ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={loading}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    aria-label={showNew ? "Hide password" : "Show password"}
+                  >
+                    {showNew ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirm ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                    aria-label={
+                      showConfirm ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showConfirm ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full flex justify-center items-center gap-2"
+                disabled={loading}
+              >
+                {loading ? "Resetting..." : "Reset Password"}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-center text-sm">
+              <Link href="/auth/signin" className="underline">
+                Back to login
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

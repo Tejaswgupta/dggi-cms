@@ -172,6 +172,7 @@ begin
 
   -- ── NON-IR cases: NIR-{NNN}-{YY-YY}  ───────────────────────────────────────
   -- Sequence key: prefix='NIR', fy='26-27' — next entry: 137 (136 already in data)
+  -- Note: 20260805000001 seeds NIR-137..140 and advances this to 141.
   insert into public.record_id_sequences (workspace_id, prefix, fy, next_val)
   values ('c973a08e-74a8-4aa4-b52a-850ef16adfb3'::uuid, 'NIR', '26-27', 140)
   on conflict (workspace_id, prefix, fy)

@@ -1478,7 +1478,18 @@ export default function DGGIDashboard() {
       warning: 2,
       safe: 3,
     };
-    const worstUrgency = new Map<string, Urgency>(); // key = sourceTable|recordId
+    // Unique-case key: group all deadlines that belong to the same IR under one
+    // bucket. Child records (SCN, prov. attachment, arrest) carry linked_case_id
+    // = parent IR's record_id. IR/NIR rows use their own record_id. Truly
+    // standalone rows fall back to the UUID-based key so nothing merges wrongly.
+    function caseKey(d: DeadlineItem): string {
+      if (d.linkedCaseId) return d.linkedCaseId;
+      if (d.recordId && d.recordId !== "—") return d.recordId;
+      return `${d.sourceTable}|${d.rowId}`;
+    }
+
+    const worstUrgency = new Map<string, Urgency>(); // key = caseKey(d)
+    const worstTable = new Map<string, string>();    // key → sourceTable of first row
 
     for (const d of sorted) {
       switch (d.urgency) {
@@ -1494,10 +1505,11 @@ export default function DGGIDashboard() {
         default:
           safe.push(d);
       }
-      const key = `${d.sourceTable}|${d.recordId}`;
+      const key = caseKey(d);
       const prev = worstUrgency.get(key);
       if (!prev || URGENCY_RANK[d.urgency] < URGENCY_RANK[prev]) {
         worstUrgency.set(key, d.urgency);
+        worstTable.set(key, d.sourceTable);
       }
     }
 
@@ -1507,13 +1519,13 @@ export default function DGGIDashboard() {
     > = {};
     for (const [key, urgency] of worstUrgency) {
       if (urgency === "safe") continue;
-      const table = key.split("|")[0];
+      const table = worstTable.get(key) ?? key.split("|")[0];
       if (!breakdown[table])
         breakdown[table] = { expired: 0, critical: 0, warning: 0 };
       breakdown[table][urgency]++;
     }
 
-    // Unique case counts per urgency (worst urgency per sourceTable|recordId)
+    // Unique case counts per urgency (worst urgency per sourceTable|rowId)
     const uniqueCounts = { expired: 0, critical: 0, warning: 0, safe: 0 };
     for (const u of worstUrgency.values()) uniqueCounts[u]++;
 
@@ -2067,10 +2079,10 @@ export default function DGGIDashboard() {
               </div>
               <div className="lg:col-span-2">
                 <ComplianceGauge
-                  expired={expiredItems.length}
-                  critical={criticalItems.length}
-                  warning={warningItems.length}
-                  safe={safeItems.length}
+                  expired={uniqueMode ? uniqueCounts.expired : expiredItems.length}
+                  critical={uniqueMode ? uniqueCounts.critical : criticalItems.length}
+                  warning={uniqueMode ? uniqueCounts.warning : warningItems.length}
+                  safe={uniqueMode ? uniqueCounts.safe : safeItems.length}
                   loading={loading}
                 />
               </div>
