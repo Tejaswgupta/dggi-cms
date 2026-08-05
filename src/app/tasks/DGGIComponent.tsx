@@ -91,6 +91,7 @@ import {
   exportRegisterToExcel,
   fmtLakhs,
   generateClosureRecordId,
+  generateIRCaseRecordId,
   generateWorkspaceRecordId,
   REGISTER_PREFIXES,
 } from "./register-utils";
@@ -4062,13 +4063,7 @@ const DGGIComponent = () => {
         userRole === "ADG" && draft.pr_adg_comments
           ? (parseAdgComments(draft.pr_adg_comments) as any)
           : null,
-      record_id: await generateWorkspaceRecordId(
-        supabase,
-        "dggi_records",
-        draft.is_ir ? "IR" : "NIR",
-        workspaceId,
-        { filter: { is_ir: draft.is_ir }, separator: "-" },
-      ),
+      record_id: await generateIRCaseRecordId(supabase, workspaceId, draft.is_ir),
       handling_io_sio: draft.handling_io_sio || null,
       sio_name:
         workspaceUsers.find((u) => u.id === draft.handling_io_sio)?.name ||

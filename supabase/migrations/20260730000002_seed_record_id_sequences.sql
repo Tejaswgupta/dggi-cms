@@ -164,18 +164,6 @@ begin
   on conflict (workspace_id, prefix, fy)
   do update set next_val = excluded.next_val;
 
-  -- Fix: reassign the one record issued from the rogue IR/26-27 row to the correct seq
-  update dggi_records
-  set record_id = lpad(
-      next_seq_val(
-          'e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid,
-          'IR',
-          '2026-27'
-      )::text,
-      3, '0'
-  ) || '/GST/2026-27'
-  where record_id = '001/GST/2026-27'
-    and workspace_id = 'e27632d5-19dc-49e6-92ec-df9a86567b40'::uuid;
 
   -- Remove the rogue short-form IR row that caused the duplicate
   delete from public.record_id_sequences
