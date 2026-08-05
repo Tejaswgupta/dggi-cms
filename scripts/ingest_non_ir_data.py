@@ -193,16 +193,17 @@ def process_sheet(ws, sb, workspace_id: str, skipped: list, log: list, dry_run: 
         if row[0] is None and row[1] is None:
             continue
 
-        nir_date = parse_date(row[3])
+        nir_date = parse_date(row[3]) or date.today().isoformat()
         group_raw = clean(row[6])
+        officer_name = clean(row[5])
 
         raw_records.append({
             "sr_no": idx,
             "legacy_non_ir_no": clean(row[0]),
             "date": nir_date,
-            "taxpayer_name": clean(row[1]),
+            "taxpayer_name": clean(row[1]) or officer_name,
             "gstins": clean(row[2]),
-            "officer_name": clean(row[5]),
+            "officer_name": officer_name,
             "group_val": f"Group {group_raw}" if group_raw else None,
             "mode": clean(row[7]),
             "latest_status": clean(row[8]),
