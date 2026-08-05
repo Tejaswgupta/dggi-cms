@@ -46,6 +46,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
@@ -486,13 +487,19 @@ function FilterDatePicker({
 
 const SCNRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
+  const searchParams = useSearchParams();
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [userRole, setUserRole] = useState<string>("");
   const [records, setRecords] = useState<SCNRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
+  const initialSearch =
+    searchParams.get("filter") ?? searchParams.get("highlight") ?? "";
+  const [filters, setFilters] = useState<Filters>({
+    ...EMPTY_FILTERS,
+    search: initialSearch,
+  });
 
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [savingRow, setSavingRow] = useState(false);

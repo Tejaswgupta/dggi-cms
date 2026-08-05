@@ -39,6 +39,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { exportRegisterToExcel, fmtLakhs } from "./register-utils";
 import type { RegisterColumn } from "./RegisterRecordDialog";
@@ -143,6 +144,7 @@ const COLUMNS: RegisterColumn[] = [
 
 const IncidentReportComponent = () => {
   const supabase = clientConnectionWithSupabase();
+  const searchParams = useSearchParams();
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [records, setRecords] = useState<IncidentReportRecord[]>([]);
@@ -152,7 +154,9 @@ const IncidentReportComponent = () => {
   const [loading, setLoading] = useState(true);
   const [availableFYs, setAvailableFYs] = useState<string[]>([]);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(
+    searchParams.get("filter") ?? searchParams.get("highlight") ?? "",
+  );
 
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");

@@ -17,6 +17,7 @@ import {
   LogOut,
   Paperclip,
   Scale,
+  Settings,
   ShieldAlert,
   Users,
 } from "lucide-react";
@@ -247,6 +248,17 @@ export default function GlobalNav() {
         ))}
       </div>
       <div className="border-t border-[#EDEDEA] pt-2">
+        <Link
+          href="/settings"
+          className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all ${
+            pathname === "/settings"
+              ? "bg-[#EEF2FF] text-[#4A5FD4] font-medium"
+              : "text-[#6b6b6b] hover:bg-[#F3F2EF] hover:text-[#1a1a1a]"
+          }`}
+        >
+          <Settings size={15} className="shrink-0" />
+          <span>Settings</span>
+        </Link>
         <button
           onClick={handleSignOut}
           className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#6b6b6b] transition-all hover:bg-[#FEF2F2] hover:text-[#EF4444]"

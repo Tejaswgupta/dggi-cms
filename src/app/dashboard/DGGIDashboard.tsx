@@ -304,7 +304,8 @@ interface DeadlineItem {
   ruleLabel: string;
   legalRef: string;
   registerLabel: string;
-  registerHref: string;
+  registerHref: string; // deep link to this specific record
+  tabHref: string;      // base register URL — used for tab grouping only
   sourceTable: string;
   recordId: string;
   // db row id — used for out-of-monitoring updates
@@ -403,14 +404,34 @@ function dbRowToDeadlineItem(
 
   const reg = REGISTER_BY_TABLE.get(row.source_table);
   let registerLabel = reg?.label ?? row.source_table;
-  let registerHref = TABLE_HREF[row.source_table] ?? "/tasks";
+  const baseHref = TABLE_HREF[row.source_table] ?? "/tasks";
+  let tabHref = baseHref;
+  let registerHref = baseHref;
+  const rid = row.record_id;
   if (row.source_table === "dggi_records") {
     if (row.rule_id === "ir_closure_deadline") {
       registerLabel = "IR Register";
-      registerHref = "/tasks/incident-report";
+      tabHref = "/tasks/incident-report";
+      registerHref = rid
+        ? `/tasks/incident-report?filter=${encodeURIComponent(rid)}`
+        : tabHref;
     } else {
       registerLabel = "NON-IR Register";
-      registerHref = "/tasks/investigation-cases?tab=non-ir";
+      tabHref = "/tasks/investigation-cases?tab=non-ir";
+      registerHref = rid
+        ? `/tasks/investigation-cases?tab=non-ir&caseId=${encodeURIComponent(rid)}`
+        : tabHref;
+    }
+  } else if (rid) {
+    if (row.source_table === "dggi_prosecution_arrest_records") {
+      tabHref = `${baseHref}?tab=arrest`;
+      registerHref = `${baseHref}?filter=${encodeURIComponent(rid)}&tab=arrest`;
+    } else if (row.source_table === "dggi_prosecution_non_arrest_records") {
+      tabHref = `${baseHref}?tab=non-arrest`;
+      registerHref = `${baseHref}?filter=${encodeURIComponent(rid)}&tab=non-arrest`;
+    } else {
+      tabHref = baseHref;
+      registerHref = `${baseHref}?filter=${encodeURIComponent(rid)}`;
     }
   }
   return {
@@ -419,6 +440,7 @@ function dbRowToDeadlineItem(
     legalRef: row.legal_reference ?? "",
     registerLabel,
     registerHref,
+    tabHref,
     sourceTable: row.source_table,
     recordId: row.record_id || "—",
     rowId: row.row_id,
@@ -1640,14 +1662,14 @@ export default function DGGIDashboard() {
       { label: string; href: string; count: number }
     >();
     for (const item of baseItems) {
-      if (!seen.has(item.registerHref)) {
-        seen.set(item.registerHref, {
+      if (!seen.has(item.tabHref)) {
+        seen.set(item.tabHref, {
           label: item.registerLabel,
-          href: item.registerHref,
+          href: item.tabHref,
           count: 0,
         });
       }
-      seen.get(item.registerHref)!.count++;
+      seen.get(item.tabHref)!.count++;
     }
     return Array.from(seen.values()).sort((a, b) => {
       if (a.href === "/tasks/dfl-register") return 1;
@@ -1658,7 +1680,7 @@ export default function DGGIDashboard() {
 
   const visibleItems = useMemo(() => {
     if (regFilter === "all") return baseItems;
-    return baseItems.filter((i) => i.registerHref === regFilter);
+    return baseItems.filter((i) => i.tabHref === regFilter);
   }, [baseItems, regFilter]);
 
   function handleHealthTileClick(urgency: Urgency) {

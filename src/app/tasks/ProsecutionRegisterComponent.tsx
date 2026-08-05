@@ -16,6 +16,7 @@ import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { ChevronDown, ChevronUp, Download, ExternalLink, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, fmtLakhs, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
@@ -105,6 +106,7 @@ const EMPTY_NON_ARREST: Omit<NonArrestRecord, "id"> = {
 
 const ProsecutionRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
+  const searchParams = useSearchParams();
   const [workspaceId, setWorkspaceId] = useState("");
   const [userRole, setUserRole] = useState("");
   const [loading, setLoading] = useState(true);
@@ -115,7 +117,14 @@ const ProsecutionRegisterComponent = () => {
 
   // Annexure I state
   const [arrestRecords, setArrestRecords] = useState<ArrestCaseRecord[]>([]);
-  const [arrestSearch, setArrestSearch] = useState("");
+  const initialTab =
+    searchParams.get("tab") === "non-arrest" ? "non-arrest" : "arrest";
+  const initialFilter =
+    searchParams.get("filter") ?? searchParams.get("highlight") ?? "";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [arrestSearch, setArrestSearch] = useState(
+    initialTab === "arrest" ? initialFilter : "",
+  );
   const [arrestGroup, setArrestGroup] = useState("");
   const [arrestSaving, setArrestSaving] = useState(false);
   const [arrestSort, setArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
@@ -126,7 +135,9 @@ const ProsecutionRegisterComponent = () => {
 
   // Annexure II state
   const [nonArrestRecords, setNonArrestRecords] = useState<NonArrestRecord[]>([]);
-  const [nonArrestSearch, setNonArrestSearch] = useState("");
+  const [nonArrestSearch, setNonArrestSearch] = useState(
+    initialTab === "non-arrest" ? initialFilter : "",
+  );
   const [nonArrestGroup, setNonArrestGroup] = useState("");
   const [nonArrestSaving, setNonArrestSaving] = useState(false);
   const [nonArrestSort, setNonArrestSort] = useState<{ col: string | null; dir: "asc" | "desc" }>({ col: null, dir: "asc" });
@@ -365,7 +376,7 @@ const ProsecutionRegisterComponent = () => {
           <p className="text-base text-[#9a9a96]">Arrest Cases & Non-Arrest Cases</p>
         </div>
 
-        <Tabs defaultValue="arrest" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-4 rounded-xl border border-[#EDEDEA] bg-white h-10 p-1">
             <TabsTrigger value="arrest" className="rounded-lg text-base data-[state=active]:bg-[#EEF2FF] data-[state=active]:text-[#4A5FD4]">Annexure I — Arrest Cases</TabsTrigger>
             <TabsTrigger value="non-arrest" className="rounded-lg text-base data-[state=active]:bg-[#EEF2FF] data-[state=active]:text-[#4A5FD4]">Annexure II — Non-Arrest Cases</TabsTrigger>
