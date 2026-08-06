@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { toast } from "react-toastify";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updatePassword } from "@/auth/client";
+import { updatePassword, signOut } from "@/auth/client";
 
 export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,17 +59,18 @@ export default function SettingsPage() {
       if (!result.success) {
         throw new Error(result.error || "Failed to update password.");
       }
-      setNewPassword("");
-      setConfirmPassword("");
-      toast.success("Password updated successfully.", {
+      toast.success("Password updated. Signing you out…", {
         position: "top-right",
-        autoClose: 5000,
+        autoClose: 2000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
         theme: "colored",
       });
+      await signOut();
+      localStorage.removeItem("VotumUserDetails");
+      router.push("/auth/signin");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to update password.",
