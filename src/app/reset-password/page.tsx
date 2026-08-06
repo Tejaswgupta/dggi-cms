@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
       if (!result.success) {
         throw new Error(result.error || "Failed to reset password.");
       }
-      toast.success("Password reset successfully. You can now sign in.", {
+      toast.success("Password updated successfully.", {
         position: "top-right",
         autoClose: 5000,
         hideProgressBar: false,
@@ -69,7 +69,7 @@ export default function ResetPasswordPage() {
         draggable: true,
         theme: "colored",
       });
-      router.push("/auth/signin");
+      router.push("/dashboard");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to reset password.",
@@ -117,11 +117,7 @@ export default function ResetPasswordPage() {
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
                     aria-label={showNew ? "Hide password" : "Show password"}
                   >
-                    {showNew ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
@@ -143,15 +139,9 @@ export default function ResetPasswordPage() {
                     type="button"
                     onClick={() => setShowConfirm((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
-                    aria-label={
-                      showConfirm ? "Hide password" : "Show password"
-                    }
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
                   >
-                    {showConfirm ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
@@ -161,13 +151,13 @@ export default function ResetPasswordPage() {
                 className="w-full flex justify-center items-center gap-2"
                 disabled={loading}
               >
-                {loading ? "Resetting..." : "Reset Password"}
+                {loading ? "Updating..." : "Update Password"}
               </Button>
             </form>
 
             <div className="mt-4 text-center text-sm">
-              <Link href="/auth/signin" className="underline">
-                Back to login
+              <Link href="/dashboard" className="underline">
+                Cancel
               </Link>
             </div>
           </CardContent>
