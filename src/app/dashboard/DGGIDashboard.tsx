@@ -936,7 +936,6 @@ function GraphView({
   warningItems,
   safeItems,
   allItems,
-  allItemsRaw,
   detectionRecoveryData,
   issueInvolvedData,
   nonIrConversionData,
@@ -949,7 +948,6 @@ function GraphView({
   warningItems: DeadlineItem[];
   safeItems: DeadlineItem[];
   allItems: DeadlineItem[];
-  allItemsRaw: DeadlineItem[];
   detectionRecoveryData: DetectionRecoveryRow[];
   issueInvolvedData: IssueInvolvedRow[];
   nonIrConversionData: NonIrConversionRow[];
@@ -987,7 +985,7 @@ function GraphView({
           loading={loading}
         />
         <IssueInvolvedChart data={issueInvolvedData} loading={loading} />
-        <OfficerExposureChart items={allItemsRaw} loading={loading} />
+        <OfficerExposureChart items={allItems} loading={loading} />
       </div>
 
       {/* NON-IR → IR Conversion Rate */}
@@ -2072,7 +2070,6 @@ export default function DGGIDashboard() {
             warningItems={warningItems}
             safeItems={safeItems}
             allItems={allItems}
-            allItemsRaw={allDeadlineItemsRaw}
             detectionRecoveryData={detectionRecoveryData}
             issueInvolvedData={issueInvolvedData}
             nonIrConversionData={nonIrConversionData}

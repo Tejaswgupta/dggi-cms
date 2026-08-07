@@ -7,9 +7,8 @@ const serverRows: any[] = [];
 const limitMock = vi.fn().mockResolvedValue({ data: serverRows, error: null });
 const orderMock = vi.fn(() => ({ limit: limitMock }));
 const orMock = vi.fn(() => ({ order: orderMock }));
-const not2Mock = vi.fn(() => ({ or: orMock, order: orderMock }));
-const not1Mock = vi.fn(() => ({ not: not2Mock }));
-const eqMock = vi.fn(() => ({ not: not1Mock }));
+const notMock = vi.fn(() => ({ or: orMock, order: orderMock }));
+const eqMock = vi.fn(() => ({ not: notMock }));
 const selectMock = vi.fn(() => ({ eq: eqMock }));
 const fromMock = vi.fn(() => ({ select: selectMock }));
 
@@ -100,8 +99,7 @@ describe("CaseIdCombobox — server mode (workspaceId provided)", () => {
       limitMock,
       orderMock,
       orMock,
-      not2Mock,
-      not1Mock,
+      notMock,
       eqMock,
       selectMock,
       fromMock,

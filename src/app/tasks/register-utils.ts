@@ -213,8 +213,9 @@ const sanitizeSearchTerm = (raw: string): string =>
 
 /**
  * Server-side search for the "Link Case" combobox. Returns at most `limit`
- * closed cases for the workspace, filtered by record_id / taxpayer_name /
- * file_no. An empty query returns the first `limit` cases (initial load).
+ * cases for the workspace (open or closed), filtered by record_id /
+ * taxpayer_name / file_no. An empty query returns the first `limit` cases
+ * (initial load).
  */
 export const searchCaseOptions = async (
   supabase: SupabaseClient,
@@ -226,8 +227,7 @@ export const searchCaseOptions = async (
     .from("dggi_records")
     .select(CASE_OPTION_COLUMNS)
     .eq("workspace_id", workspaceId)
-    .not("record_id", "is", null)
-    .not("closure_by", "is", null);
+    .not("record_id", "is", null);
 
   const term = sanitizeSearchTerm(query);
   if (term) {
