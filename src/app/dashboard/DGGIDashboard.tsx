@@ -313,6 +313,7 @@ interface DeadlineItem {
   entityName: string;
   linkedCaseId: string;
   officer: string;
+  sioUserId: string;
   group: string;
   deadlineDate: Date;
   daysUntil: number;
@@ -450,6 +451,7 @@ function dbRowToDeadlineItem(
       (row.sio_user_id ? usersMap.get(row.sio_user_id) : null) ??
       row.officer_name ??
       "",
+    sioUserId: row.sio_user_id ?? "",
     group: row.group_name ?? "",
     deadlineDate,
     daysUntil,

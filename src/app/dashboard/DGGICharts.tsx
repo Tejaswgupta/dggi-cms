@@ -48,6 +48,7 @@ interface HeatmapItem {
 
 interface ExposureItem {
   officer: string;
+  sioUserId?: string;
   urgency: Urgency;
   sourceTable?: string;
   // Optional display fields for the per-officer breakdown dialog.
@@ -925,11 +926,12 @@ export function OfficerExposureChart({
     { expired: number; critical: number; other: number; items: ExposureItem[] }
   > = {};
   for (const item of irItems) {
-    const name = item.officer?.trim();
-    const assigned = !!name;
+    // Assignment is determined by sio_user_id, not the resolved officer name —
+    // a case with an assigned SIO whose name isn't in usersMap is still assigned.
+    const assigned = !!item.sioUserId?.trim();
     const isAction = item.urgency === "expired" || item.urgency === "critical";
     if (assigned && !isAction) continue;
-    const key = assigned ? name : "Unassigned";
+    const key = assigned ? item.officer?.trim() || "Unknown officer" : "Unassigned";
     if (!byOfficer[key])
       byOfficer[key] = { expired: 0, critical: 0, other: 0, items: [] };
     if (item.urgency === "expired") byOfficer[key].expired++;

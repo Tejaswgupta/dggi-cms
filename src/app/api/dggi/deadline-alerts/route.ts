@@ -44,17 +44,42 @@ function adminClient() {
 
 const TABLE_COLUMNS: Record<string, string> = rulesJson.tableColumns;
 
-const TABLE_RECIPIENTS: Record<string, { sioField: string; groupField: string; officerField: string }> = {
-  dggi_scn_records:                    { sioField: "sio",             groupField: "group",          officerField: "adjudication_formation" },
-  dggi_provisional_attachment_records: { sioField: "sio",             groupField: "group",          officerField: "sio" },
-  dggi_prosecution_arrest_records:     { sioField: "sio",             groupField: "group",          officerField: "sio" },
-  dggi_prosecution_non_arrest_records: { sioField: "sio",             groupField: "group",          officerField: "sio" },
-  dggi_seizure_records:                { sioField: "sio",             groupField: "group",          officerField: "seized_by" },
-  dggi_intel_rapid_records:            { sioField: "sio",             groupField: "assigned_group", officerField: "assigned_group" },
-  dggi_str_records:                    { sioField: "sio",             groupField: "assigned_group", officerField: "assigned_group" },
-  dggi_records:                        { sioField: "handling_io_sio", groupField: "group",          officerField: "handling_io_sio" },
-  dggi_dfl_records:                    { sioField: "sio",             groupField: "group",          officerField: "sio" },
+// sioFields / officerFields are tried in order; the first non-empty wins. This
+// lets tables that store the assignee across multiple columns resolve cleanly —
+// e.g. dggi_records keeps IR officers in handling_io_sio but NON-IR officers in
+// assigned_user_id. nameField is a plain-text display fallback used when no UUID
+// resolves to a votum_users name.
+interface RecipientConfig {
+  sioFields: string[];
+  groupField: string;
+  officerFields: string[];
+  nameField?: string;
+}
+
+const TABLE_RECIPIENTS: Record<string, RecipientConfig> = {
+  dggi_scn_records:                    { sioFields: ["sio"],                            groupField: "group",          officerFields: ["adjudication_formation"] },
+  dggi_provisional_attachment_records: { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
+  dggi_prosecution_arrest_records:     { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
+  dggi_prosecution_non_arrest_records: { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
+  dggi_seizure_records:                { sioFields: ["sio"],                            groupField: "group",          officerFields: ["seized_by"] },
+  dggi_intel_rapid_records:            { sioFields: ["sio"],                            groupField: "assigned_group", officerFields: ["assigned_group"] },
+  dggi_str_records:                    { sioFields: ["sio"],                            groupField: "assigned_group", officerFields: ["assigned_group"] },
+  dggi_records:                        { sioFields: ["handling_io_sio", "assigned_user_id"], groupField: "group",     officerFields: ["handling_io_sio", "assigned_user_id"], nameField: "sio_name" },
+  dggi_dfl_records:                    { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
 };
+
+// First non-empty value across the given candidate columns.
+function firstVal(
+  rec: Record<string, unknown> | undefined,
+  fields: string[],
+): string | null {
+  if (!rec) return null;
+  for (const f of fields) {
+    const v = rec[f];
+    if (v && typeof v === "string" && v.trim()) return v;
+  }
+  return null;
+}
 
 const ENTITY_FIELDS: string[] = [
   "noticee_name", "entity_name", "person_name", "taxpayer_name",
@@ -117,7 +142,9 @@ export async function POST(req: NextRequest) {
     const rf = TABLE_RECIPIENTS[config.source_table];
     const officerUserIds = rf
       ? [...new Set(
-          records.map((r) => r[rf.officerField]).filter((v) => v && typeof v === "string") as string[],
+          records
+            .map((r) => firstVal(r, rf.officerFields))
+            .filter((v): v is string => !!v),
         )]
       : [];
 
@@ -136,10 +163,12 @@ export async function POST(req: NextRequest) {
     //    never need to join back to the source table.
     const upsertRows = computed.map((d) => {
       const rec = records.find((r) => r.id === d.row_id);
-      const officerRaw = rec && rf ? (rec[rf.officerField] as string | undefined) : undefined;
+      const officerRaw = rf ? firstVal(rec, rf.officerFields) : null;
+      const nameFallback =
+        rf?.nameField && rec ? firstVal(rec, [rf.nameField]) : null;
       const officerName = officerRaw
-        ? (officerNames.get(officerRaw) ?? officerRaw) // fall back to raw value if not a UUID
-        : null;
+        ? (officerNames.get(officerRaw) ?? nameFallback ?? officerRaw) // resolved name → plain-text name col → raw value
+        : nameFallback;
       return {
         workspace_id: d.workspace_id,
         rule_id: d.rule_id,
@@ -151,7 +180,7 @@ export async function POST(req: NextRequest) {
         label: d.label,
         legal_reference: d.legal_reference,
         skipped: d.skipped,
-        sio_user_id:      (rec && rf ? (rec[rf.sioField] ?? null) : null) as string | null,
+        sio_user_id:      (rf ? firstVal(rec, rf.sioFields) : null),
         group_name:       (rec && rf ? (rec[rf.groupField] ?? null) : null) as string | null,
         entity_name:      rec ? getEntityName(rec) : null,
         linked_case_id:   (rec?.linked_case_id as string | undefined) ?? null,
