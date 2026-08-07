@@ -197,30 +197,81 @@ export const generateIRCaseRecordId = async (
   return `NIR-${String(data as number).padStart(3, "0")}-${fy}`;
 };
 
+// Columns selected for the "Link Case" combobox — enough for display and for
+// the register auto-fill logic (taxpayer_name, gstins, sio, group, dates…).
+const CASE_OPTION_COLUMNS =
+  "record_id, taxpayer_name, file_no, is_ir, handling_io_sio, group, detection_amount, date_of_initiation, date_of_receipt, gstins, closure_by, issue_involved";
+
+// PostgREST `.or()` treats commas/parentheses as syntax and backslash as the
+// LIKE escape char, so strip/escape them out of the user's search term.
+const sanitizeSearchTerm = (raw: string): string =>
+  raw
+    .trim()
+    .replace(/[(),]/g, " ")
+    .replace(/[\\%_]/g, (m) => `\\${m}`)
+    .trim();
+
 /**
- * Fetches all dggi_records (case IDs) for the workspace — used by subsidiary
- * register components to populate the "Link Case" combobox.
+ * Server-side search for the "Link Case" combobox. Returns at most `limit`
+ * closed cases for the workspace, filtered by record_id / taxpayer_name /
+ * file_no. An empty query returns the first `limit` cases (initial load).
  */
-export const fetchCaseOptions = async (
+export const searchCaseOptions = async (
   supabase: SupabaseClient,
   workspaceId: string,
+  query: string,
+  limit = 10,
 ): Promise<DGGICaseOption[]> => {
-  const { data, error } = await supabase
+  let builder = supabase
     .from("dggi_records")
-    .select(
-      "record_id, taxpayer_name, file_no, is_ir, handling_io_sio, group, detection_amount, date_of_initiation, date_of_receipt, gstins, closure_by, issue_involved",
-    )
+    .select(CASE_OPTION_COLUMNS)
     .eq("workspace_id", workspaceId)
     .not("record_id", "is", null)
-    .not("closure_by", "is", null)
-    .order("record_id");
+    .not("closure_by", "is", null);
 
-  console.log("fetchCaseOptions data:", data, "error:", error);
-  if (error) {
-    console.error("fetchCaseOptions error:", error);
-    return [];
+  const term = sanitizeSearchTerm(query);
+  if (term) {
+    builder = builder.or(
+      `record_id.ilike.%${term}%,taxpayer_name.ilike.%${term}%,file_no.ilike.%${term}%`,
+    );
   }
+
+  const { data, error } = await builder.order("record_id").limit(limit);
+  if (error) return [];
   return (data ?? []) as DGGICaseOption[];
+};
+
+/**
+ * Resolves a specific set of linked cases by record_id — used to render the
+ * read-only "Link Case" cells for the rows currently loaded in a register,
+ * without fetching every case. No closure filter: a linked case must resolve
+ * regardless of its closure status.
+ */
+export const fetchCaseOptionsByIds = async (
+  supabase: SupabaseClient,
+  workspaceId: string,
+  ids: (string | null | undefined)[],
+): Promise<DGGICaseOption[]> => {
+  const unique = [...new Set(ids.filter((id): id is string => !!id))];
+  if (unique.length === 0) return [];
+  const { data, error } = await supabase
+    .from("dggi_records")
+    .select(CASE_OPTION_COLUMNS)
+    .eq("workspace_id", workspaceId)
+    .in("record_id", unique);
+  if (error) return [];
+  return (data ?? []) as DGGICaseOption[];
+};
+
+/** Merges newly-discovered case options into an existing list, deduped by record_id. */
+export const mergeCaseOptions = (
+  prev: DGGICaseOption[],
+  incoming: DGGICaseOption[],
+): DGGICaseOption[] => {
+  if (incoming.length === 0) return prev;
+  const map = new Map(prev.map((c) => [c.record_id, c]));
+  for (const c of incoming) map.set(c.record_id, c);
+  return [...map.values()];
 };
 
 /**

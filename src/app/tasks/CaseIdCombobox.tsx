@@ -13,8 +13,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { Check, ChevronsUpDown, Link2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { searchCaseOptions } from "./register-utils";
 
 export interface DGGICaseOption {
   record_id: string;
@@ -37,14 +39,53 @@ export function CaseIdCombobox({
   onChange,
   cases,
   editing,
+  workspaceId,
+  onCasesDiscovered,
 }: {
   value: string;
   onChange: (v: string) => void;
   cases: DGGICaseOption[];
   editing: boolean;
+  /**
+   * When provided, the dropdown searches `dggi_records` server-side (limit 10)
+   * instead of filtering the `cases` prop client-side. `cases` is then only
+   * used to resolve already-linked records for display.
+   */
+  workspaceId?: string;
+  /** Reports server-search results so the parent can merge them for auto-fill. */
+  onCasesDiscovered?: (cases: DGGICaseOption[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<DGGICaseOption[]>([]);
+  const [searching, setSearching] = useState(false);
+  const serverMode = !!workspaceId;
+
+  // Keep the latest callback in a ref so the search effect doesn't re-run when
+  // the parent passes a fresh inline `onCasesDiscovered` each render.
+  const onDiscoveredRef = useRef(onCasesDiscovered);
+  useEffect(() => {
+    onDiscoveredRef.current = onCasesDiscovered;
+  });
+
+  // Server-side search: debounced, limit 10. Runs on open and on every keystroke.
+  useEffect(() => {
+    if (!serverMode || !open) return;
+    let cancelled = false;
+    const supabase = clientConnectionWithSupabase();
+    const handle = setTimeout(async () => {
+      setSearching(true);
+      const found = await searchCaseOptions(supabase, workspaceId!, query, 10);
+      if (cancelled) return;
+      setResults(found);
+      setSearching(false);
+      onDiscoveredRef.current?.(found);
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [serverMode, open, query, workspaceId]);
 
   const selected = cases.find((c) => c.record_id === value);
 
@@ -76,19 +117,27 @@ export function CaseIdCombobox({
     );
   }
 
-  const filtered = cases.filter(
-    (c) =>
-      c.record_id?.toLowerCase().includes(query.toLowerCase()) ||
-      c.taxpayer_name?.toLowerCase().includes(query.toLowerCase()) ||
-      c.file_no?.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = serverMode
+    ? results
+    : cases.filter(
+        (c) =>
+          c.record_id?.toLowerCase().includes(query.toLowerCase()) ||
+          c.taxpayer_name?.toLowerCase().includes(query.toLowerCase()) ||
+          c.file_no?.toLowerCase().includes(query.toLowerCase()),
+      );
 
   return (
     <Popover
       open={open}
       onOpenChange={(o) => {
         setOpen(o);
-        if (!o) setQuery("");
+        if (o) {
+          // Show the loading state immediately so the empty list doesn't flash.
+          if (serverMode) setSearching(true);
+        } else {
+          setQuery("");
+          setResults([]);
+        }
       }}
       modal={true}
     >
@@ -119,7 +168,12 @@ export function CaseIdCombobox({
             className="text-base"
           />
           <CommandList>
-            {filtered.length === 0 && (
+            {serverMode && searching && (
+              <p className="py-3 text-center text-base text-[#9a9a96]">
+                Searching…
+              </p>
+            )}
+            {!(serverMode && searching) && filtered.length === 0 && (
               <p className="py-3 text-center text-base text-[#9a9a96]">
                 No cases found.
               </p>

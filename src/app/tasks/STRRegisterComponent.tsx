@@ -31,8 +31,9 @@ import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   REGISTER_PREFIXES,
   exportRegisterToExcel,
-  fetchCaseOptions,
+  fetchCaseOptionsByIds,
   generateWorkspaceRecordId,
+  mergeCaseOptions,
 } from "./register-utils";
 import {
   RegisterRecordDialog,
@@ -180,14 +181,20 @@ const STRRegisterComponent = () => {
     const init = async () => {
       const wid = await getWorkspaceId();
       setWorkspaceId(wid);
-      const [{ data }, cases, authUserRes] = await Promise.all([
+      const [{ data }, authUserRes] = await Promise.all([
         supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid),
-        fetchCaseOptions(supabase, wid),
         supabase.auth.getUser(),
       ]);
       setRecords(data ?? []);
-      setCaseOptions(cases);
-      
+      // Resolve only the cases linked to the loaded rows (for read-only display);
+      // the combobox searches the rest server-side on demand.
+      const linkedCases = await fetchCaseOptionsByIds(
+        supabase,
+        wid,
+        (data ?? []).map((r) => r.linked_case_id),
+      );
+      setCaseOptions(linkedCases);
+
       const uid = authUserRes.data.user?.id;
       if (uid) {
         const { data: profile } = await supabase
@@ -520,6 +527,10 @@ const STRRegisterComponent = () => {
         saving={savingRow}
         users={sioUsers}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
         userRole={userRole}
       />
     </div>

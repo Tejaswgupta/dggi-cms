@@ -18,7 +18,7 @@ import { ChevronDown, ChevronUp, Download, ExternalLink, Pencil, Plus, Search, S
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
-import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions, fmtLakhs, nullifyEmpty } from "./register-utils";
+import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptionsByIds, mergeCaseOptions, fmtLakhs, nullifyEmpty } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ArrestOption } from "./RegisterRecordDialog";
 import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
@@ -179,16 +179,20 @@ const ProsecutionRegisterComponent = () => {
           nonArrestQuery = nonArrestQuery.eq("group", "__none__");
         }
       }
-      const [{ data: ad }, { data: nd }, cases, { data: arrestRows }] = await Promise.all([
+      const [{ data: ad }, { data: nd }, { data: arrestRows }] = await Promise.all([
         arrestQuery.order("created_at", { ascending: false }),
         nonArrestQuery.order("created_at", { ascending: false }),
-        fetchCaseOptions(supabase, wid),
         supabase.from("dggi_arrest_records").select("id,record_id,arrested_name,arrested_age,date_of_arrest,party_name,unit_gstin,amount_crore,role_evidence,sio,group").eq("workspace_id", wid),
       ]);
       setArrestRecords(ad ?? []);
       setNonArrestRecords(nd ?? []);
-      setCaseOptions(cases);
       setArrestOptions(arrestRows ?? []);
+      const linkedCases = await fetchCaseOptionsByIds(
+        supabase,
+        wid,
+        [...(ad ?? []), ...(nd ?? [])].map((r) => r.linked_case_id),
+      );
+      setCaseOptions(linkedCases);
       setLoading(false);
     };
     init();
@@ -625,6 +629,10 @@ const ProsecutionRegisterComponent = () => {
         onSave={arrestDialogMode === "add" ? saveArrestNew : saveArrestEdit}
         saving={arrestSaving}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
         arrestOptions={arrestOptions}
         users={sioUsers}
       />
@@ -653,6 +661,10 @@ const ProsecutionRegisterComponent = () => {
         onSave={nonArrestDialogMode === "add" ? saveNonArrestNew : saveNonArrestEdit}
         saving={nonArrestSaving}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
         users={sioUsers}
       />
     </div>

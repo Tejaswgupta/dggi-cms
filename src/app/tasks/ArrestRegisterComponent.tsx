@@ -64,9 +64,10 @@ import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
-  fetchCaseOptions,
+  fetchCaseOptionsByIds,
   fmtLakhs,
   generateWorkspaceRecordIds,
+  mergeCaseOptions,
   nullifyEmpty,
 } from "./register-utils";
 import {
@@ -524,6 +525,8 @@ function AddArrestDialog({
   saving,
   caseOptions,
   users,
+  workspaceId,
+  onCasesDiscovered,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -534,6 +537,8 @@ function AddArrestDialog({
   saving: boolean;
   caseOptions: DGGICaseOption[];
   users: WorkspaceUser[];
+  workspaceId?: string;
+  onCasesDiscovered?: (cases: DGGICaseOption[]) => void;
 }) {
   const [batch, setBatch] = useState<Record<string, string>>({
     linked_case_id: "",
@@ -606,6 +611,8 @@ function AddArrestDialog({
           onChange={(v) => setBatchField(col.key, v)}
           cases={caseOptions}
           editing={true}
+          workspaceId={workspaceId}
+          onCasesDiscovered={onCasesDiscovered}
         />
       );
     if (col.type === "datepicker")
@@ -849,11 +856,15 @@ const ArrestRegisterComponent = () => {
         (g: { group_name: string }) => g.group_name,
       );
 
-      const [, cases] = await Promise.all([
-        fetchRecords(wid, role, groups, uid!),
-        fetchCaseOptions(supabase, wid),
-      ]);
-      setCaseOptions(cases);
+      const arrestRows = await fetchRecords(wid, role, groups, uid!);
+      // Resolve only the cases linked to the loaded rows (for read-only display);
+      // the combobox searches the rest server-side on demand.
+      const linkedCases = await fetchCaseOptionsByIds(
+        supabase,
+        wid,
+        (arrestRows ?? []).map((r) => r.linked_case_id),
+      );
+      setCaseOptions(linkedCases);
       setLoading(false);
 
       // Handle URL hash for deep linking (e.g., #ARR/001/26-27)
@@ -899,9 +910,10 @@ const ArrestRegisterComponent = () => {
     });
     if (error) {
       console.error("fetchRecords error:", error);
-      return;
+      return [];
     }
     setRecords(data ?? []);
+    return data ?? [];
   };
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -1632,6 +1644,10 @@ const ArrestRegisterComponent = () => {
         saving={savingRow}
         caseOptions={caseOptions}
         users={workspaceUsers}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
       />
 
       <RegisterRecordDialog
@@ -1656,6 +1672,10 @@ const ArrestRegisterComponent = () => {
         onSave={dialogMode === "add-person" ? saveNewPerson : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
         users={sioUsers}
       />
     </div>

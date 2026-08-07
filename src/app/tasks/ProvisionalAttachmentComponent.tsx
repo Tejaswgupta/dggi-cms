@@ -84,9 +84,10 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   exportRegisterToExcel,
-  fetchCaseOptions,
+  fetchCaseOptionsByIds,
   fmtLakhs,
   generateWorkspaceRecordIds,
+  mergeCaseOptions,
   nullifyEmpty,
 } from "./register-utils";
 import {
@@ -724,6 +725,8 @@ function AddAttachmentDialog({
   saving,
   caseOptions,
   users,
+  workspaceId,
+  onCasesDiscovered,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -734,6 +737,8 @@ function AddAttachmentDialog({
   saving: boolean;
   caseOptions: DGGICaseOption[];
   users: WorkspaceUser[];
+  workspaceId?: string;
+  onCasesDiscovered?: (cases: DGGICaseOption[]) => void;
 }) {
   const [batch, setBatch] = useState<Record<string, string>>({
     linked_case_id: "",
@@ -815,6 +820,8 @@ function AddAttachmentDialog({
           onChange={(v) => setBatchField(col.key, v)}
           cases={caseOptions}
           editing={true}
+          workspaceId={workspaceId}
+          onCasesDiscovered={onCasesDiscovered}
         />
       );
     if (col.type === "datepicker")
@@ -1069,18 +1076,35 @@ const ProvisionalAttachmentComponent = () => {
       const fullAccess = !role || role === "ADG" || role === "DD_INT";
       setUserGroups(fullAccess ? DGGI_GROUPS.slice() : groups);
 
-      const [cases] = await Promise.all([
-        fetchCaseOptions(supabase, wid),
-        fetchRecords(wid, role, groups, uid!, 1, {
-          ...EMPTY_FILTERS,
-          search: initialSearch,
-        }),
-      ]);
-      setCaseOptions(cases);
+      await fetchRecords(wid, role, groups, uid!, 1, {
+        ...EMPTY_FILTERS,
+        search: initialSearch,
+      });
+      // Linked cases for the loaded rows are resolved reactively (see effect
+      // below), so pagination/filtering keeps read-only cells populated.
       setLoading(false);
     };
     init();
   }, []);
+
+  // Resolve the cases linked to the currently-loaded rows (for read-only
+  // display). Runs whenever records change so pagination/filtering stays in
+  // sync; merges so previously-searched options aren't dropped.
+  useEffect(() => {
+    if (!workspaceId) return;
+    const ids = records.map((r) => r.linked_case_id);
+    if (ids.every((id) => !id)) return;
+    let cancelled = false;
+    (async () => {
+      const linked = await fetchCaseOptionsByIds(supabase, workspaceId, ids);
+      if (!cancelled) {
+        setCaseOptions((prev) => mergeCaseOptions(prev, linked));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [records, workspaceId]);
 
   // Re-fetch when page, effective filters, or sort changes (after initial load)
   const isFirstRender = useRef(true);
@@ -2221,6 +2245,10 @@ const ProvisionalAttachmentComponent = () => {
         saving={savingRow}
         caseOptions={caseOptions}
         users={workspaceUsers}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
       />
 
       <RegisterRecordDialog
@@ -2248,6 +2276,10 @@ const ProvisionalAttachmentComponent = () => {
         onSave={dialogMode === "add-property" ? saveNewProperty : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
         users={sioUsers}
       />
 
@@ -2278,6 +2310,10 @@ const ProvisionalAttachmentComponent = () => {
               onChange={setLinkingCaseId}
               cases={caseOptions}
               editing={true}
+              workspaceId={workspaceId}
+              onCasesDiscovered={(found) =>
+                setCaseOptions((prev) => mergeCaseOptions(prev, found))
+              }
             />
           </div>
           <DialogFooter className="gap-2 pt-1">

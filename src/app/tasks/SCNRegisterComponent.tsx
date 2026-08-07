@@ -52,8 +52,9 @@ import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   currentFY,
   exportRegisterToExcel,
-  fetchCaseOptions,
+  fetchCaseOptionsByIds,
   fmtLakhs,
+  mergeCaseOptions,
   nullifyEmpty,
   REGISTER_PREFIXES,
 } from "./register-utils";
@@ -546,11 +547,13 @@ const SCNRegisterComponent = () => {
         (g: { group_name: string }) => g.group_name,
       );
 
-      const [cases] = await Promise.all([
-        fetchCaseOptions(supabase, wid),
-        fetchRecords(wid, role, groups, uid!),
-      ]);
-      setCaseOptions(cases);
+      const loadedRecords = await fetchRecords(wid, role, groups, uid!);
+      const linkedCases = await fetchCaseOptionsByIds(
+        supabase,
+        wid,
+        (loadedRecords ?? []).map((r) => r.linked_case_id),
+      );
+      setCaseOptions(linkedCases);
       setLoading(false);
     };
     init();
@@ -580,9 +583,10 @@ const SCNRegisterComponent = () => {
     });
     if (error) {
       console.error("fetchRecords error:", error);
-      return;
+      return [];
     }
     setRecords(data ?? []);
+    return data ?? [];
   };
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -1287,6 +1291,10 @@ const SCNRegisterComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
         users={workspaceUsers}
       />
     </div>

@@ -52,7 +52,6 @@ import {
 import {
   REGISTER_PREFIXES,
   exportRegisterToExcel,
-  fetchCaseOptions,
   generateWorkspaceRecordId,
 } from "./register-utils";
 import {
@@ -1030,17 +1029,14 @@ const IntelligenceAllocationComponent = () => {
         }
       }
 
-      const [{ data: rd }, { data: od }, { data: sd }, cases] =
-        await Promise.all([
-          rapidQuery,
-          otherQuery,
-          strQuery,
-          fetchCaseOptions(supabase, wid),
-        ]);
+      const [{ data: rd }, { data: od }, { data: sd }] = await Promise.all([
+        rapidQuery,
+        otherQuery,
+        strQuery,
+      ]);
       setRapidRecords(rd ?? []);
       setOtherRecords(od ?? []);
       setStrRecords(sd ?? []);
-      setCaseOptions(cases);
       setLoading(false);
     };
     init();

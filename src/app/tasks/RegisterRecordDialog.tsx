@@ -89,6 +89,10 @@ interface RegisterRecordDialogProps {
   caseOptions?: DGGICaseOption[];
   arrestOptions?: ArrestOption[];
   userRole?: string;
+  /** Enables server-side case search in the "Link Case" combobox. */
+  workspaceId?: string;
+  /** Reports server-searched case options so the parent can merge them for auto-fill. */
+  onCasesDiscovered?: (cases: DGGICaseOption[]) => void;
 }
 
 
@@ -313,6 +317,8 @@ export function RegisterRecordDialog({
   caseOptions = [],
   arrestOptions = [],
   userRole = "",
+  workspaceId,
+  onCasesDiscovered,
 }: RegisterRecordDialogProps) {
   const editableColumns = columns.filter((col) => {
     if (col.readOnly) return false;
@@ -381,6 +387,8 @@ export function RegisterRecordDialog({
           onChange={onChange}
           cases={caseOptions}
           editing={true}
+          workspaceId={workspaceId}
+          onCasesDiscovered={onCasesDiscovered}
         />
       );
     }

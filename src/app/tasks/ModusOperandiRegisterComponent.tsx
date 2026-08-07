@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptions } from "./register-utils";
+import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptionsByIds, mergeCaseOptions } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
@@ -115,12 +115,14 @@ const ModusOperandiRegisterComponent = () => {
           query = query.eq("group", "__none__");
         }
       }
-      const [{ data, error }, cases] = await Promise.all([
-        query,
-        fetchCaseOptions(supabase, wid),
-      ]);
+      const { data, error } = await query;
       if (!error) setRecords(data ?? []);
-      setCaseOptions(cases);
+      const linkedCases = await fetchCaseOptionsByIds(
+        supabase,
+        wid,
+        (data ?? []).map((r) => r.linked_case_id),
+      );
+      setCaseOptions(linkedCases);
       setLoading(false);
     };
     init();
@@ -257,6 +259,10 @@ const ModusOperandiRegisterComponent = () => {
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
         users={sioUsers}
       />
     </div>

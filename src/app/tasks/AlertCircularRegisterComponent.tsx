@@ -41,7 +41,8 @@ import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   REGISTER_PREFIXES,
   exportRegisterToExcel,
-  fetchCaseOptions,
+  fetchCaseOptionsByIds,
+  mergeCaseOptions,
   generateWorkspaceRecordId,
   nullifyEmpty,
 } from "./register-utils";
@@ -246,12 +247,14 @@ const AlertCircularRegisterComponent = () => {
           query = query.eq("group", "__none__");
         }
       }
-      const [{ data, error }, cases] = await Promise.all([
-        query,
-        fetchCaseOptions(supabase, wid),
-      ]);
+      const { data, error } = await query;
       if (!error) setRecords(data ?? []);
-      setCaseOptions(cases);
+      const linkedCases = await fetchCaseOptionsByIds(
+        supabase,
+        wid,
+        (data ?? []).map((r) => r.linked_case_id),
+      );
+      setCaseOptions(linkedCases);
       setLoading(false);
     };
     init();
@@ -570,6 +573,10 @@ const AlertCircularRegisterComponent = () => {
         saving={savingRow}
         users={sioUsers}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={(found) =>
+          setCaseOptions((prev) => mergeCaseOptions(prev, found))
+        }
       />
     </div>
   );
