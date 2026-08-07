@@ -946,11 +946,17 @@ export function OfficerExposureChart({
       other: counts.other,
       total: counts.expired + counts.critical + counts.other,
     }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 8);
+    .sort((a, b) => b.total - a.total);
+
+  // Cap at 8 rows, but always keep "Unassigned" visible even if it ranks lower.
+  const unassignedRow = sorted.find((r) => r.officer === "Unassigned");
+  let topRows = sorted.slice(0, 8);
+  if (unassignedRow && !topRows.includes(unassignedRow)) {
+    topRows = [...sorted.slice(0, 7), unassignedRow];
+  }
 
   const maxTotal =
-    sorted.length > 0 ? Math.max(...sorted.map((r) => r.total)) : 1;
+    topRows.length > 0 ? Math.max(...topRows.map((r) => r.total)) : 1;
 
   // Sort the selected officer's items worst-first for the breakdown dialog.
   const URGENCY_ORDER: Record<Urgency, number> = {
@@ -998,14 +1004,14 @@ export function OfficerExposureChart({
       <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
         Action items by officer · all unassigned cases
       </p>
-      {sorted.length === 0 ? (
+      {topRows.length === 0 ? (
         <div className="py-8 text-center text-[11.5px] text-[#9a9a96]">
           No action items — all clear
         </div>
       ) : (
         <>
           <div className="flex flex-col gap-2.5">
-            {sorted.map((row) => (
+            {topRows.map((row) => (
               <button
                 key={row.officer}
                 type="button"
