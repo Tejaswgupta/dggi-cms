@@ -34,15 +34,6 @@ ChartJS.register(
 type Urgency = "expired" | "critical" | "warning" | "safe";
 
 // Minimal structural types — any superset (e.g. DeadlineItem, PendencyRow) is compatible.
-interface DistributionRow {
-  label: string;
-  accent: string;
-  total: number;
-  expired: number;
-  critical: number;
-  warning: number;
-}
-
 interface HeatmapItem {
   deadlineDate: Date;
   urgency: Urgency;
@@ -58,6 +49,14 @@ interface HeatmapItem {
 interface ExposureItem {
   officer: string;
   urgency: Urgency;
+  sourceTable?: string;
+  // Optional display fields for the per-officer breakdown dialog.
+  recordId?: string;
+  entityName?: string;
+  ruleLabel?: string;
+  registerLabel?: string;
+  registerHref?: string;
+  daysUntil?: number;
 }
 
 // ─── ComplianceGauge ─────────────────────────────────────────────────────────
@@ -911,28 +910,62 @@ export function OfficerExposureChart({
   items: ExposureItem[];
   loading?: boolean;
 }) {
-  const actionItems = items.filter(
-    (i) => i.urgency === "expired" || i.urgency === "critical",
-  );
+  const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
 
-  const byOfficer: Record<string, { expired: number; critical: number }> = {};
-  for (const item of actionItems) {
-    const key = item.officer?.trim() || "Unassigned";
-    if (!byOfficer[key]) byOfficer[key] = { expired: 0, critical: 0 };
-    byOfficer[key][item.urgency === "expired" ? "expired" : "critical"]++;
+  // Only IR + NON-IR cases (both live in dggi_records); subsidiary registers
+  // (SCN, prosecution, provisional attachment, etc.) are excluded.
+  const irItems = items.filter((i) => i.sourceTable === "dggi_records");
+
+  // Named officers show only their action items (overdue/critical exposure).
+  // "Unassigned" shows EVERY unassigned case regardless of urgency — an
+  // ownerless case is a gap even before its deadline turns urgent. Non-urgent
+  // unassigned cases are bucketed as `other` (rendered as a neutral segment).
+  const byOfficer: Record<
+    string,
+    { expired: number; critical: number; other: number; items: ExposureItem[] }
+  > = {};
+  for (const item of irItems) {
+    const name = item.officer?.trim();
+    const assigned = !!name;
+    const isAction = item.urgency === "expired" || item.urgency === "critical";
+    if (assigned && !isAction) continue;
+    const key = assigned ? name : "Unassigned";
+    if (!byOfficer[key])
+      byOfficer[key] = { expired: 0, critical: 0, other: 0, items: [] };
+    if (item.urgency === "expired") byOfficer[key].expired++;
+    else if (item.urgency === "critical") byOfficer[key].critical++;
+    else byOfficer[key].other++;
+    byOfficer[key].items.push(item);
   }
 
   const sorted = Object.entries(byOfficer)
     .map(([officer, counts]) => ({
       officer,
-      ...counts,
-      total: counts.expired + counts.critical,
+      expired: counts.expired,
+      critical: counts.critical,
+      other: counts.other,
+      total: counts.expired + counts.critical + counts.other,
     }))
     .sort((a, b) => b.total - a.total)
     .slice(0, 8);
 
   const maxTotal =
     sorted.length > 0 ? Math.max(...sorted.map((r) => r.total)) : 1;
+
+  // Sort the selected officer's items worst-first for the breakdown dialog.
+  const URGENCY_ORDER: Record<Urgency, number> = {
+    expired: 0,
+    critical: 1,
+    warning: 2,
+    safe: 3,
+  };
+  const dialogItems = selectedOfficer
+    ? [...(byOfficer[selectedOfficer]?.items ?? [])].sort((a, b) => {
+        if (URGENCY_ORDER[a.urgency] !== URGENCY_ORDER[b.urgency])
+          return URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency];
+        return (a.daysUntil ?? 0) - (b.daysUntil ?? 0);
+      })
+    : [];
 
   if (loading) {
     return (
@@ -957,13 +990,13 @@ export function OfficerExposureChart({
   }
 
   return (
+    <>
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
       <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
         Officer Exposure
       </h3>
       <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
-        {actionItems.length} action item{actionItems.length !== 1 ? "s" : ""} by
-        assigned unit
+        Action items by officer · all unassigned cases
       </p>
       {sorted.length === 0 ? (
         <div className="py-8 text-center text-[11.5px] text-[#9a9a96]">
@@ -973,7 +1006,13 @@ export function OfficerExposureChart({
         <>
           <div className="flex flex-col gap-2.5">
             {sorted.map((row) => (
-              <div key={row.officer} className="flex items-center gap-3">
+              <button
+                key={row.officer}
+                type="button"
+                onClick={() => setSelectedOfficer(row.officer)}
+                className="flex items-center gap-3 w-full text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-[#F3F2EF] transition-colors cursor-pointer"
+                title={`View ${row.total} case${row.total !== 1 ? "s" : ""} for ${row.officer}`}
+              >
                 <span
                   className="text-[11px] font-medium text-[#6b6b6b] shrink-0 w-28 truncate"
                   title={row.officer}
@@ -993,11 +1032,17 @@ export function OfficerExposureChart({
                       className="bg-orange-400 h-full"
                     />
                   )}
+                  {row.other > 0 && (
+                    <div
+                      style={{ width: `${(row.other / maxTotal) * 100}%` }}
+                      className="bg-[#C7C6C0] h-full"
+                    />
+                  )}
                 </div>
                 <span className="text-[12px] font-bold text-[#1a1a1a] tabular-nums w-5 text-right shrink-0">
                   {row.total}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
           <div className="flex items-center gap-3 mt-3">
@@ -1009,10 +1054,111 @@ export function OfficerExposureChart({
               <div className="w-2 h-2 rounded-full bg-orange-400" />
               <span className="text-[9.5px] text-[#9a9a96]">Critical</span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-[#C7C6C0]" />
+              <span className="text-[9.5px] text-[#9a9a96]">Unassigned (other)</span>
+            </div>
           </div>
         </>
       )}
     </div>
+
+    {/* Per-officer breakdown dialog */}
+    {selectedOfficer !== null && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
+        onClick={() => setSelectedOfficer(null)}
+      >
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl border border-[#EDEDEA] w-full max-w-lg max-h-[80vh] flex flex-col mx-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F2EF]">
+            <div>
+              <h2 className="text-[15px] font-semibold text-[#1a1a1a]">
+                {selectedOfficer}
+              </h2>
+              <p className="text-[11px] text-[#9a9a96] mt-0.5">
+                {dialogItems.length}{" "}
+                {selectedOfficer === "Unassigned" ? "unassigned case" : "action item"}
+                {dialogItems.length !== 1 ? "s" : ""}
+                {selectedOfficer === "Unassigned" ? "" : " · overdue & critical"}
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedOfficer(null)}
+              className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#F3F2EF] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {/* Items list */}
+          <div className="overflow-y-auto flex-1 px-5 py-3 flex flex-col gap-2">
+            {dialogItems.length === 0 ? (
+              <p className="text-[12px] text-[#9a9a96] text-center py-8">
+                No action items
+              </p>
+            ) : (
+              dialogItems.map((item, idx) => {
+                const daysAbs = Math.abs(item.daysUntil ?? 0);
+                const dueLabel =
+                  item.urgency === "expired"
+                    ? `${daysAbs}d overdue`
+                    : (item.daysUntil ?? 0) === 0
+                      ? "Due today"
+                      : `${item.daysUntil}d left`;
+                return (
+                  <div
+                    key={idx}
+                    className="flex flex-col gap-1 px-3.5 py-3 rounded-xl bg-[#FAFAF8] border border-[#F0EFE9]"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[12px] font-semibold text-[#1a1a1a] leading-snug flex-1">
+                        {item.ruleLabel ?? "Deadline"}
+                      </span>
+                      <span
+                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${URGENCY_PILL[item.urgency]}`}
+                      >
+                        {dueLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {item.registerLabel && (
+                        <span className="text-[10px] font-semibold text-[#9a9a96] uppercase tracking-wide">
+                          {item.registerLabel}
+                        </span>
+                      )}
+                      {item.entityName && item.entityName !== "—" && (
+                        <>
+                          <span className="text-[#D4D3CE] text-[10px]">·</span>
+                          <span className="text-[11px] text-[#6b6b6b]">
+                            {item.entityName}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {item.recordId &&
+                      item.recordId !== "—" &&
+                      item.registerHref && (
+                        <Link
+                          href={item.registerHref}
+                          className="text-[10.5px] font-mono text-[#4A5FD4] hover:underline w-fit"
+                          onClick={() => setSelectedOfficer(null)}
+                        >
+                          {item.recordId}
+                        </Link>
+                      )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 
