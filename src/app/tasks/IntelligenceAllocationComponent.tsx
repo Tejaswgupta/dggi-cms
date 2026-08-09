@@ -33,6 +33,7 @@ import {
   Filter,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -51,8 +52,12 @@ import {
 } from "./DGGIComponent";
 import {
   REGISTER_PREFIXES,
+  deletedRowClass,
   exportRegisterToExcel,
   generateWorkspaceRecordId,
+  isDeleted,
+  restoreRecord,
+  softDeleteRecord,
 } from "./register-utils";
 import {
   RegisterRecordDialog,
@@ -92,6 +97,8 @@ interface RapidRecord {
   sio: string;
   sio_name: string;
   pr_adg_comments?: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 const RAPID_COLS: RegisterColumn[] = [
@@ -239,6 +246,8 @@ interface OtherSourceRecord {
   sio: string;
   sio_name: string;
   pr_adg_comments?: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 const OTHER_COLS: RegisterColumn[] = [
@@ -389,6 +398,8 @@ interface STRRecord {
   non_ir_no: string;
   non_ir_date: string;
   pr_adg_comments?: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 const STR_COLS: RegisterColumn[] = [
@@ -644,7 +655,9 @@ type AlarmCellRenderer = (record: Record<string, string>) => React.ReactNode;
 
 type CustomCellRenderer<T> = (record: T) => React.ReactNode;
 
-function SubTable<T extends { id: string; record_id: string }>({
+function SubTable<
+  T extends { id: string; record_id: string; deleted_at?: string | null },
+>({
   records,
   columns,
   sortCol,
@@ -654,6 +667,7 @@ function SubTable<T extends { id: string; record_id: string }>({
   onSearch,
   onEdit,
   onDelete,
+  onRestore,
   onAdd,
   onSort,
   emptyMessage,
@@ -675,6 +689,7 @@ function SubTable<T extends { id: string; record_id: string }>({
   onSearch: (v: string) => void;
   onEdit: (r: T) => void;
   onDelete: (id: string) => void;
+  onRestore: (id: string) => void;
   onAdd: () => void;
   onSort: (col: string) => void;
   emptyMessage: string;
@@ -813,11 +828,16 @@ function SubTable<T extends { id: string; record_id: string }>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {records.map((record) => (
+            {records.map((record) => {
+              const deleted = isDeleted(record);
+              return (
               <TableRow
                 key={record.id}
                 data-record-id={record.record_id}
-                className="border-b border-[#EDEDEA] text-base hover:bg-white"
+                className={deletedRowClass(
+                  record,
+                  "border-b border-[#EDEDEA] text-base hover:bg-white",
+                )}
               >
                 {columns.map((col) => (
                   <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
@@ -843,9 +863,10 @@ function SubTable<T extends { id: string; record_id: string }>({
                     )}
                   </TableCell>
                 ))}
-                <TableCell className="px-3 py-2">
+                <TableCell className="px-3 py-2 no-underline">
                   {(!readOnly || editOnly) && (
                     <div className="flex items-center gap-1">
+                      {!deleted && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -854,7 +875,19 @@ function SubTable<T extends { id: string; record_id: string }>({
                       >
                         <Pencil size={13} />
                       </Button>
+                      )}
                       {!editOnly && canDelete && (
+                        deleted ? (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]"
+                          title="Restore"
+                          onClick={() => onRestore(record.id)}
+                        >
+                          <RotateCcw size={13} />
+                        </Button>
+                        ) : (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -863,12 +896,14 @@ function SubTable<T extends { id: string; record_id: string }>({
                         >
                           <Trash2 size={13} />
                         </Button>
+                        )
                       )}
                     </div>
                   )}
                 </TableCell>
               </TableRow>
-            ))}
+              );
+            })}
             {records.length === 0 && (
               <TableRow>
                 <TableCell
@@ -1099,14 +1134,91 @@ const IntelligenceAllocationComponent = () => {
       setDialogDraft({ ...emptyNew } as Partial<T>);
       setDialogOpen(true);
     },
-    onDelete: async (id: string) => {
-      const { error } = await supabase.from(table).delete().eq("id", id);
+    onRestore: async (id: string) => {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? ({ ...r, deleted_at: null, deleted_by: null } as T)
+            : r,
+        ),
+      );
+      const { error } = await restoreRecord(supabase, table, id);
       if (error) {
-        toast.error("Delete failed: " + error.message);
-      } else {
-        setRecords((prev) => prev.filter((r) => r.id !== id));
-        toast.success("Record deleted");
+        setRecords((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? ({ ...r, deleted_at: new Date().toISOString() } as T)
+              : r,
+          ),
+        );
+        toast.error("Restore failed: " + error.message);
       }
+    },
+    onDelete: async (id: string) => {
+      const record = records.find((r) => r.id === id);
+      if (!record) return;
+      const stamp = new Date().toISOString();
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? ({ ...r, deleted_at: stamp, deleted_by: currentUserId } as T)
+            : r,
+        ),
+      );
+      const { error } = await softDeleteRecord(
+        supabase,
+        table,
+        id,
+        currentUserId,
+      );
+      if (error) {
+        setRecords((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? ({ ...r, deleted_at: null, deleted_by: null } as T)
+              : r,
+          ),
+        );
+        toast.error("Delete failed: " + error.message);
+        return;
+      }
+      const restore = async () => {
+        setRecords((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? ({ ...r, deleted_at: null, deleted_by: null } as T)
+              : r,
+          ),
+        );
+        const { error: rErr } = await restoreRecord(supabase, table, id);
+        if (rErr) {
+          setRecords((prev) =>
+            prev.map((r) =>
+              r.id === id
+                ? ({ ...r, deleted_at: new Date().toISOString() } as T)
+                : r,
+            ),
+          );
+          toast.error("Restore failed: " + rErr.message);
+        }
+      };
+      toast.info(
+        ({ closeToast }) => (
+          <div className="flex items-center justify-between gap-3 w-full">
+            <span>{(record as any).record_id} deleted</span>
+            <button
+              onClick={() => {
+                restore();
+                closeToast();
+              }}
+              className="font-medium underline underline-offset-2 shrink-0"
+            >
+              Undo
+            </button>
+          </div>
+        ),
+        { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+      );
     },
     onSave: async () => {
       if (!dialogDraft.id) return;
@@ -1615,6 +1727,7 @@ const IntelligenceAllocationComponent = () => {
               }}
               onEdit={rapidCrud.onEdit}
               onDelete={rapidCrud.onDelete}
+              onRestore={rapidCrud.onRestore}
               onAdd={rapidCrud.onAdd}
               emptyMessage="No rapid intelligence records found."
               onExport={handleRapidExport}
@@ -1690,6 +1803,7 @@ const IntelligenceAllocationComponent = () => {
               }}
               onEdit={otherCrud.onEdit}
               onDelete={otherCrud.onDelete}
+              onRestore={otherCrud.onRestore}
               onAdd={otherCrud.onAdd}
               emptyMessage="No other source records found."
               onExport={handleOtherExport}
@@ -1759,6 +1873,7 @@ const IntelligenceAllocationComponent = () => {
               }}
               onEdit={strCrud.onEdit}
               onDelete={strCrud.onDelete}
+              onRestore={strCrud.onRestore}
               onAdd={strCrud.onAdd}
               emptyMessage="No STR records found."
               onExport={handleStrExport}

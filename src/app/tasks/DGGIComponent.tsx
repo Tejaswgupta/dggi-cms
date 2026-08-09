@@ -71,6 +71,7 @@ import {
   Layers,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -88,12 +89,16 @@ import {
 import { type DGGICaseOption } from "./CaseIdCombobox";
 import {
   AMOUNT_FIELDS,
+  deletedRowClass,
   exportRegisterToExcel,
   fmtLakhs,
   generateClosureRecordId,
   generateIRCaseRecordId,
   generateWorkspaceRecordId,
+  isDeleted,
   REGISTER_PREFIXES,
+  restoreRecord,
+  softDeleteRecord,
 } from "./register-utils";
 import {
   RegisterRecordDialog,
@@ -170,6 +175,8 @@ export interface DGGIRecord {
 
   created_by: string | null;
   created_by_name: string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 interface WorkspaceUser {
@@ -1722,6 +1729,9 @@ export interface DGGIRecordDialogProps {
   onDeleteArrest?: (id: string) => void;
   onDeleteProvisional?: (id: string) => void;
   onDeleteSCN?: (id: string) => void;
+  onRestoreArrest?: (id: string) => void;
+  onRestoreProvisional?: (id: string) => void;
+  onRestoreSCN?: (id: string) => void;
   userRole?: string;
 }
 
@@ -1744,6 +1754,8 @@ interface ArrestSubRecord {
   relative_tel: string;
   sio: string;
   group: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 interface ProvisionalSubRecord {
@@ -1776,6 +1788,8 @@ interface ProvisionalSubRecord {
   date_of_attachment: string;
   sio: string;
   group: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 interface SCNSubRecord {
@@ -1800,6 +1814,8 @@ interface SCNSubRecord {
   remarks: string;
   sio: string;
   group: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 // ─── Register column definitions (inline, no external deps) ──────────────────
@@ -2157,14 +2173,21 @@ function RegisterSummaryTile({
   records,
   onEdit,
   onDelete,
+  onRestore,
 }: {
   title: string;
   count: number;
   icon: React.ReactNode;
   onAdd: () => void;
-  records?: Array<{ id?: string; record_id?: string; [key: string]: any }>;
+  records?: Array<{
+    id?: string;
+    record_id?: string;
+    deleted_at?: string | null;
+    [key: string]: any;
+  }>;
   onEdit?: (record: any) => void;
   onDelete?: (id: string) => void;
+  onRestore?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -2199,23 +2222,29 @@ function RegisterSummaryTile({
       </div>
       {expanded && records && records.length > 0 && (
         <div className="border-t border-[#EDEDEA] divide-y divide-[#EDEDEA]">
-          {records.map((rec, i) => (
+          {records.map((rec, i) => {
+            const recDeleted = !!rec.deleted_at;
+            return (
             <div
               key={rec.id ?? i}
               className="flex items-center justify-between px-4 py-2"
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-[#4A5FD4]">
+                <span
+                  className={`text-sm font-medium ${recDeleted ? "text-[#C0432A] line-through opacity-70" : "text-[#4A5FD4]"}`}
+                >
                   {rec.record_id || `Record ${i + 1}`}
                 </span>
                 {rec.linked_case_id && (
-                  <span className="text-xs text-[#9a9a96]">
+                  <span
+                    className={`text-xs text-[#9a9a96] ${recDeleted ? "line-through" : ""}`}
+                  >
                     {rec.linked_case_id}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {onEdit && (
+                {onEdit && !recDeleted && (
                   <button
                     onClick={() => onEdit(rec)}
                     className="flex items-center gap-1 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] hover:bg-[#F3F2EF] rounded-lg px-2 py-1 transition-all"
@@ -2224,7 +2253,16 @@ function RegisterSummaryTile({
                     Edit
                   </button>
                 )}
-                {onDelete && rec.id && (
+                {onRestore && recDeleted && rec.id && (
+                  <button
+                    onClick={() => onRestore(rec.id!)}
+                    className="flex items-center gap-1 text-sm text-[#2F855A] hover:bg-[#DCFCE7] rounded-lg px-2 py-1 transition-all"
+                  >
+                    <RotateCcw size={12} />
+                    Restore
+                  </button>
+                )}
+                {onDelete && !recDeleted && rec.id && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button className="flex items-center gap-1 text-sm text-[#C0432A] hover:bg-[#FEE2E2] rounded-lg px-2 py-1 transition-all">
@@ -2236,8 +2274,8 @@ function RegisterSummaryTile({
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete record?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will permanently delete{" "}
-                          {rec.record_id || "this record"} and cannot be undone.
+                          This will mark {rec.record_id || "this record"} as
+                          deleted. You can restore it afterwards.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -2254,7 +2292,8 @@ function RegisterSummaryTile({
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -2289,6 +2328,7 @@ const NON_IR_STAGES: {
       "intel_approved_date",
       "mode_of_initiation",
       "intelligence_action_date",
+      "latest_status",
       "pr_adg_comments",
     ],
     requiredFields: [],
@@ -2323,6 +2363,9 @@ export function DGGIRecordDialog({
   onDeleteArrest,
   onDeleteProvisional,
   onDeleteSCN,
+  onRestoreArrest,
+  onRestoreProvisional,
+  onRestoreSCN,
   userRole = "",
 }: DGGIRecordDialogProps) {
   // temporarily all fields editable post-creation
@@ -2698,6 +2741,7 @@ export function DGGIRecordDialog({
                 records={arrestRecords}
                 onEdit={onEditArrest}
                 onDelete={onDeleteArrest}
+                onRestore={onRestoreArrest}
               />
               <RegisterSummaryTile
                 title="Provisional Attachment"
@@ -2707,6 +2751,7 @@ export function DGGIRecordDialog({
                 records={provisionalRecords}
                 onEdit={onEditProvisional}
                 onDelete={onDeleteProvisional}
+                onRestore={onRestoreProvisional}
               />
               <RegisterSummaryTile
                 title="SCN Register"
@@ -2716,6 +2761,7 @@ export function DGGIRecordDialog({
                 records={scnRecords}
                 onEdit={onEditSCN}
                 onDelete={onDeleteSCN}
+                onRestore={onRestoreSCN}
               />
             </div>
           </div>
@@ -2806,6 +2852,7 @@ export function DGGIRecordDialog({
                           records={arrestRecords}
                           onEdit={onEditArrest}
                           onDelete={onDeleteArrest}
+                          onRestore={onRestoreArrest}
                         />
                         <RegisterSummaryTile
                           title="Provisional Attachment"
@@ -2815,6 +2862,7 @@ export function DGGIRecordDialog({
                           records={provisionalRecords}
                           onEdit={onEditProvisional}
                           onDelete={onDeleteProvisional}
+                          onRestore={onRestoreProvisional}
                         />
                       </>
                     )}
@@ -3620,7 +3668,24 @@ const DGGIComponent = () => {
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
+  const EDIT_WINDOW_DAYS = 7;
+
+  const canEditRecord = (record: DGGIRecord): boolean => {
+    if (userRole === "ADG" || userRole === "DD_INT") return true;
+    const createdAt = (record as any).created_at as string | undefined;
+    if (!createdAt) return true;
+    const created = new Date(createdAt).getTime();
+    const cutoff = created + EDIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    return Date.now() <= cutoff;
+  };
+
   const startEdit = (record: DGGIRecord) => {
+    if (!canEditRecord(record)) {
+      toast.error(
+        `Edit window closed — records can only be edited within ${EDIT_WINDOW_DAYS} days of creation.`,
+      );
+      return;
+    }
     setDialogDraft({
       ...record,
       due_date: record.due_date || (!record.is_ir ? today() : ""),
@@ -3641,7 +3706,8 @@ const DGGIComponent = () => {
   const saveEdit = async () => {
     if (!dialogEditingId) return;
     setSavingRow(true);
-    const isIrRecord = dialogDraft.is_ir ?? false;
+    const existingForType = records.find((r) => r.id === dialogEditingId);
+    const isIrRecord = existingForType?.is_ir ?? dialogDraft.is_ir ?? false;
     const isClosedAsConverted = dialogDraft.closure_by === "Convert to IR";
     const sourceRecordId = dialogDraft.record_id;
 
@@ -3681,7 +3747,7 @@ const DGGIComponent = () => {
       return;
     }
 
-    const existingRecord = records.find((r) => r.id === dialogEditingId);
+    const existingRecord = existingForType;
     const hadClosureBefore = !!existingRecord?.closure_by;
     const isNowClosed = !!dialogDraft.closure_by;
     const shouldWriteClosureEntry = !hadClosureBefore && isNowClosed;
@@ -3838,34 +3904,62 @@ const DGGIComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = (id: string) => {
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r,
+      ),
+    );
+    const { error } = await restoreRecord(supabase, "dggi_records", id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r,
+        ),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) return;
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase
-        .from("dggi_records")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setRecords((prev) => [...prev, record]);
-        toast.error("Delete failed: " + error.message);
-      }
-    }, 5000);
-    const toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id} deleted</span>
-        <button
-          onClick={() => {
-            clearTimeout(timerId);
-            setRecords((prev) => [...prev, record]);
-            toast.dismiss(toastId);
-          }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, deleted_at: stamp, deleted_by: currentUserId } : r,
+      ),
+    );
+    const { error } = await softDeleteRecord(
+      supabase,
+      "dggi_records",
+      id,
+      currentUserId,
+    );
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r,
+        ),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => {
+              restoreRecordRow(id);
+              closeToast();
+            }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
       { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
     );
   };
@@ -4158,62 +4252,63 @@ const DGGIComponent = () => {
               : r,
           ),
         );
+      }
 
-        // Write closure entry for the NON-IR.
-        const closureRecordId = await generateClosureRecordId(
-          supabase,
-          workspaceId,
-          sourceDraft.closure_by as string,
-          false,
+      // Write closure entry for the NON-IR unconditionally — runs even if the
+      // NON-IR update above failed so the closure snapshot is never silently lost.
+      const closureRecordId = await generateClosureRecordId(
+        supabase,
+        workspaceId,
+        sourceDraft.closure_by as string,
+        false,
+      );
+      const { error: closureErr } = await supabase
+        .from("dggi_closure_records")
+        .insert({
+          workspace_id: workspaceId,
+          record_id: closureRecordId,
+          source_record_id: sourceDraft.record_id || null,
+          is_ir: false,
+          group: sourceDraft.group || null,
+          intel_source: sourceDraft.intel_source || null,
+          date_of_receipt: sourceDraft.date_of_receipt || null,
+          taxpayer_name: sourceDraft.taxpayer_name || null,
+          gstins: sourceDraft.gstins || null,
+          file_no: sourceDraft.file_no || null,
+          date_of_initiation: sourceDraft.date_of_initiation || null,
+          intel_approved_date: sourceDraft.intel_approved_date || null,
+          mode_of_initiation: sourceDraft.mode_of_initiation || null,
+          intelligence_action_date:
+            sourceDraft.intelligence_action_date || null,
+          handling_io_sio: sourceDraft.handling_io_sio || null,
+          issue_involved: sourceDraft.issue_involved || null,
+          latest_status: sourceDraft.latest_status || null,
+          pr_adg_comments: sourceDraft.pr_adg_comments
+            ? parseAdgComments(sourceDraft.pr_adg_comments)
+            : null,
+          detection_amount: sourceDraft.detection_amount || null,
+          recovery_itc: sourceDraft.recovery_itc || null,
+          recovery_cash: sourceDraft.recovery_cash || null,
+          digit_id: sourceDraft.digit_id || null,
+          bo_id: sourceDraft.bo_id || null,
+          hsn_code: sourceDraft.hsn_code || null,
+          closure_by: sourceDraft.closure_by || null,
+          closure_reason: sourceDraft.closure_reason || null,
+          transferred_to: sourceDraft.transferred_to || null,
+          due_date: sourceDraft.due_date || null,
+          date_of_ir: sourceDraft.date_of_ir || null,
+          date_of_non_ir: sourceDraft.date_of_non_ir || null,
+          converted_from_non_ir: sourceDraft.converted_from_non_ir || null,
+        });
+      if (closureErr) {
+        toast.error(
+          "IR created, NON-IR closed, but failed to write closure entry: " +
+            closureErr.message,
         );
-        const { error: closureErr } = await supabase
-          .from("dggi_closure_records")
-          .insert({
-            workspace_id: workspaceId,
-            record_id: closureRecordId,
-            source_record_id: sourceDraft.record_id || null,
-            is_ir: false,
-            group: sourceDraft.group || null,
-            intel_source: sourceDraft.intel_source || null,
-            date_of_receipt: sourceDraft.date_of_receipt || null,
-            taxpayer_name: sourceDraft.taxpayer_name || null,
-            gstins: sourceDraft.gstins || null,
-            file_no: sourceDraft.file_no || null,
-            date_of_initiation: sourceDraft.date_of_initiation || null,
-            intel_approved_date: sourceDraft.intel_approved_date || null,
-            mode_of_initiation: sourceDraft.mode_of_initiation || null,
-            intelligence_action_date:
-              sourceDraft.intelligence_action_date || null,
-            handling_io_sio: sourceDraft.handling_io_sio || null,
-            issue_involved: sourceDraft.issue_involved || null,
-            latest_status: sourceDraft.latest_status || null,
-            pr_adg_comments: sourceDraft.pr_adg_comments
-              ? parseAdgComments(sourceDraft.pr_adg_comments)
-              : null,
-            detection_amount: sourceDraft.detection_amount || null,
-            recovery_itc: sourceDraft.recovery_itc || null,
-            recovery_cash: sourceDraft.recovery_cash || null,
-            digit_id: sourceDraft.digit_id || null,
-            bo_id: sourceDraft.bo_id || null,
-            hsn_code: sourceDraft.hsn_code || null,
-            closure_by: sourceDraft.closure_by || null,
-            closure_reason: sourceDraft.closure_reason || null,
-            transferred_to: sourceDraft.transferred_to || null,
-            due_date: sourceDraft.due_date || null,
-            date_of_ir: sourceDraft.date_of_ir || null,
-            date_of_non_ir: sourceDraft.date_of_non_ir || null,
-            converted_from_non_ir: sourceDraft.converted_from_non_ir || null,
-          });
-        if (closureErr) {
-          toast.error(
-            "IR created, NON-IR closed, but failed to write closure entry: " +
-              closureErr.message,
-          );
-        } else {
-          toast.success(
-            `IR record created and NON-IR ${sourceDraft.record_id} closed.`,
-          );
-        }
+      } else if (!updateErr) {
+        toast.success(
+          `IR record created and NON-IR ${sourceDraft.record_id} closed.`,
+        );
       }
     } else {
       toast.success("Record added");
@@ -4282,6 +4377,12 @@ const DGGIComponent = () => {
   };
 
   const startEditWithRegisters = async (record: DGGIRecord) => {
+    if (!canEditRecord(record)) {
+      toast.error(
+        `Edit window closed — records can only be edited within ${EDIT_WINDOW_DAYS} days of creation.`,
+      );
+      return;
+    }
     setDialogDraft({ ...record });
     setDialogEditingId(record.id);
     setDialogMode("edit");
@@ -4670,182 +4771,129 @@ const DGGIComponent = () => {
     setSavingSCN(false);
   };
 
-  const deleteArrestRecord = (id: string) => {
-    let found: ArrestSubRecord | undefined;
-    let foundKey: string | undefined;
-    for (const [k, v] of arrestRecordsMap) {
-      const r = v.find((x) => x.id === id);
-      if (r) {
-        found = r;
-        foundKey = k;
-        break;
-      }
-    }
-    if (!found || !foundKey) return;
-    const record = found;
-    const key = foundKey;
-    setArrestRecordsMap((prev) => {
+  // Generic soft-delete for the case-detail child sub-records (arrest / provisional
+  // / SCN). Marks the matching row `deleted_at` in its keyed map bucket (so it stays
+  // visible, struck through) and offers an Undo that restores it. The row is never
+  // removed from the map — restore just clears deleted_at.
+  type SubRecord = {
+    id?: string;
+    record_id?: string;
+    deleted_at?: string | null;
+    deleted_by?: string | null;
+  };
+
+  const setDeletedInMap = <T extends SubRecord>(
+    setMap: React.Dispatch<React.SetStateAction<Map<string, T[]>>>,
+    id: string,
+    stamp: string | null,
+  ) => {
+    setMap((prev) => {
       const next = new Map(prev);
       for (const [k, v] of next)
         next.set(
           k,
-          v.filter((r) => r.id !== id),
+          v.map((r) =>
+            r.id === id
+              ? { ...r, deleted_at: stamp, deleted_by: stamp ? currentUserId : null }
+              : r,
+          ),
         );
       return next;
     });
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase
-        .from("dggi_arrest_records")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setArrestRecordsMap((prev) => {
-          const next = new Map(prev);
-          next.set(key, [...(next.get(key) ?? []), record]);
-          return next;
-        });
-        toast.error("Delete failed: " + error.message);
+  };
+
+  const restoreSubRecord = async <T extends SubRecord>(
+    setMap: React.Dispatch<React.SetStateAction<Map<string, T[]>>>,
+    table: string,
+    id: string,
+  ) => {
+    setDeletedInMap(setMap, id, null);
+    const { error } = await restoreRecord(supabase, table, id);
+    if (error) {
+      setDeletedInMap(setMap, id, new Date().toISOString());
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteSubRecord = async <T extends SubRecord>(
+    map: Map<string, T[]>,
+    setMap: React.Dispatch<React.SetStateAction<Map<string, T[]>>>,
+    table: string,
+    label: string,
+    id: string,
+  ) => {
+    let record: T | undefined;
+    for (const [, v] of map) {
+      const r = v.find((x) => x.id === id);
+      if (r) {
+        record = r;
+        break;
       }
-    }, 5000);
-    const toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id ?? "Arrest record"} deleted</span>
-        <button
-          onClick={() => {
-            clearTimeout(timerId);
-            setArrestRecordsMap((prev) => {
-              const next = new Map(prev);
-              next.set(key, [...(next.get(key) ?? []), record]);
-              return next;
-            });
-            toast.dismiss(toastId);
-          }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
+    }
+    if (!record) return;
+    const stamp = new Date().toISOString();
+    setDeletedInMap(setMap, id, stamp);
+    const { error } = await softDeleteRecord(supabase, table, id, currentUserId);
+    if (error) {
+      setDeletedInMap(setMap, id, null);
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id ?? label} deleted</span>
+          <button
+            onClick={() => {
+              restoreSubRecord(setMap, table, id);
+              closeToast();
+            }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
       { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
     );
   };
 
-  const deleteProvisionalRecord = (id: string) => {
-    let found: ProvisionalSubRecord | undefined;
-    let foundKey: string | undefined;
-    for (const [k, v] of provisionalRecordsMap) {
-      const r = v.find((x) => x.id === id);
-      if (r) {
-        found = r;
-        foundKey = k;
-        break;
-      }
-    }
-    if (!found || !foundKey) return;
-    const record = found;
-    const key = foundKey;
-    setProvisionalRecordsMap((prev) => {
-      const next = new Map(prev);
-      for (const [k, v] of next)
-        next.set(
-          k,
-          v.filter((r) => r.id !== id),
-        );
-      return next;
-    });
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase
-        .from("dggi_provisional_attachment_records")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setProvisionalRecordsMap((prev) => {
-          const next = new Map(prev);
-          next.set(key, [...(next.get(key) ?? []), record]);
-          return next;
-        });
-        toast.error("Delete failed: " + error.message);
-      }
-    }, 5000);
-    const toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id ?? "Provisional attachment"} deleted</span>
-        <button
-          onClick={() => {
-            clearTimeout(timerId);
-            setProvisionalRecordsMap((prev) => {
-              const next = new Map(prev);
-              next.set(key, [...(next.get(key) ?? []), record]);
-              return next;
-            });
-            toast.dismiss(toastId);
-          }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
-      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+  const deleteArrestRecord = (id: string) =>
+    deleteSubRecord(
+      arrestRecordsMap,
+      setArrestRecordsMap,
+      "dggi_arrest_records",
+      "Arrest record",
+      id,
     );
-  };
+  const restoreArrestRecord = (id: string) =>
+    restoreSubRecord(setArrestRecordsMap, "dggi_arrest_records", id);
 
-  const deleteScnRecord = (id: string) => {
-    let found: SCNSubRecord | undefined;
-    let foundKey: string | undefined;
-    for (const [k, v] of scnRecordsMap) {
-      const r = v.find((x) => x.id === id);
-      if (r) {
-        found = r;
-        foundKey = k;
-        break;
-      }
-    }
-    if (!found || !foundKey) return;
-    const record = found;
-    const key = foundKey;
-    setScnRecordsMap((prev) => {
-      const next = new Map(prev);
-      for (const [k, v] of next)
-        next.set(
-          k,
-          v.filter((r) => r.id !== id),
-        );
-      return next;
-    });
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase
-        .from("dggi_scn_records")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setScnRecordsMap((prev) => {
-          const next = new Map(prev);
-          next.set(key, [...(next.get(key) ?? []), record]);
-          return next;
-        });
-        toast.error("Delete failed: " + error.message);
-      }
-    }, 5000);
-    const toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id ?? "SCN record"} deleted</span>
-        <button
-          onClick={() => {
-            clearTimeout(timerId);
-            setScnRecordsMap((prev) => {
-              const next = new Map(prev);
-              next.set(key, [...(next.get(key) ?? []), record]);
-              return next;
-            });
-            toast.dismiss(toastId);
-          }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
-      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+  const deleteProvisionalRecord = (id: string) =>
+    deleteSubRecord(
+      provisionalRecordsMap,
+      setProvisionalRecordsMap,
+      "dggi_provisional_attachment_records",
+      "Provisional attachment",
+      id,
     );
-  };
+  const restoreProvisionalRecord = (id: string) =>
+    restoreSubRecord(
+      setProvisionalRecordsMap,
+      "dggi_provisional_attachment_records",
+      id,
+    );
+
+  const deleteScnRecord = (id: string) =>
+    deleteSubRecord(
+      scnRecordsMap,
+      setScnRecordsMap,
+      "dggi_scn_records",
+      "SCN record",
+      id,
+    );
+  const restoreScnRecord = (id: string) =>
+    restoreSubRecord(setScnRecordsMap, "dggi_scn_records", id);
 
   // ── Row renderer (shared between flat and grouped views) ───────────────────
 
@@ -4884,11 +4932,16 @@ const DGGIComponent = () => {
           ? "text-[#D97706] font-medium"
           : "text-[#1a1a1a]";
 
+    const deleted = isDeleted(record);
+
     return (
       <TableRow
         key={record.id}
         data-record-id={record.record_id}
-        className="border-b border-[#EDEDEA] text-base hover:bg-white"
+        className={deletedRowClass(
+          record,
+          "border-b border-[#EDEDEA] text-base hover:bg-white",
+        )}
       >
         {visibleColumns.map((col) => (
           <TableCell
@@ -4896,12 +4949,18 @@ const DGGIComponent = () => {
             className={`px-3 py-2 ${col.key === "due_date" ? dueDateCellClass : "text-[#1a1a1a]"}`}
           >
             {col.key === "record_id" ? (
+              deleted ? (
+                <span className="font-medium text-[#C0432A]">
+                  {record.record_id || "—"}
+                </span>
+              ) : (
               <button
                 className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5] text-left"
                 onClick={() => startEditWithRegisters(record)}
               >
                 {record.record_id || "—"}
               </button>
+              )
             ) : col.key === "converted_from_non_ir" &&
               record.converted_from_non_ir ? (
               (() => {
@@ -4954,8 +5013,9 @@ const DGGIComponent = () => {
             )}
           </TableCell>
         ))}
-        <TableCell className="px-3 py-2">
+        <TableCell className="px-3 py-2 no-underline">
           <div className="flex items-center gap-1">
+            {!deleted && (
             <Button
               size="icon"
               variant="ghost"
@@ -4964,7 +5024,8 @@ const DGGIComponent = () => {
             >
               <Pencil size={13} />
             </Button>
-            {(userRole === "ADG" || userRole === "DD_INT") && (
+            )}
+            {!deleted && (userRole === "ADG" || userRole === "DD_INT") && (
               <Button
                 size="icon"
                 variant="ghost"
@@ -4979,6 +5040,17 @@ const DGGIComponent = () => {
               </Button>
             )}
             {userRole === "DD_INT" && (
+              deleted ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]"
+                title="Restore"
+                onClick={() => restoreRecordRow(record.id)}
+              >
+                <RotateCcw size={13} />
+              </Button>
+              ) : (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -4993,8 +5065,8 @@ const DGGIComponent = () => {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete record?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will permanently delete {record.record_id} and cannot
-                    be undone.
+                    This will mark {record.record_id} as deleted. You can restore
+                    it afterwards.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -5008,6 +5080,7 @@ const DGGIComponent = () => {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+              )
             )}
           </div>
         </TableCell>
@@ -5084,6 +5157,9 @@ const DGGIComponent = () => {
         onDeleteArrest={userRole === "DD_INT" ? deleteArrestRecord : undefined}
         onDeleteProvisional={userRole === "DD_INT" ? deleteProvisionalRecord : undefined}
         onDeleteSCN={userRole === "DD_INT" ? deleteScnRecord : undefined}
+        onRestoreArrest={userRole === "DD_INT" ? restoreArrestRecord : undefined}
+        onRestoreProvisional={userRole === "DD_INT" ? restoreProvisionalRecord : undefined}
+        onRestoreSCN={userRole === "DD_INT" ? restoreScnRecord : undefined}
       />
 
       {/* ── Arrest sub-dialog ─────────────────────────────────────────────── */}

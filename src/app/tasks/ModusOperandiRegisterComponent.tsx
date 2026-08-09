@@ -18,6 +18,7 @@ import {
   Download,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -25,7 +26,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptionsByIds, mergeCaseOptions } from "./register-utils";
+import { REGISTER_PREFIXES, generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptionsByIds, mergeCaseOptions, deletedRowClass, isDeleted, restoreRecord, softDeleteRecord } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser } from "./RegisterRecordDialog";
@@ -49,6 +50,8 @@ interface ModusOperandiRecord {
   sio: string;
   sio_name: string;
   group: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 const COLUMNS: RegisterColumn[] = [
@@ -85,6 +88,7 @@ const ModusOperandiRegisterComponent = () => {
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
+  const [currentUid, setCurrentUid] = useState<string | null>(null);
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -97,6 +101,7 @@ const ModusOperandiRegisterComponent = () => {
       setWorkspaceId(wid);
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
+      setCurrentUid(uid ?? null);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
         supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
@@ -150,10 +155,55 @@ const ModusOperandiRegisterComponent = () => {
     setSavingRow(false);
   };
 
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, TABLE_NAME, id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r,
+        ),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
   const deleteRecord = async (id: string) => {
-    const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
-    if (error) { toast.error("Delete failed: " + error.message); }
-    else { setRecords((prev) => prev.filter((r) => r.id !== id)); toast.success("Record deleted"); }
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, deleted_at: stamp, deleted_by: currentUid } : r,
+      ),
+    );
+    const { error } = await softDeleteRecord(supabase, TABLE_NAME, id, currentUid);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => {
+              restoreRecordRow(id);
+              closeToast();
+            }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   const saveNew = async () => {
@@ -175,8 +225,10 @@ const ModusOperandiRegisterComponent = () => {
     exportRegisterToExcel(tableRecords, COLUMNS, "Modus_Operandi", (msg) => toast.success(msg), workspaceUsers);
   };
 
-  const renderRow = (record: ModusOperandiRecord) => (
-    <TableRow key={record.id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+  const renderRow = (record: ModusOperandiRecord) => {
+    const deleted = isDeleted(record);
+    return (
+    <TableRow key={record.id} className={deletedRowClass(record, "border-b border-[#EDEDEA] text-base hover:bg-white")}>
       {COLUMNS.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a] align-top">
           {col.type === "caselink"
@@ -187,14 +239,23 @@ const ModusOperandiRegisterComponent = () => {
           }
         </TableCell>
       ))}
-      <TableCell className="px-3 py-2 align-top">
+      <TableCell className="px-3 py-2 align-top no-underline">
         <div className="flex items-center gap-1">
+          {!deleted && (
           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setDialogMode("edit"); setDialogDraft({ ...record }); setDialogOpen(true); }}><Pencil size={13} /></Button>
-          {userRole === "DD_INT" && <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteRecord(record.id)}><Trash2 size={13} /></Button>}
+          )}
+          {userRole === "DD_INT" && (
+            deleted ? (
+              <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]" title="Restore" onClick={() => restoreRecordRow(record.id)}><RotateCcw size={13} /></Button>
+            ) : (
+              <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteRecord(record.id)}><Trash2 size={13} /></Button>
+            )
+          )}
         </div>
       </TableCell>
     </TableRow>
-  );
+    );
+  };
 
   if (loading || usersLoading) return <div className="flex h-64 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-[#4A5FD4] border-t-transparent" /></div>;
 

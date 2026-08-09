@@ -30,6 +30,7 @@ import {
   Download,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -40,11 +41,15 @@ import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   REGISTER_PREFIXES,
+  deletedRowClass,
   exportRegisterToExcel,
   fetchCaseOptionsByIds,
+  isDeleted,
   mergeCaseOptions,
   generateWorkspaceRecordId,
   nullifyEmpty,
+  restoreRecord,
+  softDeleteRecord,
 } from "./register-utils";
 import { DGGI_GROUPS } from "@/lib/dggi-constants";
 import {
@@ -74,6 +79,8 @@ interface AlertCircularRecord {
   sio: string;
   sio_name: string;
   group: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 const COLUMNS: {
@@ -213,6 +220,7 @@ const AlertCircularRegisterComponent = () => {
 
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
+  const [currentUid, setCurrentUid] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -220,6 +228,7 @@ const AlertCircularRegisterComponent = () => {
       setWorkspaceId(wid);
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
+      setCurrentUid(uid ?? null);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
         supabase
           .from("votum_users")
@@ -302,28 +311,53 @@ const AlertCircularRegisterComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = (id: string) => {
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, TABLE_NAME, id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r,
+        ),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) return;
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    let toastId: ReturnType<typeof toast.info>;
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
-      if (error) {
-        setRecords((prev) => [...prev, record]);
-        toast.error("Delete failed: " + error.message);
-      }
-    }, 5000);
-    toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id} deleted</span>
-        <button
-          onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, deleted_at: stamp, deleted_by: currentUid } : r,
+      ),
+    );
+    const { error } = await softDeleteRecord(supabase, TABLE_NAME, id, currentUid);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => {
+              restoreRecordRow(id);
+              closeToast();
+            }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
       { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
     );
   };
@@ -372,10 +406,12 @@ const AlertCircularRegisterComponent = () => {
     );
   };
 
-  const renderRow = (record: AlertCircularRecord) => (
+  const renderRow = (record: AlertCircularRecord) => {
+    const deleted = isDeleted(record);
+    return (
     <TableRow
       key={record.id}
-      className="border-b border-[#EDEDEA] text-base hover:bg-white"
+      className={deletedRowClass(record, "border-b border-[#EDEDEA] text-base hover:bg-white")}
     >
       {COLUMNS.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
@@ -389,8 +425,9 @@ const AlertCircularRegisterComponent = () => {
           />
         </TableCell>
       ))}
-      <TableCell className="px-3 py-2">
+      <TableCell className="px-3 py-2 no-underline">
         <div className="flex items-center gap-1">
+          {!deleted && (
           <Button
             size="icon"
             variant="ghost"
@@ -403,7 +440,19 @@ const AlertCircularRegisterComponent = () => {
           >
             <Pencil size={13} />
           </Button>
+          )}
           {userRole === "DD_INT" && (
+            deleted ? (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]"
+                title="Restore"
+                onClick={() => restoreRecordRow(record.id)}
+              >
+                <RotateCcw size={13} />
+              </Button>
+            ) : (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -418,7 +467,7 @@ const AlertCircularRegisterComponent = () => {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete alert circular record?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete {record.record_id} and cannot be undone.
+                  This will mark {record.record_id} as deleted. You can restore it afterwards.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -432,11 +481,13 @@ const AlertCircularRegisterComponent = () => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+            )
           )}
         </div>
       </TableCell>
     </TableRow>
-  );
+    );
+  };
 
   if (loading || usersLoading)
     return (

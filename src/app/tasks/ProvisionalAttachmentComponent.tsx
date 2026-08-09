@@ -1,16 +1,5 @@
 "use client";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -72,6 +61,7 @@ import {
   Link2,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -83,12 +73,16 @@ import { toast } from "react-toastify";
 import { useDebounce } from "@/hooks/useDebounce";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
+  deletedRowClass,
   exportRegisterToExcel,
   fetchCaseOptionsByIds,
   fmtLakhs,
   generateWorkspaceRecordIds,
+  isDeleted,
   mergeCaseOptions,
   nullifyEmpty,
+  restoreRecord,
+  softDeleteRecord,
 } from "./register-utils";
 import {
   RegisterRecordDialog,
@@ -141,6 +135,8 @@ interface ProvisionalAttachmentRecord {
   group: string;
   arrest: string;
   created_by: string | null;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 interface Filters {
@@ -1009,6 +1005,7 @@ const ProvisionalAttachmentComponent = () => {
   const fetchIdRef = useRef(0);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [savingRow, setSavingRow] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [sortCol, setSortCol] = useState<string | null>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
@@ -1282,35 +1279,62 @@ const ProvisionalAttachmentComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = (id: string) => {
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+    );
+    const { error } = await restoreRecord(
+      supabase,
+      "dggi_provisional_attachment_records",
+      id,
+    );
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r,
+        ),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) return;
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    let toastId: ReturnType<typeof toast.info>;
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase
-        .from("dggi_provisional_attachment_records")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setRecords((prev) => [...prev, record]);
-        toast.error("Delete failed: " + error.message);
-      }
-    }, 5000);
-    toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id} deleted</span>
-        <button
-          onClick={() => {
-            clearTimeout(timerId);
-            setRecords((prev) => [...prev, record]);
-            toast.dismiss(toastId);
-          }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, deleted_at: stamp, deleted_by: currentUserId } : r,
+      ),
+    );
+    const { error } = await softDeleteRecord(
+      supabase,
+      "dggi_provisional_attachment_records",
+      id,
+      currentUserId,
+    );
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => {
+              restoreRecordRow(id);
+              closeToast();
+            }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
       { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
     );
   };
@@ -1448,65 +1472,29 @@ const ProvisionalAttachmentComponent = () => {
   };
 
   const handleExport = async () => {
-    if (!authCtx.current) return;
-    const { wid, role, groups, uid } = authCtx.current;
-    const flt: Filters = { ...filters, search: debouncedSearch };
-    const sortField = sortCol ?? "created_at";
-
-    // Fetch all matching batches (no pagination limit)
-    const { data: batchRows, error: rpcErr } = await supabase.rpc(
-      "dggi_provisional_attachment_batch_page",
-      {
-        p_workspace_id: wid,
-        p_role: role,
-        p_groups: groups,
-        p_uid: uid,
-        p_search: flt.search ?? "",
-        p_date_from: flt.dateFrom ?? "",
-        p_date_to: flt.dateTo ?? "",
-        p_sort_col: sortField,
-        p_sort_asc: sortDir === "asc",
-        p_limit: 10000,
-        p_offset: 0,
-      },
-    );
-    if (rpcErr) { toast.error("Export failed"); return; }
-
-    const rows = (batchRows ?? []) as any[];
-    const pageBatches = (flt.alarmOnly
-      ? rows.filter((r) => {
-          const { daysToExpiry, daysToScnDue } = computedDates(
-            r.date_of_attachment ?? "",
-            r.date_of_scn_issuance ?? "",
-            r.date_of_release ?? "",
-          );
-          return alarmLevel(daysToExpiry) !== null || alarmLevel(daysToScnDue) !== null;
-        })
-      : rows
-    ).map((r: any) => ({ batchId: r.batch_key, isFallback: r.is_fallback }));
-
-    if (pageBatches.length === 0) { toast.success("No records to export"); return; }
-
-    const realBatchIds = pageBatches.filter((b) => !b.isFallback).map((b) => b.batchId);
-    const fallbackIds = pageBatches.filter((b) => b.isFallback).map((b) => b.batchId);
-    const queries: Promise<{ data: any[] | null; error: any }>[] = [];
-    if (realBatchIds.length > 0)
-      queries.push(supabase.from("dggi_provisional_attachment_records").select("*").eq("workspace_id", wid).in("attachment_batch_id", realBatchIds).order(sortField, { ascending: sortDir === "asc" }) as any);
-    if (fallbackIds.length > 0)
-      queries.push(supabase.from("dggi_provisional_attachment_records").select("*").eq("workspace_id", wid).in("id", fallbackIds).order(sortField, { ascending: sortDir === "asc" }) as any);
-
-    const results = await Promise.all(queries);
-    const fetchError = results.find((r) => r.error)?.error;
-    if (fetchError) { toast.error("Export failed"); return; }
-
-    const allRecords = results.flatMap((r) => r.data ?? []);
-    exportRegisterToExcel(
-      allRecords,
-      COLUMNS,
-      "Provisional_Attachment",
-      (msg) => toast.success(msg),
-      workspaceUsers,
-    );
+    if (!workspaceId || exporting) return;
+    setExporting(true);
+    try {
+      const { data, error } = await supabase
+        .from("dggi_provisional_attachment_records")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false })
+        .range(0, 99999);
+      if (error) throw error;
+      exportRegisterToExcel(
+        data ?? [],
+        COLUMNS,
+        "Provisional_Attachment",
+        (msg) => toast.success(msg),
+        workspaceUsers,
+      );
+    } catch (e: any) {
+      console.error("[PA export] error:", e);
+      toast.error("Export failed: " + (e?.message ?? "unknown error"));
+    } finally {
+      setExporting(false);
+    }
   };
 
   // ── Batch grouping ─────────────────────────────────────────────────────────
@@ -1605,15 +1593,22 @@ const ProvisionalAttachmentComponent = () => {
         record.date_of_scn_issuance,
         record.date_of_release,
       );
+    const deleted = isDeleted(record);
     return (
       <TableRow
         key={record.id}
         data-record-id={record.record_id}
-        className={`border-b border-[#EDEDEA] text-base hover:bg-white ${isSubRow ? "bg-[#FAFAF8]" : ""}`}
+        className={deletedRowClass(
+          record,
+          `border-b border-[#EDEDEA] text-base hover:bg-white ${isSubRow ? "bg-[#FAFAF8]" : ""}`,
+        )}
       >
         {COLUMNS.map((col) => (
           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
             {col.key === "record_id" ? (
+              deleted ? (
+                <span className="font-medium">{record.record_id || "—"}</span>
+              ) : (
               <button
                 className="text-[#4A5FD4] hover:underline font-medium text-left"
                 onClick={() => {
@@ -1624,6 +1619,7 @@ const ProvisionalAttachmentComponent = () => {
               >
                 {record.record_id || "—"}
               </button>
+              )
             ) : (
               renderCell(
                 (record as any)[col.key] ?? "",
@@ -1648,7 +1644,7 @@ const ProvisionalAttachmentComponent = () => {
             <span className="text-[#9a9a96]">—</span>
           )}
         </TableCell>
-        <TableCell className="px-3 py-2">
+        <TableCell className="px-3 py-2 no-underline">
           <div className="flex items-center gap-1">
             {!isSubRow && (
               <Button
@@ -1661,6 +1657,7 @@ const ProvisionalAttachmentComponent = () => {
                 <Plus size={13} />
               </Button>
             )}
+            {!deleted && (
             <Button
               size="icon"
               variant="ghost"
@@ -1673,36 +1670,28 @@ const ProvisionalAttachmentComponent = () => {
             >
               <Pencil size={13} />
             </Button>
+            )}
             {userRole === "DD_INT" && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+              deleted ? (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]"
+                  title="Restore"
+                  onClick={() => restoreRecordRow(record.id)}
+                >
+                  <RotateCcw size={13} />
+                </Button>
+              ) : (
                 <Button
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]"
+                  onClick={() => deleteRecord(record.id)}
                 >
                   <Trash2 size={13} />
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete attachment record?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete {record.record_id} and cannot
-                    be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-[#C0432A] hover:bg-[#a83823] text-white"
-                    onClick={() => deleteRecord(record.id)}
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              )
             )}
           </div>
         </TableCell>
@@ -1951,10 +1940,10 @@ const ProvisionalAttachmentComponent = () => {
                 variant="outline"
                 className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
                 onClick={handleExport}
-                disabled={totalCount === 0}
+                disabled={totalCount === 0 || exporting}
               >
                 <Download size={15} className="mr-1" />
-                Export to Excel
+                {exporting ? "Exporting…" : "Export to Excel"}
               </Button>
               <Button
                 size="sm"

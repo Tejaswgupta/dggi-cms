@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -25,14 +32,23 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  Pencil,
+  RotateCcw,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
-import { exportRegisterToExcel } from "./register-utils";
+import {
+  deletedRowClass,
+  exportRegisterToExcel,
+  isDeleted,
+  restoreRecord,
+  softDeleteRecord,
+} from "./register-utils";
 import { type WorkspaceUser } from "./RegisterRecordDialog";
 
 const TABLE_NAME = "dggi_closure_records";
@@ -71,6 +87,8 @@ interface ClosureRecord {
   date_of_non_ir: string;
   converted_from_non_ir: string;
   created_at: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 type ActiveTab = "non-ir" | "ir";
@@ -80,9 +98,22 @@ interface Filters {
   dateFrom: string;
   dateTo: string;
   closureBy: string;
+  fy: string;
 }
 
-const EMPTY_FILTERS: Filters = { search: "", dateFrom: "", dateTo: "", closureBy: "" };
+const EMPTY_FILTERS: Filters = { search: "", dateFrom: "", dateTo: "", closureBy: "", fy: "" };
+
+function dateToFy(iso: string): string {
+  const year = parseInt(iso.slice(0, 4), 10);
+  const month = parseInt(iso.slice(5, 7), 10);
+  const start = month >= 4 ? year : year - 1;
+  return `${start}-${String(start + 1).slice(2)}`;
+}
+
+function fyToDateRange(fy: string): { from: string; to: string } {
+  const start = parseInt(fy.slice(0, 4), 10);
+  return { from: `${start}-04-01`, to: `${start + 1}-03-31` };
+}
 
 type ColDef = {
   key: keyof Omit<ClosureRecord, "id" | "is_ir">;
@@ -245,11 +276,34 @@ function FilterDatePicker({
   );
 }
 
+const EDITABLE_CLOSURE_KEYS: (keyof ClosureRecord)[] = [
+  "taxpayer_name",
+  "gstins",
+  "file_no",
+  "group",
+  "handling_io_sio",
+  "issue_involved",
+  "mode_of_initiation",
+  "detection_amount",
+  "recovery_itc",
+  "recovery_cash",
+  "total_recovery",
+  "digit_id",
+  "bo_id",
+  "hsn_code",
+  "closure_by",
+  "closure_reason",
+  "transferred_to",
+  "due_date",
+  "latest_status",
+];
+
 const ClosureRegisterComponent = () => {
   const supabase = clientConnectionWithSupabase();
   const searchParams = useSearchParams();
   const [records, setRecords] = useState<ClosureRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>("");
   const initialTab = (searchParams?.get("tab") === "ir" ? "ir" : "non-ir") as ActiveTab;
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
   const [filters, setFilters] = useState<Filters>({
@@ -258,6 +312,10 @@ const ClosureRegisterComponent = () => {
   });
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [editingRecord, setEditingRecord] = useState<ClosureRecord | null>(null);
+  const [editDraft, setEditDraft] = useState<Partial<ClosureRecord>>({});
+  const [saving, setSaving] = useState(false);
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
   useEffect(() => {
@@ -265,6 +323,7 @@ const ClosureRegisterComponent = () => {
       const wid = await getWorkspaceId();
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
+      if (uid) setCurrentUserId(uid);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
         supabase
           .from("votum_users")
@@ -277,6 +336,7 @@ const ClosureRegisterComponent = () => {
           .eq("user_id", uid!),
       ]);
       const role = userRow?.dggi_role ?? "";
+      setUserRole(role);
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
@@ -300,6 +360,81 @@ const ClosureRegisterComponent = () => {
     init();
   }, []);
 
+  const openEdit = (record: ClosureRecord) => {
+    setEditingRecord(record);
+    setEditDraft({ ...record });
+  };
+
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, TABLE_NAME, id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r,
+        ),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: stamp } : r)),
+    );
+    const { error } = await softDeleteRecord(supabase, TABLE_NAME, id, currentUserId || null);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }: { closeToast: () => void }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => { restoreRecordRow(id); closeToast(); }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
+  };
+
+  const saveEdit = async () => {
+    if (!editingRecord) return;
+    setSaving(true);
+    const payload: Partial<ClosureRecord> = {};
+    for (const key of EDITABLE_CLOSURE_KEYS) {
+      (payload as any)[key] = (editDraft as any)[key] ?? (editingRecord as any)[key];
+    }
+    const { error } = await supabase
+      .from(TABLE_NAME)
+      .update(payload)
+      .eq("id", editingRecord.id);
+    if (error) {
+      toast.error("Failed to save changes.");
+    } else {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === editingRecord.id ? { ...r, ...payload } : r)),
+      );
+      toast.success("Closure record updated.");
+      setEditingRecord(null);
+      setEditDraft({});
+    }
+    setSaving(false);
+  };
+
   const isIr = activeTab === "ir";
   const COLUMNS = isIr ? IR_COLUMNS : NON_IR_COLUMNS;
   const TOTAL_COLS = COLUMNS.length;
@@ -311,9 +446,23 @@ const ClosureRegisterComponent = () => {
     new Set(records.filter((r) => r.is_ir === isIr && r.closure_by).map((r) => r.closure_by))
   ).sort();
 
+  const availableFYs = Array.from(
+    new Set(
+      records
+        .filter((r) => r.is_ir === isIr && r.due_date)
+        .map((r) => dateToFy(r.due_date)),
+    ),
+  ).sort((a, b) => b.localeCompare(a));
+
+  const activeFyRange = filters.fy ? fyToDateRange(filters.fy) : null;
+
   const tableRecords = records
     .filter((r) => {
       if (r.is_ir !== isIr) return false;
+      if (filters.fy && activeFyRange) {
+        if (!r.due_date) return false;
+        if (r.due_date < activeFyRange.from || r.due_date > activeFyRange.to) return false;
+      }
       if (filters.search) {
         const q = filters.search.toLowerCase();
         if (
@@ -414,6 +563,7 @@ const ClosureRegisterComponent = () => {
               <p className="text-base text-[#9a9a96]">
                 {isIr ? "IR" : "NON-IR"} Closures · {tableRecords.length} record
                 {tableRecords.length !== 1 ? "s" : ""}
+                {filters.fy ? ` · FY ${filters.fy}` : " · All Financial Years"}
               </p>
             </div>
             <Button
@@ -484,6 +634,16 @@ const ClosureRegisterComponent = () => {
               onChange={(v) => setFilter("dateTo", v)}
             />
             <select
+              value={filters.fy}
+              onChange={(e) => setFilter("fy", e.target.value)}
+              className={`h-9 rounded-lg border px-3 text-base focus:outline-none ${filters.fy ? "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4]" : "border-[#EDEDEA] bg-white text-[#1a1a1a] hover:bg-[#F3F2EF]"}`}
+            >
+              <option value="">All FYs</option>
+              {availableFYs.map((fy) => (
+                <option key={fy} value={fy}>{fy}</option>
+              ))}
+            </select>
+            <select
               value={filters.closureBy}
               onChange={(e) => setFilter("closureBy", e.target.value)}
               className="h-9 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF] focus:outline-none"
@@ -493,7 +653,7 @@ const ClosureRegisterComponent = () => {
                 <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
-            {(filters.search || filters.dateFrom || filters.dateTo || filters.closureBy) && (
+            {(filters.search || filters.dateFrom || filters.dateTo || filters.closureBy || filters.fy) && (
               <button
                 onClick={() => setFilters({ ...EMPTY_FILTERS })}
                 className="flex items-center gap-1 text-base text-[#6b6b6b] hover:text-[#C0432A] px-2 py-1 rounded-lg hover:bg-[#FEE2E2]"
@@ -528,13 +688,14 @@ const ClosureRegisterComponent = () => {
                       </span>
                     </TableHead>
                   ))}
+                  <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap w-[80px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {tableRecords.map((record) => (
                   <TableRow
                     key={record.id}
-                    className="border-b border-[#EDEDEA] text-base hover:bg-white"
+                    className={deletedRowClass(record, "border-b border-[#EDEDEA] text-base hover:bg-white")}
                   >
                     {COLUMNS.map((col) => (
                       <TableCell
@@ -544,12 +705,42 @@ const ClosureRegisterComponent = () => {
                         {renderCell(record, col)}
                       </TableCell>
                     ))}
+                    <TableCell className="px-3 py-2">
+                      <div className="flex items-center gap-1">
+                        {isDeleted(record) ? (
+                          <button
+                            onClick={() => restoreRecordRow(record.id)}
+                            title="Restore"
+                            className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#F3F2EF] hover:text-[#4A5FD4] transition-all"
+                          >
+                            <RotateCcw size={13} />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => openEdit(record)}
+                              title="Edit"
+                              className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
+                            >
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={() => deleteRecord(record.id)}
+                              title="Delete"
+                              className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-red-50 hover:text-red-500 transition-all"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
                 {tableRecords.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={TOTAL_COLS}
+                      colSpan={TOTAL_COLS + 1}
                       className="py-12 text-center text-base text-[#9a9a96]"
                     >
                       No {isIr ? "IR" : "NON-IR"} closure records found.
@@ -560,6 +751,55 @@ const ClosureRegisterComponent = () => {
             </Table>
         </div>
       </div>
+
+      {/* Edit dialog — ADG/DD_INT only */}
+      {editingRecord && (
+        <Dialog open={!!editingRecord} onOpenChange={(o) => { if (!o) { setEditingRecord(null); setEditDraft({}); } }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Closure Record — {editingRecord.record_id}</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-4 py-4">
+              {EDITABLE_CLOSURE_KEYS.map((key) => {
+                const colDef = [...IR_COLUMNS, ...NON_IR_COLUMNS].find((c) => c.key === key);
+                const label = colDef?.label ?? String(key);
+                const value = (editDraft as any)[key] ?? "";
+                return (
+                  <div key={key} className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-[#6b6b6b]">{label}</label>
+                    {colDef?.type === "usercombobox" ? (
+                      <select
+                        value={value}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, [key]: e.target.value }))}
+                        className="h-9 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] focus:outline-none"
+                      >
+                        <option value="">— Select —</option>
+                        {workspaceUsers.map((u) => (
+                          <option key={u.id} value={u.id}>{u.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        value={value}
+                        onChange={(e) => setEditDraft((d) => ({ ...d, [key]: e.target.value }))}
+                        className="h-9 border-[#EDEDEA] text-base rounded-lg"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setEditingRecord(null); setEditDraft({}); }}>
+                Cancel
+              </Button>
+              <Button onClick={saveEdit} disabled={saving}>
+                {saving ? "Saving…" : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

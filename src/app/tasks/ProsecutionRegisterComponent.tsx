@@ -14,11 +14,11 @@ import {
 } from "@/components/ui/table";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
-import { ChevronDown, ChevronUp, Download, ExternalLink, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, ExternalLink, Pencil, Plus, RotateCcw, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
-import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptionsByIds, mergeCaseOptions, fmtLakhs, nullifyEmpty } from "./register-utils";
+import { generateWorkspaceRecordId, exportRegisterToExcel, fetchCaseOptionsByIds, mergeCaseOptions, fmtLakhs, nullifyEmpty, deletedRowClass, isDeleted, restoreRecord, softDeleteRecord } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { RegisterRecordDialog, type RegisterColumn, type WorkspaceUser, type ArrestOption } from "./RegisterRecordDialog";
 import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
@@ -40,6 +40,7 @@ interface ArrestCaseRecord {
   amount_evaded_crore: string; entity_name: string; gstin: string; brief_modus_operandi: string;
   prosecution_complaint_status: string; date_of_filing: string; reasons_not_filed: string;
   bail_status: string; sio: string; sio_name: string; group: string;
+  deleted_at?: string | null; deleted_by?: string | null;
 }
 
 const ARREST_COLS: RegisterColumn[] = [
@@ -76,6 +77,7 @@ interface NonArrestRecord {
   amount_evaded_crore: string; entity_name: string; gstin: string; brief_modus_operandi: string;
   prosecution_complaint_status: string; date_of_filing: string; reasons_not_filed: string;
   sio: string; sio_name: string; group: string;
+  deleted_at?: string | null; deleted_by?: string | null;
 }
 
 const NON_ARREST_COLS: RegisterColumn[] = [
@@ -109,6 +111,7 @@ const ProsecutionRegisterComponent = () => {
   const searchParams = useSearchParams();
   const [workspaceId, setWorkspaceId] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [currentUid, setCurrentUid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [caseOptions, setCaseOptions] = useState<DGGICaseOption[]>([]);
   const [arrestOptions, setArrestOptions] = useState<ArrestOption[]>([]);
@@ -155,6 +158,7 @@ const ProsecutionRegisterComponent = () => {
       setWorkspaceId(wid);
       const { data: authData } = await supabase.auth.getUser();
       const uid = authData?.user?.id;
+      setCurrentUid(uid ?? null);
       const [{ data: userRow }, { data: groupRows }] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid!).single(),
         supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid!),
@@ -230,29 +234,57 @@ const ProsecutionRegisterComponent = () => {
     setArrestSaving(false);
   };
 
-  const makeDelete = <T extends { id: string; record_id: string }>(
+  const makeRestore = <T extends { id: string; record_id: string; deleted_at?: string | null; deleted_by?: string | null }>(
+    table: string,
+    setRecords: React.Dispatch<React.SetStateAction<T[]>>,
+  ) => async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, table, id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r)),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const makeDelete = <T extends { id: string; record_id: string; deleted_at?: string | null; deleted_by?: string | null }>(
     table: string,
     records: T[],
     setRecords: React.Dispatch<React.SetStateAction<T[]>>,
-  ) => (id: string) => {
-    const record = records.find((r) => r.id === id);
-    if (!record) return;
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    let toastId: ReturnType<typeof toast.info>;
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase.from(table).delete().eq("id", id);
-      if (error) { setRecords((prev) => [...prev, record]); toast.error("Delete failed: " + error.message); }
-    }, 5000);
-    toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id} deleted</span>
-        <button onClick={() => { clearTimeout(timerId); setRecords((prev) => [...prev, record]); toast.dismiss(toastId); }} className="font-medium underline underline-offset-2 shrink-0">Undo</button>
-      </div>,
-      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
-    );
+  ) => {
+    const restore = makeRestore(table, setRecords);
+    return async (id: string) => {
+      const record = records.find((r) => r.id === id);
+      if (!record) return;
+      const stamp = new Date().toISOString();
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: stamp, deleted_by: currentUid } : r)),
+      );
+      const { error } = await softDeleteRecord(supabase, table, id, currentUid);
+      if (error) {
+        setRecords((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+        );
+        toast.error("Delete failed: " + error.message);
+        return;
+      }
+      toast.info(
+        ({ closeToast }) => (
+          <div className="flex items-center justify-between gap-3 w-full">
+            <span>{record.record_id} deleted</span>
+            <button onClick={() => { restore(id); closeToast(); }} className="font-medium underline underline-offset-2 shrink-0">Undo</button>
+          </div>
+        ),
+        { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+      );
+    };
   };
 
   const deleteArrest = makeDelete("dggi_prosecution_arrest_records", arrestRecords, setArrestRecords);
+  const restoreArrest = makeRestore("dggi_prosecution_arrest_records", setArrestRecords);
 
   const saveArrestNew = async () => {
     if (!workspaceId) return;
@@ -301,6 +333,7 @@ const ProsecutionRegisterComponent = () => {
   };
 
   const deleteNonArrest = makeDelete("dggi_prosecution_non_arrest_records", nonArrestRecords, setNonArrestRecords);
+  const restoreNonArrest = makeRestore("dggi_prosecution_non_arrest_records", setNonArrestRecords);
 
   const saveNonArrestNew = async () => {
     if (!workspaceId) return;
@@ -432,28 +465,39 @@ const ProsecutionRegisterComponent = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pagedArrest.map((record) => (
-                      <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+                    {pagedArrest.map((record) => {
+                      const deleted = isDeleted(record);
+                      return (
+                      <TableRow key={record.id} data-record-id={record.record_id} className={deletedRowClass(record, "border-b border-[#EDEDEA] text-base hover:bg-white")}>
                         {ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
                             {col.key === "record_id" ? (
+                              deleted ? (
+                                <span className="font-medium">{record.record_id || "—"}</span>
+                              ) : (
                               <button
                                 className="text-[#4A5FD4] hover:underline font-medium text-left"
                                 onClick={() => { setArrestDialogMode("edit"); setArrestDialogDraft({ ...record }); setArrestDialogOpen(true); }}
                               >
                                 {record.record_id || "—"}
                               </button>
+                              )
                             ) : renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                           </TableCell>
                         ))}
-                        <TableCell className="px-3 py-2">
+                        <TableCell className="px-3 py-2 no-underline">
                           <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setArrestDialogMode("edit"); setArrestDialogDraft({ ...record }); setArrestDialogOpen(true); }}><Pencil size={13} /></Button>
-                            {userRole === "DD_INT" && <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteArrest(record.id)}><Trash2 size={13} /></Button>}
+                            {!deleted && <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setArrestDialogMode("edit"); setArrestDialogDraft({ ...record }); setArrestDialogOpen(true); }}><Pencil size={13} /></Button>}
+                            {userRole === "DD_INT" && (
+                              deleted
+                                ? <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]" title="Restore" onClick={() => restoreArrest(record.id)}><RotateCcw size={13} /></Button>
+                                : <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteArrest(record.id)}><Trash2 size={13} /></Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {filteredArrest.length === 0 && (
                       <TableRow><TableCell colSpan={ARREST_COLS.length + 1} className="py-12 text-center text-base text-[#9a9a96]">No arrest case records found.</TableCell></TableRow>
                     )}
@@ -531,28 +575,39 @@ const ProsecutionRegisterComponent = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pagedNonArrest.map((record) => (
-                      <TableRow key={record.id} data-record-id={record.record_id} className="border-b border-[#EDEDEA] text-base hover:bg-white">
+                    {pagedNonArrest.map((record) => {
+                      const deleted = isDeleted(record);
+                      return (
+                      <TableRow key={record.id} data-record-id={record.record_id} className={deletedRowClass(record, "border-b border-[#EDEDEA] text-base hover:bg-white")}>
                         {NON_ARREST_COLS.map((col) => (
                           <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
                             {col.key === "record_id" ? (
+                              deleted ? (
+                                <span className="font-medium">{record.record_id || "—"}</span>
+                              ) : (
                               <button
                                 className="text-[#4A5FD4] hover:underline font-medium text-left"
                                 onClick={() => { setNonArrestDialogMode("edit"); setNonArrestDialogDraft({ ...record }); setNonArrestDialogOpen(true); }}
                               >
                                 {record.record_id || "—"}
                               </button>
+                              )
                             ) : renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                           </TableCell>
                         ))}
-                        <TableCell className="px-3 py-2">
+                        <TableCell className="px-3 py-2 no-underline">
                           <div className="flex items-center gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setNonArrestDialogMode("edit"); setNonArrestDialogDraft({ ...record }); setNonArrestDialogOpen(true); }}><Pencil size={13} /></Button>
-                            {userRole === "DD_INT" && <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteNonArrest(record.id)}><Trash2 size={13} /></Button>}
+                            {!deleted && <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#6b6b6b] hover:bg-[#F3F2EF]" onClick={() => { setNonArrestDialogMode("edit"); setNonArrestDialogDraft({ ...record }); setNonArrestDialogOpen(true); }}><Pencil size={13} /></Button>}
+                            {userRole === "DD_INT" && (
+                              deleted
+                                ? <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]" title="Restore" onClick={() => restoreNonArrest(record.id)}><RotateCcw size={13} /></Button>
+                                : <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg text-[#C0432A] hover:bg-[#FEE2E2]" onClick={() => deleteNonArrest(record.id)}><Trash2 size={13} /></Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                     {filteredNonArrest.length === 0 && (
                       <TableRow><TableCell colSpan={NON_ARREST_COLS.length + 1} className="py-12 text-center text-base text-[#9a9a96]">No non-arrest case records found.</TableCell></TableRow>
                     )}

@@ -34,14 +34,25 @@ import {
   Columns2,
   Download,
   Layers,
+  Pencil,
+  RotateCcw,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { exportRegisterToExcel, fmtLakhs } from "./register-utils";
-import type { RegisterColumn } from "./RegisterRecordDialog";
+import {
+  deletedRowClass,
+  exportRegisterToExcel,
+  fmtLakhs,
+  isDeleted,
+  nullifyEmpty,
+  restoreRecord,
+  softDeleteRecord,
+} from "./register-utils";
+import { RegisterRecordDialog, type RegisterColumn } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -74,8 +85,10 @@ interface NonIRRegisterRecord {
   digit_id: string;
   gstins: string;
   is_ir: boolean;
+  due_date: string | null;
   closure_by: string | null;
   legacy_non_ir_no: string;
+  deleted_at?: string | null;
 }
 
 type SortDir = "asc" | "desc";
@@ -100,33 +113,11 @@ const COLUMNS: RegisterColumn[] = [
   { key: "file_no", label: "File No.", type: "text", width: "140px" },
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
   {
-    key: "detection_amount",
-    label: "Detection (₹L)",
-    dialogLabel: "Detection (₹)",
-    type: "number",
-    width: "150px",
-  },
-  {
-    key: "recovery_itc",
-    label: "Recovery ITC (₹L)",
-    dialogLabel: "Recovery ITC (₹)",
-    type: "number",
-    width: "160px",
-  },
-  {
-    key: "recovery_cash",
-    label: "Recovery Cash (₹L)",
-    dialogLabel: "Recovery Cash (₹)",
-    type: "number",
-    width: "160px",
-  },
-  {
     key: "issue_involved",
     label: "Issue Involved",
     type: "text",
     width: "220px",
   },
-  { key: "latest_status", label: "Status", type: "text", width: "180px" },
   { key: "mode_of_initiation", label: "Mode", type: "text", width: "140px" },
   {
     key: "group",
@@ -135,8 +126,6 @@ const COLUMNS: RegisterColumn[] = [
     options: DGGI_GROUPS,
     width: "120px",
   },
-  { key: "bo_id", label: "BO ID", type: "text", width: "130px" },
-  { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
   { key: "gstins", label: "GSTIN(s)", type: "text", width: "160px" },
   {
     key: "handling_io_sio",
@@ -145,10 +134,22 @@ const COLUMNS: RegisterColumn[] = [
     width: "160px",
   },
   {
+    key: "due_date",
+    label: "Closure Date",
+    type: "datepicker",
+    width: "140px",
+  },
+  {
     key: "legacy_non_ir_no",
     label: "Legacy Register No.",
     type: "text",
     width: "160px",
+  },
+  {
+    key: "closure_by",
+    label: "Status",
+    type: "text",
+    width: "120px",
   },
 ];
 
@@ -188,6 +189,10 @@ const NonIRRegisterComponent = () => {
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDraft, setDialogDraft] = useState<Partial<NonIRRegisterRecord>>({});
+  const [savingRow, setSavingRow] = useState(false);
+
   const {
     allUsers: workspaceUsers,
     sioUsers,
@@ -195,7 +200,7 @@ const NonIRRegisterComponent = () => {
   } = useGroupFilteredSioUsers();
 
   const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
-  const totalCols = visibleColumns.length;
+  const totalCols = visibleColumns.length + 1; // +1 for actions column
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -306,6 +311,82 @@ const NonIRRegisterComponent = () => {
     setRecords(data ?? []);
   };
 
+  // ── CRUD ───────────────────────────────────────────────────────────────────
+
+  const openEdit = (record: NonIRRegisterRecord) => {
+    const draft: Record<string, string> = {};
+    for (const col of COLUMNS) {
+      draft[col.key] = String((record as any)[col.key] ?? "");
+    }
+    setDialogDraft({ ...record, ...draft });
+    setDialogOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!dialogDraft.id) return;
+    setSavingRow(true);
+    const { record_id: _locked, ...editableFields } = dialogDraft as NonIRRegisterRecord;
+    const updatePayload = nullifyEmpty({ ...editableFields }, COLUMNS);
+    const { error } = await supabase
+      .from("dggi_records")
+      .update(updatePayload)
+      .eq("id", dialogDraft.id);
+    if (error) {
+      toast.error("Failed to save: " + error.message);
+    } else {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)),
+      );
+      toast.success("Record saved");
+      setDialogOpen(false);
+    }
+    setSavingRow(false);
+  };
+
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, "dggi_records", id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r)),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: stamp } : r)),
+    );
+    const { error } = await softDeleteRecord(supabase, "dggi_records", id, currentUserId || null);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }: { closeToast: () => void }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => { restoreRecordRow(id); closeToast(); }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
+  };
+
   // ── Filtered + sorted rows ─────────────────────────────────────────────────
 
   const tableRecords = records
@@ -317,7 +398,6 @@ const NonIRRegisterComponent = () => {
         r.record_id,
         r.taxpayer_name,
         r.file_no,
-        r.bo_id,
         r.group,
         r.intel_source,
         r.gstins,
@@ -401,7 +481,18 @@ const NonIRRegisterComponent = () => {
 
   // ── Row renderer ───────────────────────────────────────────────────────────
 
-  const renderCell = (value: string, col: RegisterColumn) => {
+  const renderCell = (value: string, col: RegisterColumn, record?: NonIRRegisterRecord) => {
+    if (col.key === "closure_by") {
+      return record?.closure_by ? (
+        <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+          Closed
+        </span>
+      ) : (
+        <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+          Open
+        </span>
+      );
+    }
     if (col.type === "usercombobox")
       return (
         <span>
@@ -423,13 +514,52 @@ const NonIRRegisterComponent = () => {
   const renderRow = (record: NonIRRegisterRecord) => (
     <TableRow
       key={record.id}
-      className="border-b border-[#EDEDEA] text-base hover:bg-white"
+      className={deletedRowClass(
+        record,
+        "border-b border-[#EDEDEA] text-base hover:bg-white",
+      )}
     >
       {visibleColumns.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-          {renderCell((record as any)[col.key] ?? "", col)}
+          {col.key === "record_id" ? (
+            <span className="font-medium text-[#1a1a1a]">
+              {record.record_id || "—"}
+            </span>
+          ) : (
+            renderCell((record as any)[col.key] ?? "", col, record)
+          )}
         </TableCell>
       ))}
+      <TableCell className="px-3 py-2">
+        <div className="flex items-center gap-1">
+          {isDeleted(record) ? (
+            <button
+              onClick={() => restoreRecordRow(record.id)}
+              title="Restore"
+              className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#F3F2EF] hover:text-[#4A5FD4] transition-all"
+            >
+              <RotateCcw size={13} />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => openEdit(record)}
+                title="Edit"
+                className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                onClick={() => deleteRecord(record.id)}
+                title="Delete"
+                className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-red-50 hover:text-red-500 transition-all"
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
+        </div>
+      </TableCell>
     </TableRow>
   );
 
@@ -444,6 +574,7 @@ const NonIRRegisterComponent = () => {
   }
 
   return (
+    <>
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
       <div className="px-3 sm:px-6 space-y-5">
         {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -565,7 +696,7 @@ const NonIRRegisterComponent = () => {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search trade name, file no., BO ID, GSTIN…"
+                placeholder="Search trade name, file no., GSTIN…"
                 className="h-9 pl-8 pr-3 min-w-[300px] border-[#EDEDEA] text-base rounded-lg"
               />
               {search && (
@@ -728,6 +859,7 @@ const NonIRRegisterComponent = () => {
                     </span>
                   </TableHead>
                 ))}
+                <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap w-[80px]" />
               </TableRow>
             </TableHeader>
 
@@ -816,6 +948,22 @@ const NonIRRegisterComponent = () => {
         </div>
       </div>
     </div>
+
+    <RegisterRecordDialog
+      open={dialogOpen}
+      onOpenChange={setDialogOpen}
+      mode="edit"
+      title="Edit NON-IR Record"
+      columns={COLUMNS}
+      draft={dialogDraft as Record<string, string>}
+      onDraftChange={(key, value) =>
+        setDialogDraft((prev) => ({ ...prev, [key]: value }))
+      }
+      onSave={saveEdit}
+      saving={savingRow}
+      users={workspaceUsers}
+    />
+    </>
   );
 };
 

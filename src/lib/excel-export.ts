@@ -123,8 +123,17 @@ export const exportToExcel = <T extends Record<string, any>>(
     : "";
   const finalFilename = `${filename}${timestamp}.xlsx`;
 
-  // Download file
-  XLSX.writeFile(workbook, finalFilename);
+  // Download file — use Blob + anchor so it works in Next.js SSR bundles
+  const buf = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([buf], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = finalFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };
 
 /**
@@ -181,9 +190,17 @@ export const exportMultipleSheets = <T extends Record<string, any>>(
     XLSX.utils.book_append_sheet(workbook, worksheet, name);
   });
 
-  // Generate filename with timestamp
   const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-");
   const finalFilename = `${filename}_${timestamp}.xlsx`;
 
-  XLSX.writeFile(workbook, finalFilename);
+  const buf = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([buf], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = finalFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };

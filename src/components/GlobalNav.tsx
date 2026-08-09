@@ -207,6 +207,16 @@ export default function GlobalNav() {
 
   return (
     <aside className="hidden md:flex flex-col w-[200px] shrink-0 border-r border-[#EDEDEA] bg-white h-full pt-5 pb-4 px-2 overflow-y-auto">
+      <Link
+        href="/dashboard"
+        className="block px-3 pb-4 text-2xl text-[#1a1a1a]"
+        style={{
+          fontFamily:
+            '"Lucida Calligraphy", "Apple Chancery", "URW Chancery L", cursive',
+        }}
+      >
+        AEGIS
+      </Link>
       <div className="flex-1">
         {visibleNavSections.map((section) => (
           <div key={section.label} className="mb-4">

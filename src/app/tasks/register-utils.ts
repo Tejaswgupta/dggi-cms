@@ -43,6 +43,55 @@ const NULL_ON_EMPTY_TYPES = new Set([
 
 export const AMOUNT_FIELDS = new Set(["detection_amount", "recovery_itc", "recovery_cash", "expected_liability"]);
 
+// ── Soft delete (CC-11) ─────────────────────────────────────────────────────
+// Registers no longer hard-delete. A row with a non-null `deleted_at` is
+// soft-deleted: it stays visible with a red strike-through, is read-only until
+// restored, and can be brought back by clearing `deleted_at`.
+
+/** A record is soft-deleted when it carries a non-null `deleted_at`. */
+export const isDeleted = (record: { deleted_at?: string | null } | null | undefined): boolean =>
+  !!record?.deleted_at;
+
+/**
+ * Merges the strike-through styling into a row's base className when the record
+ * is soft-deleted. Use in every register's row renderer:
+ *   className={deletedRowClass(record, "border-b …")}
+ */
+export const deletedRowClass = (
+  record: { deleted_at?: string | null } | null | undefined,
+  base: string,
+): string => (isDeleted(record) ? `${base} line-through text-[#C0432A] opacity-70` : base);
+
+/**
+ * Soft-deletes a row: sets `deleted_at = now()` and `deleted_by = uid`.
+ * Returns the Supabase error (or null on success) so callers can toast/rollback.
+ */
+export const softDeleteRecord = async (
+  supabase: SupabaseClient,
+  table: string,
+  id: string,
+  uid?: string | null,
+): Promise<{ error: { message: string } | null }> => {
+  const { error } = await supabase
+    .from(table)
+    .update({ deleted_at: new Date().toISOString(), deleted_by: uid ?? null })
+    .eq("id", id);
+  return { error };
+};
+
+/** Restores a soft-deleted row by clearing `deleted_at` / `deleted_by`. */
+export const restoreRecord = async (
+  supabase: SupabaseClient,
+  table: string,
+  id: string,
+): Promise<{ error: { message: string } | null }> => {
+  const { error } = await supabase
+    .from(table)
+    .update({ deleted_at: null, deleted_by: null })
+    .eq("id", id);
+  return { error };
+};
+
 export const fmtLakhs = (raw: string) => {
   if (!raw) return "—";
   const n = parseFloat(raw);

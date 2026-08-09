@@ -34,15 +34,26 @@ import {
   Columns2,
   Download,
   Layers,
+  Pencil,
+  RotateCcw,
   Search,
   SlidersHorizontal,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
-import { exportRegisterToExcel, fmtLakhs } from "./register-utils";
-import type { RegisterColumn } from "./RegisterRecordDialog";
+import {
+  deletedRowClass,
+  exportRegisterToExcel,
+  fmtLakhs,
+  isDeleted,
+  nullifyEmpty,
+  restoreRecord,
+  softDeleteRecord,
+} from "./register-utils";
+import { RegisterRecordDialog, type RegisterColumn } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -75,6 +86,7 @@ interface IncidentReportRecord {
   digit_id: string;
   gstins: string;
   is_ir: boolean;
+  deleted_at?: string | null;
 }
 
 type SortDir = "asc" | "desc";
@@ -179,6 +191,10 @@ const IncidentReportComponent = () => {
   });
   const [colPickerOpen, setColPickerOpen] = useState(false);
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogDraft, setDialogDraft] = useState<Partial<IncidentReportRecord>>({});
+  const [savingRow, setSavingRow] = useState(false);
+
   const {
     allUsers: workspaceUsers,
     sioUsers,
@@ -186,7 +202,7 @@ const IncidentReportComponent = () => {
   } = useGroupFilteredSioUsers();
 
   const visibleColumns = COLUMNS.filter((c) => !hiddenColumns.has(c.key));
-  const totalCols = visibleColumns.length;
+  const totalCols = visibleColumns.length + 1; // +1 for actions column
 
   const toggleColumn = (key: string) => {
     setHiddenColumns((prev) => {
@@ -281,6 +297,82 @@ const IncidentReportComponent = () => {
       return;
     }
     setRecords(data ?? []);
+  };
+
+  // ── CRUD ───────────────────────────────────────────────────────────────────
+
+  const openEdit = (record: IncidentReportRecord) => {
+    const draft: Record<string, string> = {};
+    for (const col of COLUMNS) {
+      draft[col.key] = String((record as any)[col.key] ?? "");
+    }
+    setDialogDraft({ ...record, ...draft });
+    setDialogOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!dialogDraft.id) return;
+    setSavingRow(true);
+    const { record_id: _locked, ...editableFields } = dialogDraft as IncidentReportRecord;
+    const updatePayload = nullifyEmpty({ ...editableFields }, COLUMNS);
+    const { error } = await supabase
+      .from("dggi_records")
+      .update(updatePayload)
+      .eq("id", dialogDraft.id);
+    if (error) {
+      toast.error("Failed to save: " + error.message);
+    } else {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)),
+      );
+      toast.success("Record saved");
+      setDialogOpen(false);
+    }
+    setSavingRow(false);
+  };
+
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, "dggi_records", id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r)),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: stamp } : r)),
+    );
+    const { error } = await softDeleteRecord(supabase, "dggi_records", id, currentUserId || null);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }: { closeToast: () => void }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => { restoreRecordRow(id); closeToast(); }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   // ── Filtered + sorted rows ─────────────────────────────────────────────────
@@ -398,13 +490,52 @@ const IncidentReportComponent = () => {
   const renderRow = (record: IncidentReportRecord) => (
     <TableRow
       key={record.id}
-      className="border-b border-[#EDEDEA] text-base hover:bg-white"
+      className={deletedRowClass(
+        record,
+        "border-b border-[#EDEDEA] text-base hover:bg-white",
+      )}
     >
       {visibleColumns.map((col) => (
         <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-          {renderCell((record as any)[col.key] ?? "", col)}
+          {col.key === "record_id" ? (
+            <span className="font-medium text-[#1a1a1a]">
+              {record.record_id || "—"}
+            </span>
+          ) : (
+            renderCell((record as any)[col.key] ?? "", col)
+          )}
         </TableCell>
       ))}
+      <TableCell className="px-3 py-2">
+        <div className="flex items-center gap-1">
+          {isDeleted(record) ? (
+            <button
+              onClick={() => restoreRecordRow(record.id)}
+              title="Restore"
+              className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#F3F2EF] hover:text-[#4A5FD4] transition-all"
+            >
+              <RotateCcw size={13} />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => openEdit(record)}
+                title="Edit"
+                className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                onClick={() => deleteRecord(record.id)}
+                title="Delete"
+                className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-red-50 hover:text-red-500 transition-all"
+              >
+                <Trash2 size={13} />
+              </button>
+            </>
+          )}
+        </div>
+      </TableCell>
     </TableRow>
   );
 
@@ -419,6 +550,7 @@ const IncidentReportComponent = () => {
   }
 
   return (
+    <>
     <div className="w-full min-h-full bg-white font-['DM_Sans'] pt-4 pb-10">
       <div className="px-3 sm:px-6 space-y-5">
         {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -703,6 +835,7 @@ const IncidentReportComponent = () => {
                     </span>
                   </TableHead>
                 ))}
+                <TableHead className="text-base font-semibold text-[#6b6b6b] py-3 px-3 whitespace-nowrap w-[80px]" />
               </TableRow>
             </TableHeader>
 
@@ -791,6 +924,22 @@ const IncidentReportComponent = () => {
         </div>
       </div>
     </div>
+
+    <RegisterRecordDialog
+      open={dialogOpen}
+      onOpenChange={setDialogOpen}
+      mode="edit"
+      title="Edit IR Record"
+      columns={COLUMNS}
+      draft={dialogDraft as Record<string, string>}
+      onDraftChange={(key, value) =>
+        setDialogDraft((prev) => ({ ...prev, [key]: value }))
+      }
+      onSave={saveEdit}
+      saving={savingRow}
+      users={workspaceUsers}
+    />
+    </>
   );
 };
 

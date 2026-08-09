@@ -44,11 +44,10 @@ function adminClient() {
 
 const TABLE_COLUMNS: Record<string, string> = rulesJson.tableColumns;
 
-// sioFields / officerFields are tried in order; the first non-empty wins. This
-// lets tables that store the assignee across multiple columns resolve cleanly —
-// e.g. dggi_records keeps IR officers in handling_io_sio but NON-IR officers in
-// assigned_user_id. nameField is a plain-text display fallback used when no UUID
-// resolves to a votum_users name.
+// sioFields / officerFields are tried in order; the first non-empty wins.
+// dggi_records keeps the officer in handling_io_sio (the canonical assignment
+// column); nameField is a plain-text display fallback used when the UUID does
+// not resolve to a votum_users name (e.g. seeded rows carrying only sio_name).
 interface RecipientConfig {
   sioFields: string[];
   groupField: string;
@@ -57,15 +56,15 @@ interface RecipientConfig {
 }
 
 const TABLE_RECIPIENTS: Record<string, RecipientConfig> = {
-  dggi_scn_records:                    { sioFields: ["sio"],                            groupField: "group",          officerFields: ["adjudication_formation"] },
-  dggi_provisional_attachment_records: { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
-  dggi_prosecution_arrest_records:     { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
-  dggi_prosecution_non_arrest_records: { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
-  dggi_seizure_records:                { sioFields: ["sio"],                            groupField: "group",          officerFields: ["seized_by"] },
-  dggi_intel_rapid_records:            { sioFields: ["sio"],                            groupField: "assigned_group", officerFields: ["assigned_group"] },
-  dggi_str_records:                    { sioFields: ["sio"],                            groupField: "assigned_group", officerFields: ["assigned_group"] },
-  dggi_records:                        { sioFields: ["handling_io_sio", "assigned_user_id"], groupField: "group",     officerFields: ["handling_io_sio", "assigned_user_id"], nameField: "sio_name" },
-  dggi_dfl_records:                    { sioFields: ["sio"],                            groupField: "group",          officerFields: ["sio"] },
+  dggi_scn_records:                    { sioFields: ["sio"],             groupField: "group",          officerFields: ["adjudication_formation"] },
+  dggi_provisional_attachment_records: { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
+  dggi_prosecution_arrest_records:     { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
+  dggi_prosecution_non_arrest_records: { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
+  dggi_seizure_records:                { sioFields: ["sio"],             groupField: "group",          officerFields: ["seized_by"] },
+  dggi_intel_rapid_records:            { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },
+  dggi_str_records:                    { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },
+  dggi_records:                        { sioFields: ["handling_io_sio"], groupField: "group",          officerFields: ["handling_io_sio"], nameField: "sio_name" },
+  dggi_dfl_records:                    { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
 };
 
 // First non-empty value across the given candidate columns.

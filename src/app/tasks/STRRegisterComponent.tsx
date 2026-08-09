@@ -20,6 +20,7 @@ import {
   Download,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -30,10 +31,14 @@ import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   REGISTER_PREFIXES,
+  deletedRowClass,
   exportRegisterToExcel,
   fetchCaseOptionsByIds,
   generateWorkspaceRecordId,
+  isDeleted,
   mergeCaseOptions,
+  restoreRecord,
+  softDeleteRecord,
 } from "./register-utils";
 import {
   RegisterRecordDialog,
@@ -63,6 +68,8 @@ interface STRRecord {
   sio_name: string;
   group: string;
   pr_adg_comments?: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 const COLUMNS: RegisterColumn[] = [
@@ -174,6 +181,7 @@ const STRRegisterComponent = () => {
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [dialogDraft, setDialogDraft] = useState<Partial<STRRecord>>({});
   const [userRole, setUserRole] = useState("");
+  const [currentUid, setCurrentUid] = useState<string | null>(null);
 
   const { allUsers: workspaceUsers, sioUsers, loading: usersLoading } = useGroupFilteredSioUsers();
 
@@ -196,6 +204,7 @@ const STRRegisterComponent = () => {
       setCaseOptions(linkedCases);
 
       const uid = authUserRes.data.user?.id;
+      setCurrentUid(uid ?? null);
       if (uid) {
         const { data: profile } = await supabase
           .from("votum_users")
@@ -258,14 +267,55 @@ const STRRegisterComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = async (id: string) => {
-    const { error } = await supabase.from(TABLE_NAME).delete().eq("id", id);
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, TABLE_NAME, id);
     if (error) {
-      toast.error("Delete failed: " + error.message);
-    } else {
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-      toast.success("Record deleted");
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r,
+        ),
+      );
+      toast.error("Restore failed: " + error.message);
     }
+  };
+
+  const deleteRecord = async (id: string) => {
+    const record = records.find((r) => r.id === id);
+    if (!record) return;
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, deleted_at: stamp, deleted_by: currentUid } : r,
+      ),
+    );
+    const { error } = await softDeleteRecord(supabase, TABLE_NAME, id, currentUid);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => {
+              restoreRecordRow(id);
+              closeToast();
+            }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
+      { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
+    );
   };
 
   const saveNew = async () => {
@@ -457,10 +507,15 @@ const STRRegisterComponent = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tableRecords.map((record) => (
+                {tableRecords.map((record) => {
+                  const deleted = isDeleted(record);
+                  return (
                   <TableRow
                     key={record.id}
-                    className="border-b border-[#EDEDEA] text-base hover:bg-white"
+                    className={deletedRowClass(
+                      record,
+                      "border-b border-[#EDEDEA] text-base hover:bg-white",
+                    )}
                   >
                     {COLUMNS.map((col) => (
                       <TableCell
@@ -470,8 +525,9 @@ const STRRegisterComponent = () => {
                         {renderCell((record as any)[col.key] ?? "", col.type, col.key === "sio" ? (record as any).sio_name : undefined)}
                       </TableCell>
                     ))}
-                    <TableCell className="px-3 py-2">
+                    <TableCell className="px-3 py-2 no-underline">
                       <div className="flex items-center gap-1">
+                        {!deleted && (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -484,7 +540,19 @@ const STRRegisterComponent = () => {
                         >
                           <Pencil size={13} />
                         </Button>
+                        )}
                         {userRole === "DD_INT" && (
+                          deleted ? (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]"
+                          title="Restore"
+                          onClick={() => restoreRecordRow(record.id)}
+                        >
+                          <RotateCcw size={13} />
+                        </Button>
+                          ) : (
                         <Button
                           size="icon"
                           variant="ghost"
@@ -493,11 +561,13 @@ const STRRegisterComponent = () => {
                         >
                           <Trash2 size={13} />
                         </Button>
+                          )
                         )}
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
                 {tableRecords.length === 0 && (
                   <TableRow>
                     <TableCell

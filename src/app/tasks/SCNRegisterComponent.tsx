@@ -40,6 +40,7 @@ import {
   Download,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
   SlidersHorizontal,
   Trash2,
@@ -51,12 +52,16 @@ import { toast } from "react-toastify";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import {
   currentFY,
+  deletedRowClass,
   exportRegisterToExcel,
   fetchCaseOptionsByIds,
   fmtLakhs,
+  isDeleted,
   mergeCaseOptions,
   nullifyEmpty,
   REGISTER_PREFIXES,
+  restoreRecord,
+  softDeleteRecord,
 } from "./register-utils";
 import {
   RegisterRecordDialog,
@@ -86,10 +91,14 @@ interface SCNRecord {
   remarks: string;
   sio: string;
   sio_name: string;
+  scn_issuing_authority: string;
+  scn_issuing_authority_name: string;
   group: string;
   competency: string;
   common_adjudicating_authority: string;
   division_and_range: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 interface Filters {
@@ -132,10 +141,14 @@ const EMPTY_RECORD: Omit<SCNRecord, "id"> = {
   remarks: "",
   sio: "",
   sio_name: "",
+  scn_issuing_authority: "",
+  scn_issuing_authority_name: "",
   group: "",
   competency: "",
   common_adjudicating_authority: "",
   division_and_range: "",
+  deleted_at: null,
+  deleted_by: null,
 };
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -412,9 +425,15 @@ const COLUMNS: RegisterColumn[] = [
   },
   {
     key: "sio",
-    label: "Name of SCN Issuing Authority",
+    label: "SIO",
     type: "usercombobox",
     width: "220px",
+  },
+  {
+    key: "scn_issuing_authority",
+    label: "SCN Issuing Authority",
+    type: "usercombobox",
+    width: "200px",
   },
   {
     key: "group",
@@ -543,6 +562,11 @@ const SCNRegisterComponent = () => {
       ]);
       const role = userRow?.dggi_role ?? "";
       setUserRole(role);
+      if (role === "AD" || role === "DD") {
+        setActiveTab("AD/DD Competency");
+      } else if (role === "JC" || role === "ADC" || role === "JD") {
+        setActiveTab("JC/ADC Competency");
+      }
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
@@ -571,11 +595,14 @@ const SCNRegisterComponent = () => {
       .eq("workspace_id", wid);
     if (role && role !== "ADG" && role !== "DD_INT") {
       if (role === "IO" || role === "SIO") {
-        query = query.eq("sio", uid ?? "__none__");
+        query = query.or(`sio.eq.${uid ?? "__none__"},sio.is.null`);
       } else if (groups && groups.length > 0) {
-        query = query.in("group", groups);
+        const grpList = groups.join(",");
+        query = query.or(
+          `group.in.(${grpList}),group.is.null,group.eq.,date_of_scn.lt.2025-01-01`,
+        );
       } else {
-        query = query.eq("group", "__none__");
+        query = query.or(`group.is.null,group.eq.,date_of_scn.lt.2025-01-01`);
       }
     }
     const { data, error } = await query.order("created_at", {
@@ -602,7 +629,16 @@ const SCNRegisterComponent = () => {
   // ── Filtered + sorted rows ─────────────────────────────────────────────────
 
   const tableRecords = records
-    .filter((r) => (r.competency || "SIO Competency") === activeTab)
+    .filter((r) => {
+      const comp = r.competency || "SIO Competency";
+      if (activeTab === "AD/DD Competency") {
+        return (
+          comp === "AD/DD Competency" ||
+          (!!r.date_of_scn && r.date_of_scn < "2025-01-01")
+        );
+      }
+      return comp === activeTab;
+    })
     .filter((r) => {
       if (filters.search) {
         const q = filters.search.toLowerCase();
@@ -655,6 +691,9 @@ const SCNRegisterComponent = () => {
     (updatePayload as any).sio_name =
       workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
       null;
+    (updatePayload as any).scn_issuing_authority_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.scn_issuing_authority ?? ""))?.name ||
+      null;
     const { error } = await supabase
       .from("dggi_scn_records")
       .update(updatePayload)
@@ -673,35 +712,58 @@ const SCNRegisterComponent = () => {
     setSavingRow(false);
   };
 
-  const deleteRecord = (id: string) => {
+  const restoreRecordRow = async (id: string) => {
+    setRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+    );
+    const { error } = await restoreRecord(supabase, "dggi_scn_records", id);
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r,
+        ),
+      );
+      toast.error("Restore failed: " + error.message);
+    }
+  };
+
+  const deleteRecord = async (id: string) => {
     const record = records.find((r) => r.id === id);
     if (!record) return;
-    setRecords((prev) => prev.filter((r) => r.id !== id));
-    let toastId: ReturnType<typeof toast.info>;
-    const timerId = setTimeout(async () => {
-      const { error } = await supabase
-        .from("dggi_scn_records")
-        .delete()
-        .eq("id", id);
-      if (error) {
-        setRecords((prev) => [...prev, record]);
-        toast.error("Delete failed: " + error.message);
-      }
-    }, 5000);
-    toastId = toast.info(
-      <div className="flex items-center justify-between gap-3 w-full">
-        <span>{record.record_id} deleted</span>
-        <button
-          onClick={() => {
-            clearTimeout(timerId);
-            setRecords((prev) => [...prev, record]);
-            toast.dismiss(toastId);
-          }}
-          className="font-medium underline underline-offset-2 shrink-0"
-        >
-          Undo
-        </button>
-      </div>,
+    const stamp = new Date().toISOString();
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === id ? { ...r, deleted_at: stamp, deleted_by: currentUserId || null } : r,
+      ),
+    );
+    const { error } = await softDeleteRecord(
+      supabase,
+      "dggi_scn_records",
+      id,
+      currentUserId || null,
+    );
+    if (error) {
+      setRecords((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: null, deleted_by: null } : r)),
+      );
+      toast.error("Delete failed: " + error.message);
+      return;
+    }
+    toast.info(
+      ({ closeToast }) => (
+        <div className="flex items-center justify-between gap-3 w-full">
+          <span>{record.record_id} deleted</span>
+          <button
+            onClick={() => {
+              restoreRecordRow(id);
+              closeToast();
+            }}
+            className="font-medium underline underline-offset-2 shrink-0"
+          >
+            Undo
+          </button>
+        </div>
+      ),
       { autoClose: 5000, closeOnClick: false, pauseOnHover: true },
     );
   };
@@ -719,6 +781,9 @@ const SCNRegisterComponent = () => {
     );
     (payload as any).sio_name =
       workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name ||
+      null;
+    (payload as any).scn_issuing_authority_name =
+      workspaceUsers.find((u) => u.id === (dialogDraft.scn_issuing_authority ?? ""))?.name ||
       null;
     (payload as any).created_by = currentUserId || null;
     (payload as any).created_by_name =
@@ -1079,11 +1144,13 @@ const SCNRegisterComponent = () => {
                   </TableHeader>
 
                   <TableBody>
-                    {pagedRecords.map((record) => (
+                    {pagedRecords.map((record) => {
+                      const deleted = isDeleted(record);
+                      return (
                       <TableRow
                         key={record.id}
                         data-record-id={record.record_id}
-                        className="border-b border-[#EDEDEA] text-base hover:bg-white"
+                        className={deletedRowClass(record, "border-b border-[#EDEDEA] text-base hover:bg-white")}
                       >
                         {COLUMNS.map((col) => (
                           <TableCell
@@ -1091,6 +1158,11 @@ const SCNRegisterComponent = () => {
                             className="px-3 py-2 text-[#1a1a1a]"
                           >
                             {col.key === "record_id" ? (
+                              deleted ? (
+                                <span className="font-medium">
+                                  {record.record_id || "—"}
+                                </span>
+                              ) : (
                               <button
                                 className="text-[#4A5FD4] hover:underline font-medium text-left"
                                 onClick={() => {
@@ -1101,19 +1173,23 @@ const SCNRegisterComponent = () => {
                               >
                                 {record.record_id || "—"}
                               </button>
+                              )
                             ) : (
                               renderCell(
                                 (record as any)[col.key] ?? "",
                                 col.type,
                                 col.key === "sio"
                                   ? (record as any).sio_name
+                                  : col.key === "scn_issuing_authority"
+                                  ? (record as any).scn_issuing_authority_name
                                   : undefined,
                               )
                             )}
                           </TableCell>
                         ))}
-                        <TableCell className="px-3 py-2">
+                        <TableCell className="px-3 py-2 no-underline">
                           <div className="flex items-center gap-1">
+                            {!deleted && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -1126,7 +1202,19 @@ const SCNRegisterComponent = () => {
                             >
                               <Pencil size={13} />
                             </Button>
+                            )}
                             {userRole === "DD_INT" && (
+                              deleted ? (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 rounded-lg text-[#2F855A] hover:bg-[#DCFCE7]"
+                                title="Restore"
+                                onClick={() => restoreRecordRow(record.id)}
+                              >
+                                <RotateCcw size={13} />
+                              </Button>
+                              ) : (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button
@@ -1143,8 +1231,8 @@ const SCNRegisterComponent = () => {
                                     Delete SCN record?
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This will permanently delete{" "}
-                                    {record.record_id} and cannot be undone.
+                                    This will mark {record.record_id} as deleted.
+                                    You can restore it afterwards.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -1158,11 +1246,13 @@ const SCNRegisterComponent = () => {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+                              )
                             )}
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
 
                     {tableRecords.length === 0 && (
                       <TableRow>
