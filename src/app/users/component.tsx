@@ -2,6 +2,7 @@
 
 import { addUserAction } from "@/lib/action/users";
 import { DGGI_GROUPS, DGGI_ROLE_LABELS, DGGI_ROLES, type DggiRole } from "@/lib/dggi-constants";
+import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { ChevronDown, Search, Trash2, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
