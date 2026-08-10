@@ -59,6 +59,16 @@ import { RegisterRecordDialog, type RegisterColumn } from "./RegisterRecordDialo
 
 const LS_HIDDEN_COLS_KEY = "ir_hidden_columns";
 
+const SOURCE_OPTIONS = ["Int", "Group", "STR"];
+const MODE_OPTIONS = ["Letter", "Email", "Summons", "Inspection", "Search"];
+const ISSUE_INVOLVED_OPTIONS = [
+  "Fake ITC",
+  "Clandestine Supply",
+  "Misclassification",
+  "Online Gaming",
+];
+const LATEST_STATUS_OPTIONS = ["Kept in Abeyance"];
+
 type GroupByField = "group" | "handling_io_sio";
 const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
   { value: "group", label: "Group" },
@@ -101,7 +111,7 @@ const COLUMNS: RegisterColumn[] = [
     width: "140px",
     readOnly: true,
   },
-  { key: "intel_source", label: "Intel Source", type: "text", width: "140px" },
+  { key: "intel_source", label: "Intel Source", type: "select", options: SOURCE_OPTIONS, width: "140px" },
   { key: "date_of_ir", label: "IR Date", type: "datepicker", width: "130px" },
   { key: "file_no", label: "File No.", type: "text", width: "140px" },
   { key: "taxpayer_name", label: "Trade Name", type: "text", width: "180px" },
@@ -129,11 +139,13 @@ const COLUMNS: RegisterColumn[] = [
   {
     key: "issue_involved",
     label: "Issue Involved",
-    type: "text",
+    type: "select",
+    options: ISSUE_INVOLVED_OPTIONS,
+    allowOther: true,
     width: "220px",
   },
-  { key: "latest_status", label: "Status", type: "text", width: "180px" },
-  { key: "mode_of_initiation", label: "Mode", type: "text", width: "140px" },
+  { key: "latest_status", label: "Status", type: "select", options: LATEST_STATUS_OPTIONS, allowOther: true, width: "180px" },
+  { key: "mode_of_initiation", label: "Mode", type: "select", options: MODE_OPTIONS, width: "140px" },
   {
     key: "group",
     label: "Group",

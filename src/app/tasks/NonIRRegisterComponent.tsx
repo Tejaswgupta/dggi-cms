@@ -58,6 +58,17 @@ import { RegisterRecordDialog, type RegisterColumn } from "./RegisterRecordDialo
 
 const LS_HIDDEN_COLS_KEY = "nir_hidden_columns";
 
+const SOURCE_OPTIONS = ["Int", "Group", "STR"];
+const MODE_OPTIONS = ["Letter", "Email", "Summons", "Inspection", "Search"];
+const ISSUE_INVOLVED_OPTIONS = [
+  "Fake ITC",
+  "Clandestine Supply",
+  "Misclassification",
+  "Online Gaming",
+];
+const LATEST_STATUS_OPTIONS = ["Kept in Abeyance"];
+const NON_IR_CLOSURE_OPTIONS = ["Closed", "Transferred", "Convert to IR"];
+
 type GroupByField = "group" | "handling_io_sio";
 const GROUP_BY_OPTIONS: { value: GroupByField; label: string }[] = [
   { value: "group", label: "Group" },
@@ -103,7 +114,7 @@ const COLUMNS: RegisterColumn[] = [
     width: "140px",
     readOnly: true,
   },
-  { key: "intel_source", label: "Intel Source", type: "text", width: "140px" },
+  { key: "intel_source", label: "Intel Source", type: "select", options: SOURCE_OPTIONS, width: "140px" },
   {
     key: "date_of_non_ir",
     label: "Non-IR Date",
@@ -115,10 +126,12 @@ const COLUMNS: RegisterColumn[] = [
   {
     key: "issue_involved",
     label: "Issue Involved",
-    type: "text",
+    type: "select",
+    options: ISSUE_INVOLVED_OPTIONS,
+    allowOther: true,
     width: "220px",
   },
-  { key: "mode_of_initiation", label: "Mode", type: "text", width: "140px" },
+  { key: "mode_of_initiation", label: "Mode", type: "select", options: MODE_OPTIONS, width: "140px" },
   {
     key: "group",
     label: "Group",
@@ -146,10 +159,19 @@ const COLUMNS: RegisterColumn[] = [
     width: "160px",
   },
   {
+    key: "latest_status",
+    label: "Latest Status",
+    type: "select",
+    options: LATEST_STATUS_OPTIONS,
+    allowOther: true,
+    width: "180px",
+  },
+  {
     key: "closure_by",
-    label: "Status",
-    type: "text",
-    width: "120px",
+    label: "Closure Reason",
+    type: "select",
+    options: NON_IR_CLOSURE_OPTIONS,
+    width: "150px",
   },
 ];
 
@@ -327,6 +349,10 @@ const NonIRRegisterComponent = () => {
     setSavingRow(true);
     const { record_id: _locked, ...editableFields } = dialogDraft as NonIRRegisterRecord;
     const updatePayload = nullifyEmpty({ ...editableFields }, COLUMNS);
+    // mode_of_initiation is CHECK-constrained on dggi_records: an empty string
+    // violates it, so blank must be stored as NULL (nullifyEmpty skips selects).
+    (updatePayload as Record<string, unknown>).mode_of_initiation =
+      editableFields.mode_of_initiation || null;
     const { error } = await supabase
       .from("dggi_records")
       .update(updatePayload)
