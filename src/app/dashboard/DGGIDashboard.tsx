@@ -619,7 +619,7 @@ function DeadlineTable({
   items: DeadlineItem[];
   loading: boolean;
   isAdg?: boolean;
-  onOutOfMonitoring?: (item: DeadlineItem) => void;
+  onOutOfMonitoring?: (item: DeadlineItem, reason?: string) => void;
   emptyIcon?: LucideIcon;
   emptyTitle?: string;
   emptyBody?: string;
@@ -631,6 +631,9 @@ function DeadlineTable({
     y: number;
     item: DeadlineItem;
   } | null>(null);
+  // Item pending an out-of-monitoring decision (opens the reason dialog)
+  const [oomTarget, setOomTarget] = useState<DeadlineItem | null>(null);
+  const [oomReason, setOomReason] = useState("");
 
   // Reset to page 1 whenever the item list changes
   const itemsKey = items.length + (items[0]?.ruleId ?? "");
@@ -690,13 +693,83 @@ function DeadlineTable({
           <button
             className="flex items-center gap-2 w-full px-3 py-2 text-[12px] text-[#C0432A] hover:bg-red-50 transition-colors"
             onClick={() => {
-              onOutOfMonitoring?.(ctxMenu.item);
+              setOomTarget(ctxMenu.item);
+              setOomReason("");
               setCtxMenu(null);
             }}
           >
             <X size={12} />
             Move Out of Monitoring
           </button>
+        </div>
+      )}
+
+      {/* Out-of-monitoring reason dialog */}
+      {oomTarget && isAdg && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
+          onMouseDown={() => setOomTarget(null)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl border border-[#EDEDEA] w-full max-w-md mx-4 flex flex-col"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between px-5 py-4 border-b border-[#F3F2EF]">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 bg-red-50 rounded-lg shrink-0">
+                  <X size={16} className="text-[#C0432A]" />
+                </div>
+                <div>
+                  <h2 className="text-[14px] font-semibold text-[#1a1a1a]">
+                    Move Out of Monitoring
+                  </h2>
+                  <p className="text-[11px] text-[#9a9a96] mt-0.5">
+                    {oomTarget.entityName} · {oomTarget.recordId}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOomTarget(null)}
+                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#F3F2EF] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="px-5 py-4 flex flex-col gap-2">
+              <label className="text-[11px] font-semibold text-[#6b6b6b] uppercase tracking-wide">
+                Reason{" "}
+                <span className="text-[#9a9a96] font-normal normal-case tracking-normal">
+                  (optional)
+                </span>
+              </label>
+              <textarea
+                value={oomReason}
+                onChange={(e) => setOomReason(e.target.value)}
+                rows={3}
+                autoFocus
+                placeholder="Why is this record being removed from monitoring?"
+                className="w-full text-[12.5px] text-[#1a1a1a] bg-[#FAFAF9] border border-[#EDEDEA] rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-[#4A5FD4] focus:border-[#4A5FD4]"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[#F3F2EF]">
+              <button
+                onClick={() => setOomTarget(null)}
+                className="text-[12px] font-medium text-[#6b6b6b] hover:text-[#1a1a1a] bg-[#F3F2EF] hover:bg-[#EDEDEA] rounded-lg px-3 py-1.5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onOutOfMonitoring?.(oomTarget, oomReason.trim() || undefined);
+                  setOomTarget(null);
+                }}
+                className="flex items-center gap-1.5 text-[12px] font-semibold text-white bg-[#C0432A] hover:bg-[#a5391f] rounded-lg px-3 py-1.5 transition-colors"
+              >
+                <X size={12} />
+                Move Out of Monitoring
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <div className="overflow-x-auto">
@@ -1719,7 +1792,7 @@ export default function DGGIDashboard() {
     }
   }
 
-  async function handleOutOfMonitoring(item: DeadlineItem) {
+  async function handleOutOfMonitoring(item: DeadlineItem, reason?: string) {
     // Only ADG may move records out of monitoring — enforced here as well as
     // in the UI (context menu is ADG-only) so the action can't be triggered
     // for any other role.
@@ -1730,7 +1803,10 @@ export default function DGGIDashboard() {
     if (!item.rowId) return;
     const { error } = await supabase
       .from(item.sourceTable)
-      .update({ out_of_monitoring: true })
+      .update({
+        out_of_monitoring: true,
+        out_of_monitoring_reason: reason ?? null,
+      })
       .eq("id", item.rowId);
     if (error) {
       toast.error("Failed to move out of monitoring: " + error.message);

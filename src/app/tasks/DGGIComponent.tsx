@@ -62,6 +62,7 @@ import {
   CalendarIcon,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
   ChevronUp,
@@ -106,6 +107,8 @@ import {
 } from "./RegisterRecordDialog";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 50;
 
 const GROUPS = DGGI_GROUPS;
 
@@ -3012,7 +3015,7 @@ function BulkTransferDialog({
   open,
   onOpenChange,
   users,
-  records,
+  workspaceId,
   onTransfer,
   transferring,
   userGroupMap,
@@ -3020,7 +3023,7 @@ function BulkTransferDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   users: WorkspaceUser[];
-  records: DGGIRecord[];
+  workspaceId: string;
   onTransfer: (
     fromUserId: string,
     toUserId: string,
@@ -3029,8 +3032,11 @@ function BulkTransferDialog({
   transferring: boolean;
   userGroupMap: Record<string, GroupName>;
 }) {
+  const supabase = clientConnectionWithSupabase();
   const [fromUserId, setFromUserId] = useState("");
   const [toUserId, setToUserId] = useState("");
+  const [affectedCount, setAffectedCount] = useState(0);
+  const [countLoading, setCountLoading] = useState(false);
 
   const toGroup = userGroupMap[toUserId] || "";
 
@@ -3038,13 +3044,35 @@ function BulkTransferDialog({
     if (!v) {
       setFromUserId("");
       setToUserId("");
+      setAffectedCount(0);
     }
     onOpenChange(v);
   };
 
-  const affectedCount = fromUserId
-    ? records.filter((r) => r.handling_io_sio === fromUserId).length
-    : 0;
+  // Live-count the open cases held by fromUser across ALL pages (server-side).
+  useEffect(() => {
+    if (!fromUserId || !workspaceId) {
+      setAffectedCount(0);
+      return;
+    }
+    let cancelled = false;
+    setCountLoading(true);
+    supabase
+      .from("dggi_records")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("handling_io_sio", fromUserId)
+      .is("closure_by", null)
+      .then(({ count }) => {
+        if (!cancelled) {
+          setAffectedCount(count ?? 0);
+          setCountLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fromUserId, workspaceId]);
 
   const fromUser = users.find((u) => u.id === fromUserId);
   const toUser = users.find((u) => u.id === toUserId);
@@ -3052,6 +3080,7 @@ function BulkTransferDialog({
     fromUserId &&
     toUserId &&
     fromUserId !== toUserId &&
+    !countLoading &&
     affectedCount > 0 &&
     toGroup;
 
@@ -3080,9 +3109,11 @@ function BulkTransferDialog({
             />
             {fromUserId && (
               <p className="text-sm text-[#9a9a96]">
-                {affectedCount === 0
-                  ? "No open cases assigned to this user."
-                  : `${affectedCount} open case${affectedCount !== 1 ? "s" : ""} will be transferred.`}
+                {countLoading
+                  ? "Counting open cases…"
+                  : affectedCount === 0
+                    ? "No open cases assigned to this user."
+                    : `${affectedCount} open case${affectedCount !== 1 ? "s" : ""} will be transferred.`}
               </p>
             )}
           </div>
@@ -3309,8 +3340,12 @@ const DGGIComponent = () => {
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [records, setRecords] = useState<DGGIRecord[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalFiltered, setTotalFiltered] = useState(0);
+  const [tableLoading, setTableLoading] = useState(false);
   const [irCount, setIrCount] = useState(0);
   const [nonIrCount, setNonIrCount] = useState(0);
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
   const [userRole, setUserRole] = useState<string>("");
   const [userGroups, setUserGroups] = useState<string[]>([]);
@@ -3466,8 +3501,8 @@ const DGGIComponent = () => {
       userGroupsRef.current = groups;
 
       const [, , usersRes, allGroupAssignments] = await Promise.all([
-        fetchRecords(wid, topFilterRef.current === "ir", role, groups, uid),
-        fetchCounts(wid, role, groups, uid),
+        fetchRecords(wid, topFilterRef.current === "ir", EMPTY_FILTERS, null, null, "asc", 0, false, role, groups, uid),
+        fetchCounts(wid, topFilterRef.current === "ir", EMPTY_FILTERS, null, role, groups, uid),
         getAllUsers(),
         supabase
           .from("dggi_user_group_assignments")
@@ -3521,36 +3556,100 @@ const DGGIComponent = () => {
     return q;
   };
 
-  const fetchRecords = async (
+  // Applies the user-facing list filters (search / modes / dates / due-date / group).
+  // Shared by the table query and the summary-card counts so their totals always agree.
+  const applyListFilters = (
+    query: any,
+    f: Filters,
+    groupFilterVal: GroupName | null,
+  ) => {
+    let q = query;
+    if (groupFilterVal) q = q.eq("group", groupFilterVal);
+    if (f.search) q = q.or(
+      `record_id.ilike.%${f.search}%,taxpayer_name.ilike.%${f.search}%,gstins.ilike.%${f.search}%,file_no.ilike.%${f.search}%,intel_source.ilike.%${f.search}%,issue_involved.ilike.%${f.search}%,latest_status.ilike.%${f.search}%`,
+    );
+    if (f.modes.length > 0) q = q.in("mode_of_initiation", f.modes);
+    if (f.dateFrom) q = q.gte("date_of_receipt", f.dateFrom);
+    if (f.dateTo) q = q.lte("date_of_receipt", f.dateTo);
+    if (f.dueDateYear) q = q.like("due_date", `${f.dueDateYear}%`);
+    return q;
+  };
+
+  const buildRecordQuery = (
     wid: string,
     isIr: boolean,
+    f: Filters,
+    groupFilterVal: GroupName | null,
+    sortColumn: string | null,
+    sortDirection: "asc" | "desc",
     role?: string,
     groups?: string[],
     uid?: string,
-    handlingIoFilter?: string,
   ) => {
     let q = supabase
       .from("dggi_records")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("workspace_id", wid)
       .is("closure_by", null)
       .eq("is_ir", isIr);
-    q = applyRoleFilters(q, role, groups, uid, handlingIoFilter);
-    const { data, error } = await q.order("created_at", { ascending: false });
+    q = applyRoleFilters(q, role, groups, uid, f.handlingIo);
+    q = applyListFilters(q, f, groupFilterVal);
 
-    if (error) {
-      console.error("fetchRecords error:", error);
-      return;
-    }
-    setRecords(data ?? []);
+    const col = sortColumn ?? "created_at";
+    const asc = sortColumn ? sortDirection === "asc" : false;
+    q = q.order(col, { ascending: asc, nullsFirst: false });
+
+    return q;
   };
 
-  const fetchCounts = async (
+  const fetchRecords = async (
     wid: string,
+    isIr: boolean,
+    f: Filters,
+    groupFilterVal: GroupName | null,
+    sortColumn: string | null,
+    sortDirection: "asc" | "desc",
+    pageNum: number,
+    fetchAll: boolean,
     role?: string,
     groups?: string[],
     uid?: string,
-    handlingIoFilter?: string,
+  ) => {
+    setTableLoading(true);
+    let q = buildRecordQuery(
+      wid, isIr, f, groupFilterVal, sortColumn, sortDirection, role, groups, uid,
+    );
+    // Grouped view needs the full filtered set to bucket correctly; flat view is paged.
+    if (!fetchAll) {
+      const from = pageNum * PAGE_SIZE;
+      q = q.range(from, from + PAGE_SIZE - 1);
+    }
+    const { data, error, count } = await q;
+
+    if (error) {
+      console.error("fetchRecords error:", error);
+      setTableLoading(false);
+      return;
+    }
+    setRecords(data ?? []);
+    setTotalFiltered(count ?? 0);
+    setTableLoading(false);
+  };
+
+  // Counts for the summary + group cards. The IR / NON-IR summary cards apply the
+  // SAME role + list filters as the table (incl. groupFilter) so the active card
+  // always equals the header/pagination total; only the is_ir dimension differs.
+  // The per-group cards use the CURRENT tab + the same filters EXCEPT groupFilter
+  // (each card counts its own group) and exclude abeyance, matching the table's
+  // group-card semantics.
+  const fetchCounts = async (
+    wid: string,
+    isIr: boolean,
+    f: Filters,
+    groupFilterVal: GroupName | null,
+    role?: string,
+    groups?: string[],
+    uid?: string,
   ) => {
     let irQ = supabase
       .from("dggi_records")
@@ -3558,7 +3657,8 @@ const DGGIComponent = () => {
       .eq("workspace_id", wid)
       .is("closure_by", null)
       .eq("is_ir", true);
-    irQ = applyRoleFilters(irQ, role, groups, uid, handlingIoFilter);
+    irQ = applyRoleFilters(irQ, role, groups, uid, f.handlingIo);
+    irQ = applyListFilters(irQ, f, groupFilterVal);
 
     let nonIrQ = supabase
       .from("dggi_records")
@@ -3566,19 +3666,85 @@ const DGGIComponent = () => {
       .eq("workspace_id", wid)
       .is("closure_by", null)
       .eq("is_ir", false);
-    nonIrQ = applyRoleFilters(nonIrQ, role, groups, uid, handlingIoFilter);
+    nonIrQ = applyRoleFilters(nonIrQ, role, groups, uid, f.handlingIo);
+    nonIrQ = applyListFilters(nonIrQ, f, groupFilterVal);
 
-    const [irRes, nonIrRes] = await Promise.all([irQ, nonIrQ]);
+    // One HEAD count per group for the current tab (groupFilter intentionally omitted).
+    const groupQs = GROUPS.map((name) => {
+      let gq = supabase
+        .from("dggi_records")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", wid)
+        .is("closure_by", null)
+        .eq("is_ir", isIr)
+        .eq("group", name)
+        // Exclude abeyance, but keep null-status rows (SQL `<>` drops nulls).
+        .or(`latest_status.is.null,latest_status.neq.${ABEYANCE_STATUS}`);
+      gq = applyRoleFilters(gq, role, groups, uid, f.handlingIo);
+      gq = applyListFilters(gq, f, null);
+      return gq;
+    });
+
+    const [irRes, nonIrRes, ...groupRes] = await Promise.all([irQ, nonIrQ, ...groupQs]);
     setIrCount(irRes.count ?? 0);
     setNonIrCount(nonIrRes.count ?? 0);
+    const gc: Record<string, number> = {};
+    GROUPS.forEach((name, i) => {
+      gc[name] = groupRes[i]?.count ?? 0;
+    });
+    setGroupCounts(gc);
   };
+
+  // Refetch the current page + tab totals after a mutation changes membership.
+  const reloadPage = () => {
+    if (!workspaceIdRef.current) return;
+    fetchRecords(
+      workspaceIdRef.current,
+      topFilterRef.current === "ir",
+      filters, groupFilter, sortCol, sortDir, page, groupBy !== "none",
+      userRoleRef.current, userGroupsRef.current, currentUserIdRef.current,
+    );
+    fetchCounts(workspaceIdRef.current, topFilterRef.current === "ir", filters, groupFilter, userRoleRef.current, userGroupsRef.current, currentUserIdRef.current);
+  };
+
+  // Debounce timer + filter-signature refs for the fetch effect
+  const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const filterSigRef = useRef<string>("");
 
   useEffect(() => {
     if (!workspaceIdRef.current) return;
-    const isIr = topFilterRef.current === "ir";
-    fetchRecords(workspaceIdRef.current, isIr, userRoleRef.current, userGroupsRef.current, currentUserIdRef.current, filters.handlingIo);
-    fetchCounts(workspaceIdRef.current, userRoleRef.current, userGroupsRef.current, currentUserIdRef.current, filters.handlingIo);
-  }, [filters.handlingIo, topFilter]);
+    const sig = JSON.stringify([filters, groupFilter, topFilter, sortCol, sortDir, groupBy]);
+    const filtersChanged = sig !== filterSigRef.current;
+    if (filtersChanged) {
+      filterSigRef.current = sig;
+      // Any filter/sort/tab/grouping change resets to the first page.
+      if (page !== 0) {
+        setPage(0);
+        return; // effect re-runs with page 0
+      }
+    }
+
+    const delay = filtersChanged && filters.search ? 300 : 0;
+    if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
+    fetchDebounceRef.current = setTimeout(() => {
+      if (!workspaceIdRef.current) return;
+      fetchRecords(
+        workspaceIdRef.current,
+        topFilterRef.current === "ir",
+        filters, groupFilter, sortCol, sortDir, page, groupBy !== "none",
+        userRoleRef.current, userGroupsRef.current, currentUserIdRef.current,
+      );
+      // Refresh the summary-card counts alongside the table (same debounce, same
+      // filters) so the active card always matches the header total. Skip on
+      // page-only changes — paging can't change the totals.
+      if (filtersChanged) {
+        fetchCounts(
+          workspaceIdRef.current, topFilterRef.current === "ir", filters, groupFilter,
+          userRoleRef.current, userGroupsRef.current, currentUserIdRef.current,
+        );
+      }
+    }, delay);
+  }, [filters, groupFilter, topFilter, sortCol, sortDir, page, groupBy]);
 
   // ── Unseen ADG comments (for SIO only) ────────────────────────────────
   // newer than the timestamp we last stored in localStorage for that record id.
@@ -3619,60 +3785,9 @@ const DGGIComponent = () => {
     (filters.dueDateYear ? 1 : 0) +
     (groupFilter ? 1 : 0);
 
-  // ── Filtered + sorted rows ─────────────────────────────────────────────────
+  // ── Records are already filtered + sorted server-side ────────────────────────
 
-  const tableRecords = records
-    .filter((r) => {
-      if (groupFilter && r.group !== groupFilter) return false;
-
-      if (filters.search) {
-        const q = filters.search.toLowerCase();
-        const hit = [
-          r.record_id,
-          r.taxpayer_name,
-          r.gstins,
-          r.file_no,
-          r.intel_source,
-          r.issue_involved,
-          r.latest_status,
-        ].some((v) => v?.toLowerCase().includes(q));
-        if (!hit) return false;
-      }
-
-      if (
-        filters.modes.length > 0 &&
-        !filters.modes.includes(r.mode_of_initiation)
-      )
-        return false;
-
-      if (filters.dateFrom && r.date_of_receipt < filters.dateFrom)
-        return false;
-      if (filters.dateTo && r.date_of_receipt > filters.dateTo) return false;
-
-      if (
-        filters.dueDateYear &&
-        (!r.due_date || !r.due_date.startsWith(filters.dueDateYear))
-      )
-        return false;
-
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortCol) {
-        const av = (a as any)[sortCol] ?? "";
-        const bv = (b as any)[sortCol] ?? "";
-        const na = Number(av);
-        const nb = Number(bv);
-        const cmp =
-          !isNaN(na) && !isNaN(nb)
-            ? na - nb
-            : String(av).localeCompare(String(bv));
-        return sortDir === "asc" ? cmp : -cmp;
-      }
-      const ac = (a as any).created_at ?? "";
-      const bc = (b as any).created_at ?? "";
-      return bc.localeCompare(ac);
-    });
+  const tableRecords = records;
 
   // ── Grouped buckets (only when groupBy is active) ──────────────────────────
 
@@ -3835,9 +3950,9 @@ const DGGIComponent = () => {
     }
 
     if (shouldWriteClosureEntry) {
-      // Record is now closed — remove it from the open-cases list and refresh counts
+      // Record is now closed — drop it optimistically, then refetch the page + counts
       setRecords((prev) => prev.filter((r) => r.id !== dialogEditingId));
-      fetchCounts(workspaceId, userRole, userGroups, currentUserId, filters.handlingIo);
+      reloadPage();
     } else {
       setRecords((prev) =>
         prev.map((r) =>
@@ -4020,10 +4135,21 @@ const DGGIComponent = () => {
     if (!newUser) return;
     setTransferring(true);
 
-    const affectedCases = records.filter(
-      (r) => r.handling_io_sio === fromUserId,
-    );
-    const affectedRecordIds = affectedCases.map((r) => r.record_id);
+    // Fetch the FULL set of open cases held by fromUser — not just the current
+    // page in `records` — so related registers on other pages also get updated.
+    const { data: affectedRows, error: affectedErr } = await supabase
+      .from("dggi_records")
+      .select("record_id")
+      .eq("workspace_id", workspaceId)
+      .eq("handling_io_sio", fromUserId)
+      .is("closure_by", null);
+    if (affectedErr) {
+      toast.error("Transfer failed — could not load affected cases: " + affectedErr.message);
+      setTransferring(false);
+      return;
+    }
+    const affectedRecordIds = (affectedRows ?? []).map((r) => r.record_id);
+    const affectedCount = affectedRecordIds.length;
 
     const [
       caseRes,
@@ -4110,8 +4236,9 @@ const DGGIComponent = () => {
         ),
       );
       toast.success(
-        `${affectedCases.length} case${affectedCases.length !== 1 ? "s" : ""} transferred from ${fromUser?.name ?? "user"} to ${newUser.name} (${toGroup})`,
+        `${affectedCount} case${affectedCount !== 1 ? "s" : ""} transferred from ${fromUser?.name ?? "user"} to ${newUser.name} (${toGroup})`,
       );
+      reloadPage();
       setBulkTransferOpen(false);
     }
 
@@ -4250,11 +4377,8 @@ const DGGIComponent = () => {
       return;
     }
 
-    // Only add to local list if this record belongs to the currently viewed tab
-    if (data.is_ir === (topFilter === "ir")) {
-      setRecords((prev) => [data, ...prev]);
-    }
-    fetchCounts(workspaceId, userRole, userGroups, currentUserId, filters.handlingIo);
+    // Refetch the current page + counts so the new record lands in its sorted position
+    reloadPage();
     cancelDialog();
 
     // If this IR was created as part of a NON-IR → IR conversion, now close the source NON-IR.
@@ -4289,9 +4413,9 @@ const DGGIComponent = () => {
           "IR created but failed to close the NON-IR: " + updateErr.message,
         );
       } else {
-        // NON-IR is now closed — remove it from the open-cases list and refresh counts
+        // NON-IR is now closed — drop it optimistically, then refetch the page + counts
         setRecords((prev) => prev.filter((r) => r.id !== sourceDbId));
-        fetchCounts(workspaceId, userRole, userGroups, currentUserId, filters.handlingIo);
+        reloadPage();
       }
 
       // Write closure entry for the NON-IR unconditionally — runs even if the
@@ -4380,14 +4504,38 @@ const DGGIComponent = () => {
   const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) =>
     setFilters((prev) => ({ ...prev, [key]: val }));
 
-  const handleExport = () => {
-    exportRegisterToExcel(
-      tableRecords,
-      visibleColumns,
-      "DGGI",
-      (msg) => toast.success(msg),
-      workspaceUsers,
-    );
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (!workspaceId) return;
+    setExporting(true);
+    try {
+      // Export the full filtered set, not just the current page.
+      const { data, error } = await buildRecordQuery(
+        workspaceId,
+        topFilter === "ir",
+        filters,
+        groupFilter,
+        sortCol,
+        sortDir,
+        userRole,
+        userGroups,
+        currentUserId,
+      );
+      if (error) {
+        toast.error("Export failed: " + error.message);
+        return;
+      }
+      exportRegisterToExcel(
+        data ?? [],
+        visibleColumns,
+        "DGGI",
+        (msg) => toast.success(msg),
+        workspaceUsers,
+      );
+    } finally {
+      setExporting(false);
+    }
   };
 
   // ── Related register fetching ──────────────────────────────────────────────
@@ -5144,7 +5292,7 @@ const DGGIComponent = () => {
         open={bulkTransferOpen}
         onOpenChange={setBulkTransferOpen}
         users={workspaceUsers}
-        records={records}
+        workspaceId={workspaceId}
         onTransfer={bulkTransfer}
         transferring={transferring}
         userGroupMap={userGroupMap}
@@ -5263,8 +5411,8 @@ const DGGIComponent = () => {
               </h1>
               <p className="text-base text-[#9a9a96]">
                 {topFilter === "ir" ? "Pending IR" : "Pending NON-IR"} ·{" "}
-                {tableRecords.length} record
-                {tableRecords.length !== 1 ? "s" : ""}
+                {totalFiltered} record
+                {totalFiltered !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -5273,10 +5421,10 @@ const DGGIComponent = () => {
                 variant="outline"
                 className="h-9 rounded-lg border-[#EDEDEA] text-[#6b6b6b] hover:bg-[#F3F2EF] text-base shadow-none px-4"
                 onClick={handleExport}
-                disabled={tableRecords.length === 0}
+                disabled={totalFiltered === 0 || exporting}
               >
                 <Download size={15} className="mr-1" />
-                Export to Excel
+                {exporting ? "Exporting…" : "Export to Excel"}
               </Button>
 
               {/* ── Column picker ──────────────────────────────────────── */}
@@ -5411,11 +5559,7 @@ const DGGIComponent = () => {
         {/* ── Group filter cards ──────────────────────────────────────────── */}
         <div className="flex flex-wrap gap-3">
           {GROUPS.map((name) => {
-            const count = records.filter(
-              (r) =>
-                r.group === name &&
-                r.latest_status !== ABEYANCE_STATUS,
-            ).length;
+            const count = groupCounts[name] ?? 0;
             if (count === 0) return null;
             return (
               <GroupCard
@@ -5729,6 +5873,76 @@ const DGGIComponent = () => {
             </TableBody>
           </Table>
         </div>
+
+        {/* ── Pagination ─────────────────────────────────────────────────── */}
+        {groupBy === "none" && totalFiltered > 0 && (() => {
+          const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+          const from = page * PAGE_SIZE + 1;
+          const to = Math.min(totalFiltered, (page + 1) * PAGE_SIZE);
+
+          // Build a compact page-number window around the current page.
+          const pageNumbers: (number | "…")[] = [];
+          const add = (n: number) => pageNumbers.push(n);
+          if (totalPages <= 7) {
+            for (let i = 0; i < totalPages; i++) add(i);
+          } else {
+            add(0);
+            const start = Math.max(1, page - 1);
+            const end = Math.min(totalPages - 2, page + 1);
+            if (start > 1) pageNumbers.push("…");
+            for (let i = start; i <= end; i++) add(i);
+            if (end < totalPages - 2) pageNumbers.push("…");
+            add(totalPages - 1);
+          }
+
+          return (
+            <div className="flex items-center justify-between gap-4 pt-3 pb-4 px-1">
+              <span className="text-sm text-[#6B7280]">
+                Showing <span className="font-medium text-[#374151]">{from}</span>–
+                <span className="font-medium text-[#374151]">{to}</span> of{" "}
+                <span className="font-medium text-[#374151]">{totalFiltered}</span>
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0 || tableLoading}
+                  className="flex items-center justify-center h-9 w-9 rounded-lg border border-[#EDEDEA] bg-white text-[#4A5FD4] hover:bg-[#EEF2FF] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {pageNumbers.map((n, i) =>
+                  n === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-2 text-sm text-[#9CA3AF]">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={n}
+                      onClick={() => setPage(n)}
+                      disabled={tableLoading}
+                      className={`flex items-center justify-center h-9 min-w-9 px-2 rounded-lg border text-sm transition-all disabled:cursor-not-allowed ${
+                        n === page
+                          ? "border-[#4A5FD4] bg-[#4A5FD4] text-white"
+                          : "border-[#EDEDEA] bg-white text-[#374151] hover:bg-[#EEF2FF]"
+                      }`}
+                    >
+                      {n + 1}
+                    </button>
+                  ),
+                )}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1 || tableLoading}
+                  className="flex items-center justify-center h-9 w-9 rounded-lg border border-[#EDEDEA] bg-white text-[#4A5FD4] hover:bg-[#EEF2FF] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

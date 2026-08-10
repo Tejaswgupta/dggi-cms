@@ -6378,7 +6378,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_intel_rapid_records" (
     "sio_name" "text",
     "created_by" "uuid",
     "created_by_name" "text",
-    "pr_adg_comments" "jsonb"
+    "pr_adg_comments" "jsonb",
+    "out_of_monitoring" boolean DEFAULT false,
+    "out_of_monitoring_reason" "text"
 );
 
 
@@ -6493,7 +6495,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_prosecution_arrest_records" (
     "sio_name" "text",
     "linked_arrest_id" "uuid",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "out_of_monitoring" boolean DEFAULT false,
+    "out_of_monitoring_reason" "text"
 );
 
 
@@ -6520,7 +6524,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_prosecution_non_arrest_records" (
     "date_of_filing" "date",
     "reasons_not_filed" "text",
     "created_by" "uuid",
-    "created_by_name" "text"
+    "created_by_name" "text",
+    "out_of_monitoring" boolean DEFAULT false,
+    "out_of_monitoring_reason" "text"
 );
 
 
@@ -6572,7 +6578,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_provisional_attachment_records" (
     "created_by" "uuid",
     "created_by_name" "text",
     "bank_account_no" "text",
-    "arrest" "text"
+    "arrest" "text",
+    "out_of_monitoring_reason" "text"
 );
 
 
@@ -6617,6 +6624,8 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_records" (
     "created_by" "uuid",
     "created_by_name" "text",
     "legacy_non_ir_no" "text",
+    "out_of_monitoring" boolean DEFAULT false,
+    "out_of_monitoring_reason" "text",
     CONSTRAINT "dggi_records_group_check" CHECK (("group" = ANY (ARRAY['Group A'::"text", 'Group B'::"text", 'Group C'::"text", 'Group D'::"text", 'Group E'::"text", 'Group F'::"text"]))),
     CONSTRAINT "dggi_records_mode_of_initiation_check" CHECK (("mode_of_initiation" = ANY (ARRAY['Letter'::"text", 'Email'::"text", 'Summons'::"text", 'Inspection'::"text", 'Search'::"text"])))
 );
@@ -6681,7 +6690,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_scn_records" (
     "common_adjudicating_authority" "text",
     "created_by" "uuid",
     "created_by_name" "text",
-    "division_and_range" "text"
+    "division_and_range" "text",
+    "out_of_monitoring" boolean DEFAULT false,
+    "out_of_monitoring_reason" "text"
 );
 
 
@@ -6723,7 +6734,9 @@ CREATE TABLE IF NOT EXISTS "public"."dggi_str_records" (
     "sio_name" "text",
     "created_by" "uuid",
     "created_by_name" "text",
-    "pr_adg_comments" "jsonb"
+    "pr_adg_comments" "jsonb",
+    "out_of_monitoring" boolean DEFAULT false,
+    "out_of_monitoring_reason" "text"
 );
 
 
