@@ -18,6 +18,12 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Bar, Doughnut } from "react-chartjs-2";
+import {
+  Tooltip as RadixTooltip,
+  TooltipContent as RadixTooltipContent,
+  TooltipProvider as RadixTooltipProvider,
+  TooltipTrigger as RadixTooltipTrigger,
+} from "@/components/ui/tooltip";
 
 ChartJS.register(
   ArcElement,
@@ -618,32 +624,88 @@ export function ZoneIntelligencePanel({
       </p>
 
       <div className="grid grid-cols-2 gap-3">
-        {tiles.map((tile) => (
-          <div key={tile.label} className="bg-[#F3F2EF] rounded-lg p-3">
-            <p className="text-[9px] font-semibold tracking-widest text-[#9a9a96] uppercase mb-1">
-              {tile.label}
-            </p>
-            <p className="text-[28px] font-bold text-[#1a1a1a] leading-none tabular-nums">
-              {tile.value}
-            </p>
-            <div className="flex items-center justify-between mt-1">
-              <span className="text-[10px] text-[#9a9a96]">{tile.sub}</span>
-              {tile.delta != null && tile.delta !== 0 && (
-                <span
-                  className={`text-[10px] font-medium tabular-nums ${tile.delta > 0 ? "text-emerald-600" : "text-red-500"}`}
-                >
-                  {tile.delta > 0 ? "+" : ""}
-                  {tile.delta} MoM
-                </span>
-              )}
-              {tile.delta != null && tile.delta === 0 && (
-                <span className="text-[10px] text-[#9a9a96] tabular-nums">
-                  ± 0 MoM
-                </span>
+        {tiles.map((tile) => {
+          const pct =
+            tile.value > 0 && tile.currMonth != null
+              ? Math.round((tile.currMonth / tile.value) * 100)
+              : 0;
+          const showBar = tile.currMonth != null && tile.value > 0;
+          return (
+            <div key={tile.label} className="bg-[#F3F2EF] rounded-lg p-3">
+              <p className="text-[9px] font-semibold tracking-widest text-[#9a9a96] uppercase mb-1">
+                {tile.label}
+              </p>
+              <p className="text-[28px] font-bold text-[#1a1a1a] leading-none tabular-nums">
+                {tile.value}
+              </p>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] text-[#9a9a96]">{tile.sub}</span>
+                {tile.delta != null && tile.delta !== 0 && (
+                  <RadixTooltipProvider delayDuration={150}>
+                    <RadixTooltip>
+                      <RadixTooltipTrigger asChild>
+                        <span
+                          className={`text-[10px] font-medium tabular-nums cursor-default ${tile.delta > 0 ? "text-emerald-600" : "text-red-500"}`}
+                        >
+                          {tile.delta > 0 ? "+" : ""}
+                          {tile.delta} MoM
+                        </span>
+                      </RadixTooltipTrigger>
+                      <RadixTooltipContent side="top" className="max-w-[200px] text-center leading-snug">
+                        {tile.delta > 0
+                          ? `${tile.delta} more than last month — activity is increasing`
+                          : `${Math.abs(tile.delta)} fewer than last month — activity is declining`}
+                      </RadixTooltipContent>
+                    </RadixTooltip>
+                  </RadixTooltipProvider>
+                )}
+                {tile.delta != null && tile.delta === 0 && (
+                  <RadixTooltipProvider delayDuration={150}>
+                    <RadixTooltip>
+                      <RadixTooltipTrigger asChild>
+                        <span className="text-[10px] text-[#9a9a96] tabular-nums cursor-default">
+                          ± 0 MoM
+                        </span>
+                      </RadixTooltipTrigger>
+                      <RadixTooltipContent side="top" className="max-w-[200px] text-center leading-snug">
+                        Same count as last month
+                      </RadixTooltipContent>
+                    </RadixTooltip>
+                  </RadixTooltipProvider>
+                )}
+              </div>
+              {showBar && (
+                <div className="mt-2.5">
+                  <RadixTooltipProvider delayDuration={150}>
+                    <RadixTooltip>
+                      <RadixTooltipTrigger asChild>
+                        <div className="cursor-default">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] text-[#9a9a96]">
+                              {currentMonthLabel}
+                            </span>
+                            <span className="text-[9px] font-semibold text-[#4A5FD4] tabular-nums">
+                              {tile.currMonth} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="h-1 bg-[#DDDDD8] rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#4A5FD4] rounded-full transition-all"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </RadixTooltipTrigger>
+                      <RadixTooltipContent side="bottom" className="max-w-[220px] text-center leading-snug">
+                        {tile.currMonth} of {tile.value} cases this FY were added in {currentMonthLabel} — {pct}% of the annual total
+                      </RadixTooltipContent>
+                    </RadixTooltip>
+                  </RadixTooltipProvider>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -942,8 +1004,7 @@ export function OfficerExposureChart({
     { expired: number; critical: number; other: number; items: ExposureItem[] }
   > = {};
   for (const item of irItems) {
-    // Assignment is determined by sio_user_id, not the resolved officer name —
-    // a case with an assigned SIO whose name isn't in usersMap is still assigned.
+    // Assignment is determined solely by sio_user_id.
     const assigned = !!item.sioUserId?.trim();
     const isAction = item.urgency === "expired" || item.urgency === "critical";
     if (assigned && !isAction) continue;

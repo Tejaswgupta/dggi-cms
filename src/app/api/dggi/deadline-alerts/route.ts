@@ -133,8 +133,14 @@ export async function POST(req: NextRequest) {
     }
     if (!records?.length) continue;
 
+    // Exclude closed/transferred records — a non-empty closure_by means the case
+    // is terminal and no further deadlines should be tracked.
+    const openRecords = config.source_table === "dggi_records"
+      ? records.filter((r) => !r.closure_by || !String(r.closure_by).trim())
+      : records;
+
     // 2. Compute deadlines
-    const computed = computeDeadlinesForRecords(records, config, today);
+    const computed = computeDeadlinesForRecords(openRecords, config, today);
     if (!computed.length) continue;
 
     // 3. Batch-resolve officer names for all unique officer user IDs in this table
@@ -199,6 +205,22 @@ export async function POST(req: NextRequest) {
         .eq("source_table", config.source_table);
       if (delErr) {
         console.error(`[deadline-alerts] cleanup error ${config.source_table}:`, delErr.message);
+      }
+    }
+
+    // Purge stale rows for closed dggi_records — they were filtered out above so
+    // they won't be upserted, but previous runs may have left rows behind.
+    if (config.source_table === "dggi_records") {
+      const closedIds = records
+        .filter((r) => r.closure_by && String(r.closure_by).trim())
+        .map((r) => r.id as string)
+        .filter(Boolean);
+      if (closedIds.length) {
+        await supabase
+          .from("dggi_computed_deadlines")
+          .delete()
+          .eq("source_table", "dggi_records")
+          .in("row_id", closedIds);
       }
     }
 

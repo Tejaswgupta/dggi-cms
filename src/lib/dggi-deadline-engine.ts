@@ -25,6 +25,8 @@ export interface DeadlineRule {
     | { field: string; value: string }
     | { field: string; value: string }[];
   skip_if_not_null?: string[];
+  /** Skip when field value is not in the given list (i.e. any non-empty value outside this list closes the deadline). */
+  skip_if_not_in?: { field: string; values: string[] }[];
   apply_only_if?: { field: string; value: string };
 }
 
@@ -126,6 +128,12 @@ export function computeDeadlinesForRecords(
       }
       if (!skipped && rule.skip_if_not_null?.some((f) => !!record[f])) {
         skipped = true;
+      }
+      if (!skipped && rule.skip_if_not_in) {
+        if (rule.skip_if_not_in.some((s) => {
+          const v = record[s.field];
+          return v && !s.values.includes(v);
+        })) skipped = true;
       }
 
       const deadlineDate = new Date(refDate);

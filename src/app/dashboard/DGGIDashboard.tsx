@@ -1720,6 +1720,13 @@ export default function DGGIDashboard() {
   }
 
   async function handleOutOfMonitoring(item: DeadlineItem) {
+    // Only ADG may move records out of monitoring — enforced here as well as
+    // in the UI (context menu is ADG-only) so the action can't be triggered
+    // for any other role.
+    if (userRbac.role !== "ADG") {
+      toast.error("Only ADG can move records out of monitoring");
+      return;
+    }
     if (!item.rowId) return;
     const { error } = await supabase
       .from(item.sourceTable)
@@ -2094,6 +2101,11 @@ export default function DGGIDashboard() {
                     arrests: zoneIntelCounts.currArr - zoneIntelCounts.prevArr,
                     investigations:
                       zoneIntelCounts.currInv - zoneIntelCounts.prevInv,
+                  }}
+                  currentMonthCounts={{
+                    provisionalAttachments: zoneIntelCounts.currProv,
+                    arrests: zoneIntelCounts.currArr,
+                    investigations: zoneIntelCounts.currInv,
                   }}
                   loading={loading}
                 />

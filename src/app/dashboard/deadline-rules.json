@@ -96,8 +96,10 @@
           "critical_days": 7,
           "warning_days": 14,
           "skip_if": [
-            { "field": "prosecution_complaint_status", "value": "Filed" },
             { "field": "bail_status", "value": "Bail Given" }
+          ],
+          "skip_if_not_in": [
+            { "field": "prosecution_complaint_status", "values": ["Not Filed", "Pending Sanction"] }
           ],
           "skip_if_not_null": ["date_of_filing"]
         },
@@ -110,10 +112,9 @@
           "reminder_days_before": [30, 14, 7],
           "critical_days": 14,
           "warning_days": 30,
-          "skip_if": {
-            "field": "prosecution_complaint_status",
-            "value": "Filed"
-          },
+          "skip_if_not_in": [
+            { "field": "prosecution_complaint_status", "values": ["Not Filed", "Pending Sanction"] }
+          ],
           "skip_if_not_null": ["date_of_filing"],
           "apply_only_if": { "field": "bail_status", "value": "Bail Given" }
         }

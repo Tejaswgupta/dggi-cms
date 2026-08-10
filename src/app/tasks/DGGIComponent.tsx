@@ -3043,8 +3043,7 @@ function BulkTransferDialog({
   };
 
   const affectedCount = fromUserId
-    ? records.filter((r) => r.handling_io_sio === fromUserId && !r.closure_by)
-        .length
+    ? records.filter((r) => r.handling_io_sio === fromUserId).length
     : 0;
 
   const fromUser = users.find((u) => u.id === fromUserId);
@@ -3310,6 +3309,8 @@ const DGGIComponent = () => {
 
   const [workspaceId, setWorkspaceId] = useState<string>("");
   const [records, setRecords] = useState<DGGIRecord[]>([]);
+  const [irCount, setIrCount] = useState(0);
+  const [nonIrCount, setNonIrCount] = useState(0);
   const [workspaceUsers, setWorkspaceUsers] = useState<WorkspaceUser[]>([]);
   const [userRole, setUserRole] = useState<string>("");
   const [userGroups, setUserGroups] = useState<string[]>([]);
@@ -3319,6 +3320,7 @@ const DGGIComponent = () => {
   const userRoleRef = useRef<string>("");
   const userGroupsRef = useRef<string[]>([]);
   const currentUserIdRef = useRef<string>("");
+  const topFilterRef = useRef<TopFilter>("ir");
   const caseOptions = useMemo<DGGICaseOption[]>(
     () =>
       records.map((r) => ({
@@ -3332,6 +3334,10 @@ const DGGIComponent = () => {
   const [loading, setLoading] = useState(true);
 
   const [topFilter, setTopFilter] = useState<TopFilter>("ir");
+  const setTopFilterWithRef = (v: TopFilter) => {
+    topFilterRef.current = v;
+    setTopFilter(v);
+  };
   const [groupFilter, setGroupFilter] = useState<GroupName | null>(null);
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
   const [groupBy, setGroupBy] = useState<GroupByField | "none">("none");
@@ -3459,8 +3465,9 @@ const DGGIComponent = () => {
       setUserGroups(groups);
       userGroupsRef.current = groups;
 
-      const [, usersRes, allGroupAssignments] = await Promise.all([
-        fetchRecords(wid, role, groups, uid),
+      const [, , usersRes, allGroupAssignments] = await Promise.all([
+        fetchRecords(wid, topFilterRef.current === "ir", role, groups, uid),
+        fetchCounts(wid, role, groups, uid),
         getAllUsers(),
         supabase
           .from("dggi_user_group_assignments")
@@ -3477,13 +3484,13 @@ const DGGIComponent = () => {
       const caseId = searchParams?.get("caseId");
       const highlight = searchParams?.get("highlight");
       const tabParam = searchParams?.get("tab");
-      if (tabParam === "non-ir") setTopFilter("non-ir");
-      else if (tabParam === "ir") setTopFilter("ir");
+      if (tabParam === "non-ir") setTopFilterWithRef("non-ir");
+      else if (tabParam === "ir") setTopFilterWithRef("ir");
       const activeId = caseId || highlight;
       if (activeId) {
         setFilters((prev) => ({ ...prev, search: activeId }));
-        if (activeId.startsWith("NIR-")) setTopFilter("non-ir");
-        else setTopFilter("ir");
+        if (activeId.startsWith("NIR-")) setTopFilterWithRef("non-ir");
+        else setTopFilterWithRef("ir");
       }
 
       setLoading(false);
@@ -3491,36 +3498,46 @@ const DGGIComponent = () => {
     init();
   }, []);
 
+  const applyRoleFilters = (
+    query: any,
+    role: string | undefined,
+    groups: string[] | undefined,
+    uid: string | undefined,
+    handlingIoFilter: string | undefined,
+  ) => {
+    let q = query;
+    if (role && role !== "ADG" && role !== "DD_INT") {
+      if (role === "IO" || role === "SIO") {
+        q = q.eq("handling_io_sio", uid ?? "__none__");
+      } else if (groups && groups.length > 0) {
+        q = q.in("group", groups);
+        if (handlingIoFilter) q = q.eq("handling_io_sio", handlingIoFilter);
+      } else {
+        q = q.eq("group", "__none__");
+      }
+    } else if (handlingIoFilter) {
+      q = q.eq("handling_io_sio", handlingIoFilter);
+    }
+    return q;
+  };
+
   const fetchRecords = async (
     wid: string,
+    isIr: boolean,
     role?: string,
     groups?: string[],
     uid?: string,
     handlingIoFilter?: string,
   ) => {
-    let query = supabase
+    let q = supabase
       .from("dggi_records")
       .select("*")
-      .eq("workspace_id", wid);
+      .eq("workspace_id", wid)
+      .is("closure_by", null)
+      .eq("is_ir", isIr);
+    q = applyRoleFilters(q, role, groups, uid, handlingIoFilter);
+    const { data, error } = await q.order("created_at", { ascending: false });
 
-    if (role && role !== "ADG" && role !== "DD_INT") {
-      if (role === "IO" || role === "SIO") {
-        query = query.eq("handling_io_sio", uid ?? "__none__");
-      } else if (groups && groups.length > 0) {
-        query = query.in("group", groups);
-        if (handlingIoFilter) {
-          query = query.eq("handling_io_sio", handlingIoFilter);
-        }
-      } else {
-        query = query.eq("group", "__none__");
-      }
-    } else if (handlingIoFilter) {
-      query = query.eq("handling_io_sio", handlingIoFilter);
-    }
-
-    const { data, error } = await query.order("created_at", {
-      ascending: false,
-    });
     if (error) {
       console.error("fetchRecords error:", error);
       return;
@@ -3528,10 +3545,40 @@ const DGGIComponent = () => {
     setRecords(data ?? []);
   };
 
+  const fetchCounts = async (
+    wid: string,
+    role?: string,
+    groups?: string[],
+    uid?: string,
+    handlingIoFilter?: string,
+  ) => {
+    let irQ = supabase
+      .from("dggi_records")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", wid)
+      .is("closure_by", null)
+      .eq("is_ir", true);
+    irQ = applyRoleFilters(irQ, role, groups, uid, handlingIoFilter);
+
+    let nonIrQ = supabase
+      .from("dggi_records")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", wid)
+      .is("closure_by", null)
+      .eq("is_ir", false);
+    nonIrQ = applyRoleFilters(nonIrQ, role, groups, uid, handlingIoFilter);
+
+    const [irRes, nonIrRes] = await Promise.all([irQ, nonIrQ]);
+    setIrCount(irRes.count ?? 0);
+    setNonIrCount(nonIrRes.count ?? 0);
+  };
+
   useEffect(() => {
     if (!workspaceIdRef.current) return;
-    fetchRecords(workspaceIdRef.current, userRoleRef.current, userGroupsRef.current, currentUserIdRef.current, filters.handlingIo);
-  }, [filters.handlingIo]);
+    const isIr = topFilterRef.current === "ir";
+    fetchRecords(workspaceIdRef.current, isIr, userRoleRef.current, userGroupsRef.current, currentUserIdRef.current, filters.handlingIo);
+    fetchCounts(workspaceIdRef.current, userRoleRef.current, userGroupsRef.current, currentUserIdRef.current, filters.handlingIo);
+  }, [filters.handlingIo, topFilter]);
 
   // ── Unseen ADG comments (for SIO only) ────────────────────────────────
   // newer than the timestamp we last stored in localStorage for that record id.
@@ -3558,14 +3605,10 @@ const DGGIComponent = () => {
     setUnseenAdgComments(unseen);
   }, [records, userRole, currentUserId, workspaceId]);
 
-  // ── Derived counts ─────────────────────────────────────────────────────────
+  // ── Derived counts — use server-fetched totals ─────────────────────────────
 
-  const irTotal = records.filter(
-    (r) => r.is_ir && !r.closure_by && r.latest_status !== ABEYANCE_STATUS,
-  ).length;
-  const nonIrTotal = records.filter(
-    (r) => !r.is_ir && !r.closure_by && r.latest_status !== ABEYANCE_STATUS,
-  ).length;
+  const irTotal = irCount;
+  const nonIrTotal = nonIrCount;
 
   const activeFilterCount =
     (filters.search ? 1 : 0) +
@@ -3580,8 +3623,6 @@ const DGGIComponent = () => {
 
   const tableRecords = records
     .filter((r) => {
-      if (!(topFilter === "ir" ? r.is_ir : !r.is_ir)) return false;
-      if (r.closure_by) return false;
       if (groupFilter && r.group !== groupFilter) return false;
 
       if (filters.search) {
@@ -3793,19 +3834,25 @@ const DGGIComponent = () => {
       return;
     }
 
-    setRecords((prev) =>
-      prev.map((r) =>
-        r.id === dialogEditingId
-          ? {
-              ...r,
-              ...dialogDraft,
-              sio_name:
-                workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
-                  ?.name || r.sio_name,
-            }
-          : r,
-      ),
-    );
+    if (shouldWriteClosureEntry) {
+      // Record is now closed — remove it from the open-cases list and refresh counts
+      setRecords((prev) => prev.filter((r) => r.id !== dialogEditingId));
+      fetchCounts(workspaceId, userRole, userGroups, currentUserId, filters.handlingIo);
+    } else {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.id === dialogEditingId
+            ? {
+                ...r,
+                ...dialogDraft,
+                sio_name:
+                  workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
+                    ?.name || r.sio_name,
+              }
+            : r,
+        ),
+      );
+    }
 
     if (shouldWriteClosureEntry) {
       const closureRecordId = await generateClosureRecordId(
@@ -3974,7 +4021,7 @@ const DGGIComponent = () => {
     setTransferring(true);
 
     const affectedCases = records.filter(
-      (r) => r.handling_io_sio === fromUserId && !r.closure_by,
+      (r) => r.handling_io_sio === fromUserId,
     );
     const affectedRecordIds = affectedCases.map((r) => r.record_id);
 
@@ -4203,7 +4250,11 @@ const DGGIComponent = () => {
       return;
     }
 
-    setRecords((prev) => [...prev, data]);
+    // Only add to local list if this record belongs to the currently viewed tab
+    if (data.is_ir === (topFilter === "ir")) {
+      setRecords((prev) => [data, ...prev]);
+    }
+    fetchCounts(workspaceId, userRole, userGroups, currentUserId, filters.handlingIo);
     cancelDialog();
 
     // If this IR was created as part of a NON-IR → IR conversion, now close the source NON-IR.
@@ -4238,20 +4289,9 @@ const DGGIComponent = () => {
           "IR created but failed to close the NON-IR: " + updateErr.message,
         );
       } else {
-        setRecords((prev) =>
-          prev.map((r) =>
-            r.id === sourceDbId
-              ? {
-                  ...r,
-                  ...sourceDraft,
-                  sio_name:
-                    workspaceUsers.find(
-                      (u) => u.id === sourceDraft.handling_io_sio,
-                    )?.name || r.sio_name,
-                }
-              : r,
-          ),
-        );
+        // NON-IR is now closed — remove it from the open-cases list and refresh counts
+        setRecords((prev) => prev.filter((r) => r.id !== sourceDbId));
+        fetchCounts(workspaceId, userRole, userGroups, currentUserId, filters.handlingIo);
       }
 
       // Write closure entry for the NON-IR unconditionally — runs even if the
@@ -5353,7 +5393,7 @@ const DGGIComponent = () => {
             count={irTotal}
             active={topFilter === "ir"}
             onClick={() => {
-              setTopFilter("ir");
+              setTopFilterWithRef("ir");
               setGroupFilter(null);
             }}
           />
@@ -5362,7 +5402,7 @@ const DGGIComponent = () => {
             count={nonIrTotal}
             active={topFilter === "non-ir"}
             onClick={() => {
-              setTopFilter("non-ir");
+              setTopFilterWithRef("non-ir");
               setGroupFilter(null);
             }}
           />
@@ -5374,9 +5414,7 @@ const DGGIComponent = () => {
             const count = records.filter(
               (r) =>
                 r.group === name &&
-                !r.closure_by &&
-                r.latest_status !== ABEYANCE_STATUS &&
-                (topFilter === "ir" ? r.is_ir : !r.is_ir),
+                r.latest_status !== ABEYANCE_STATUS,
             ).length;
             if (count === 0) return null;
             return (
