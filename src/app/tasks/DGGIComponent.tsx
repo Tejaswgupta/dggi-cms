@@ -3356,16 +3356,33 @@ const DGGIComponent = () => {
   const userGroupsRef = useRef<string[]>([]);
   const currentUserIdRef = useRef<string>("");
   const topFilterRef = useRef<TopFilter>("ir");
-  const caseOptions = useMemo<DGGICaseOption[]>(
-    () =>
-      records.map((r) => ({
+  // Cases available to the link comboboxes. Seeded from the current page, but the
+  // comboboxes search dggi_records server-side and report matches via
+  // onCasesDiscovered so cases beyond the current page are still linkable/resolvable.
+  const [discoveredCases, setDiscoveredCases] = useState<DGGICaseOption[]>([]);
+  const caseOptions = useMemo<DGGICaseOption[]>(() => {
+    const byId = new Map<string, DGGICaseOption>();
+    for (const c of discoveredCases) byId.set(c.record_id, c);
+    // Page rows win over stale discovered copies for the fields we know here.
+    for (const r of records) {
+      byId.set(r.record_id, {
         record_id: r.record_id,
         taxpayer_name: r.taxpayer_name,
         file_no: r.file_no,
         is_ir: r.is_ir,
-      })),
-    [records],
-  );
+      });
+    }
+    return Array.from(byId.values());
+  }, [records, discoveredCases]);
+
+  const mergeDiscoveredCases = (found: DGGICaseOption[]) => {
+    if (!found.length) return;
+    setDiscoveredCases((prev) => {
+      const byId = new Map(prev.map((c) => [c.record_id, c]));
+      for (const c of found) byId.set(c.record_id, c);
+      return Array.from(byId.values());
+    });
+  };
   const [loading, setLoading] = useState(true);
 
   const [topFilter, setTopFilter] = useState<TopFilter>("ir");
@@ -5364,6 +5381,8 @@ const DGGIComponent = () => {
         saving={savingArrest}
         users={workspaceUsers}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={mergeDiscoveredCases}
       />
 
       {/* ── Provisional Attachment sub-dialog ─────────────────────────────── */}
@@ -5384,6 +5403,8 @@ const DGGIComponent = () => {
         saving={savingProvisional}
         users={workspaceUsers}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={mergeDiscoveredCases}
       />
 
       {/* ── SCN sub-dialog ────────────────────────────────────────────────── */}
@@ -5400,6 +5421,8 @@ const DGGIComponent = () => {
         saving={savingSCN}
         users={workspaceUsers}
         caseOptions={caseOptions}
+        workspaceId={workspaceId}
+        onCasesDiscovered={mergeDiscoveredCases}
       />
       <div className="px-3 sm:px-6 space-y-5">
         {/* ── Header ─────────────────────────────────────────────────────── */}

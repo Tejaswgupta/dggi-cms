@@ -239,6 +239,7 @@ interface OtherSourceRecord {
   gstin: string;
   action_taken: string;
   assigned_group: string;
+  transferred_to: string;
   date_of_action_taken: string;
   remarks: string;
   non_ir_no: string;
@@ -315,6 +316,13 @@ const OTHER_COLS: RegisterColumn[] = [
     showWhen: { field: "action_taken", values: ["Allocated"] },
   },
   {
+    key: "transferred_to",
+    label: "Transferred To",
+    type: "text",
+    width: "160px",
+    showWhen: { field: "action_taken", values: ["Transferred"] },
+  },
+  {
     key: "date_of_action_taken",
     label: "Date of Allocation",
     type: "datepicker",
@@ -358,6 +366,7 @@ const EMPTY_OTHER: Omit<OtherSourceRecord, "id"> = {
   gstin: "",
   action_taken: "",
   assigned_group: "",
+  transferred_to: "",
   date_of_action_taken: "",
   remarks: "",
   non_ir_no: "",
@@ -394,7 +403,7 @@ interface STRRecord {
   sio_group: string;
   sio: string;
   sio_name: string;
-  group: string;
+  transferred_to: string;
   non_ir_no: string;
   non_ir_date: string;
   pr_adg_comments?: string;
@@ -502,6 +511,14 @@ const STR_COLS: RegisterColumn[] = [
   },
   {
     key: "assigned_group",
+    label: "Allocated To",
+    type: "select",
+    options: DGGI_GROUPS,
+    width: "170px",
+    showWhen: { field: "action_taken", values: ["Allocated"] },
+  },
+  {
+    key: "transferred_to",
     label: "Transferred To",
     type: "text",
     width: "160px",
@@ -520,15 +537,7 @@ const STR_COLS: RegisterColumn[] = [
     type: "usercombobox",
     width: "180px",
     showWhen: { field: "action_taken", values: ["Allocated"] },
-    filterByGroupField: "group",
-  },
-  {
-    key: "group",
-    label: "Group",
-    type: "select",
-    options: DGGI_GROUPS,
-    width: "120px",
-    showWhen: { field: "action_taken", values: ["Allocated"] },
+    filterByGroupField: "assigned_group",
   },
   {
     key: "non_ir_no",
@@ -571,7 +580,7 @@ const EMPTY_STR: Omit<STRRecord, "id"> = {
   sio_group: "",
   sio: "",
   sio_name: "",
-  group: "",
+  transferred_to: "",
   non_ir_no: "",
   non_ir_date: "",
   pr_adg_comments: "",
@@ -1052,15 +1061,15 @@ const IntelligenceAllocationComponent = () => {
           // DD sees their group's data
           rapidQuery = rapidQuery.in("assigned_group", groups);
           otherQuery = otherQuery.in("assigned_group", groups);
-          strQuery = strQuery.in("group", groups);
+          strQuery = strQuery.in("assigned_group", groups);
         } else if (groups.length > 0) {
           rapidQuery = rapidQuery.in("assigned_group", groups);
           otherQuery = otherQuery.in("assigned_group", groups);
-          strQuery = strQuery.in("group", groups);
+          strQuery = strQuery.in("assigned_group", groups);
         } else {
           rapidQuery = rapidQuery.eq("assigned_group", "__none__");
           otherQuery = otherQuery.eq("assigned_group", "__none__");
-          strQuery = strQuery.eq("group", "__none__");
+          strQuery = strQuery.eq("assigned_group", "__none__");
         }
       }
 
@@ -1257,9 +1266,7 @@ const IntelligenceAllocationComponent = () => {
         );
         if ((dialogDraft as any).action_taken === "Allocated") {
           await sendAllocationNotifications(
-            (dialogDraft as any).assigned_group ??
-              (dialogDraft as any).group ??
-              "",
+            (dialogDraft as any).assigned_group ?? "",
             (dialogDraft as any).record_id ?? "",
             table,
             (dialogDraft as any).sio ?? "",
@@ -1267,9 +1274,7 @@ const IntelligenceAllocationComponent = () => {
         }
         if (commentChanged) {
           await sendAdgCommentNotifications(
-            (dialogDraft as any).assigned_group ??
-              (dialogDraft as any).group ??
-              "",
+            (dialogDraft as any).assigned_group ?? "",
             (dialogDraft as any).sio ?? "",
             (dialogDraft as any).record_id ?? "",
             table,
@@ -1316,9 +1321,7 @@ const IntelligenceAllocationComponent = () => {
         setRecords((prev) => [...prev, data as T]);
         if ((dialogDraft as any).action_taken === "Allocated") {
           await sendAllocationNotifications(
-            (dialogDraft as any).assigned_group ??
-              (dialogDraft as any).group ??
-              "",
+            (dialogDraft as any).assigned_group ?? "",
             (data as any).record_id ?? "",
             table,
             (dialogDraft as any).sio ?? "",
@@ -1604,14 +1607,17 @@ const IntelligenceAllocationComponent = () => {
   const canCreate =
     userRole === "ADG" || userRole === "DD_INT" || userRole === "SIO_INT";
   const isDD = userRole === "DD";
+  // All three tabs use `transferred_to` for the free-text transfer destination,
+  // which is only shown to DD_INT / ADG.
   const visibleRapidCols = isDDInt
     ? RAPID_COLS
     : RAPID_COLS.filter((c) => c.key !== "transferred_to");
-  const visibleOtherCols = OTHER_COLS;
-  // In STR_COLS, the "Transferred To" column uses key "assigned_group"
+  const visibleOtherCols = isDDInt
+    ? OTHER_COLS
+    : OTHER_COLS.filter((c) => c.key !== "transferred_to");
   const visibleStrCols = isDDInt
     ? STR_COLS
-    : STR_COLS.filter((c) => c.key !== "assigned_group");
+    : STR_COLS.filter((c) => c.key !== "transferred_to");
 
   if (loading || usersLoading)
     return (
@@ -1906,7 +1912,7 @@ const IntelligenceAllocationComponent = () => {
                           r.entity_name,
                           r.gstin,
                           "STR",
-                          r.group,
+                          r.assigned_group,
                         )
                       }
                     >
@@ -1994,7 +2000,7 @@ const IntelligenceAllocationComponent = () => {
               if (v === "Allocated") next.group_allocation_date = today;
               else next.group_allocation_date = "";
             }
-            if (k === "group") next.sio = "";
+            if (k === "assigned_group") next.sio = "";
             return next;
           });
         }}
