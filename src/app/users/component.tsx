@@ -1,6 +1,6 @@
 "use client";
 
-import { getWorkspaceId } from "@/lib/action/workspace";
+import { addUserAction } from "@/lib/action/users";
 import { DGGI_GROUPS, DGGI_ROLE_LABELS, DGGI_ROLES, type DggiRole } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { ChevronDown, Search, Trash2, UserPlus, Users, X } from "lucide-react";
@@ -194,32 +194,22 @@ export default function UsersPage() {
     }
     setAdding(true);
     try {
-      const supabase = clientConnectionWithSupabase();
-      const workspace_id = await getWorkspaceId();
-      if (!workspace_id) return;
+      const result = await addUserAction({
+        name,
+        email,
+        dggi_role: addForm.dggi_role,
+      });
 
-      const { data, error } = await supabase
-        .from("votum_users")
-        .insert({
-          name,
-          email,
-          dggi_role: addForm.dggi_role || null,
-          workspace_id,
-          role: "member",
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
 
       setUsers((prev) =>
-        [...prev, { ...data, groups: [] }].sort((a, b) =>
+        [...prev, { ...result.data, groups: [] }].sort((a, b) =>
           a.name.localeCompare(b.name),
         ),
       );
       setShowAddModal(false);
       setAddForm({ name: "", email: "", dggi_role: "" });
-      toast.success("User added");
+      toast.success("User added — default password is Dggi@1234");
     } catch (err: any) {
       toast.error(err.message || "Failed to add user");
     } finally {
