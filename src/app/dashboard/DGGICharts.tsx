@@ -542,37 +542,53 @@ interface MoMDeltas {
   investigations: number;
 }
 
+interface CurrentMonthCounts {
+  provisionalAttachments: number;
+  arrests: number;
+  investigations: number;
+}
+
 export function ZoneIntelligencePanel({
   provisionalAttachments,
   arrests,
   investigations,
   momDeltas,
+  currentMonthCounts,
   loading,
 }: {
   provisionalAttachments: number;
   arrests: number;
   investigations: number;
   momDeltas?: MoMDeltas;
+  currentMonthCounts?: CurrentMonthCounts;
   loading?: boolean;
 }) {
+  const currentMonthLabel = new Date().toLocaleDateString("en-IN", {
+    month: "short",
+    year: "2-digit",
+  });
+
   const tiles = [
     {
       label: "PROVISIONAL ATTACHMENTS",
       value: provisionalAttachments,
       sub: "Current FY",
       delta: momDeltas?.provisionalAttachments,
+      currMonth: currentMonthCounts?.provisionalAttachments,
     },
     {
       label: "ARRESTS",
       value: arrests,
       sub: "Current FY",
       delta: momDeltas?.arrests,
+      currMonth: currentMonthCounts?.arrests,
     },
     {
       label: "INVESTIGATIONS",
       value: investigations,
       sub: "Current FY",
       delta: momDeltas?.investigations,
+      currMonth: currentMonthCounts?.investigations,
     },
   ];
 

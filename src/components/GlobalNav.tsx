@@ -34,7 +34,11 @@ type SidebarItem = { href: string; label: string; icon: LucideIcon };
 const DASHBOARD_ITEMS: SidebarItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/users", label: "Users", icon: Users },
-  { href: "/dashboard/officer-activity", label: "Officer Activity", icon: Activity },
+  {
+    href: "/dashboard/officer-activity",
+    label: "Officer Activity",
+    icon: Activity,
+  },
 ];
 
 const REGISTER_ITEMS: SidebarItem[] = [
@@ -174,12 +178,15 @@ export default function GlobalNav() {
   }, []);
 
   const canManageUsers = USERS_MGMT_ROLES.includes(dggiRole ?? "");
-  const canViewOfficerActivity = OFFICER_ACTIVITY_ROLES.includes(dggiRole ?? "");
+  const canViewOfficerActivity = OFFICER_ACTIVITY_ROLES.includes(
+    dggiRole ?? "",
+  );
   const showNotifications = NOTIF_ROLES.includes(dggiRole ?? "");
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     if (item.href === "/users") return canManageUsers;
-    if (item.href === "/dashboard/officer-activity") return canViewOfficerActivity;
+    if (item.href === "/dashboard/officer-activity")
+      return canViewOfficerActivity;
     return true;
   });
 
@@ -215,7 +222,13 @@ export default function GlobalNav() {
             '"Lucida Calligraphy", "Apple Chancery", "URW Chancery L", cursive',
         }}
       >
-        AEGIS
+        AeGiS
+        <span
+          className="block text-[9px] font-normal text-[#9a9a96] tracking-wide leading-tight mt-0.5"
+          style={{ fontFamily: '"Bookman Old Style", "URW Bookman L", Bookman, serif' }}
+        >
+          Alert Enabled GST Investigation Supervision
+        </span>
       </Link>
       <div className="flex-1">
         {visibleNavSections.map((section) => (
