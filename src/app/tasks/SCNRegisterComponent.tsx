@@ -595,14 +595,11 @@ const SCNRegisterComponent = () => {
       .eq("workspace_id", wid);
     if (role && role !== "ADG" && role !== "DD_INT") {
       if (role === "IO" || role === "SIO") {
-        query = query.or(`sio.eq.${uid ?? "__none__"},sio.is.null`);
+        query = query.eq("sio", uid ?? "__none__");
       } else if (groups && groups.length > 0) {
-        const grpList = groups.join(",");
-        query = query.or(
-          `group.in.(${grpList}),group.is.null,group.eq.,date_of_scn.lt.2025-01-01`,
-        );
+        query = query.in("group", groups);
       } else {
-        query = query.or(`group.is.null,group.eq.,date_of_scn.lt.2025-01-01`);
+        query = query.eq("group", "__none__");
       }
     }
     const { data, error } = await query.order("created_at", {
@@ -631,12 +628,6 @@ const SCNRegisterComponent = () => {
   const tableRecords = records
     .filter((r) => {
       const comp = r.competency || "SIO Competency";
-      if (activeTab === "AD/DD Competency") {
-        return (
-          comp === "AD/DD Competency" ||
-          (!!r.date_of_scn && r.date_of_scn < "2025-01-01")
-        );
-      }
       return comp === activeTab;
     })
     .filter((r) => {
