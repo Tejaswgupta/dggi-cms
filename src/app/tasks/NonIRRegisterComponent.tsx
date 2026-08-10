@@ -353,6 +353,8 @@ const NonIRRegisterComponent = () => {
     // violates it, so blank must be stored as NULL (nullifyEmpty skips selects).
     (updatePayload as Record<string, unknown>).mode_of_initiation =
       editableFields.mode_of_initiation || null;
+    (updatePayload as Record<string, unknown>).closure_by =
+      editableFields.closure_by || null;
     const { error } = await supabase
       .from("dggi_records")
       .update(updatePayload)

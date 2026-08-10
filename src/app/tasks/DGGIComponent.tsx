@@ -3951,6 +3951,7 @@ const DGGIComponent = () => {
         sio_name:
           workspaceUsers.find((u) => u.id === dialogDraft.handling_io_sio)
             ?.name || null,
+        closure_by: dialogDraft.closure_by || null,
         mode_of_initiation: dialogDraft.mode_of_initiation || null,
         date_of_receipt: dialogDraft.date_of_receipt || null,
         date_of_initiation: dialogDraft.date_of_initiation || null,
@@ -4362,6 +4363,7 @@ const DGGIComponent = () => {
       sio_name:
         workspaceUsers.find((u) => u.id === draft.handling_io_sio)?.name ||
         null,
+      closure_by: draft.closure_by || null,
       mode_of_initiation: draft.mode_of_initiation || null,
       date_of_receipt: draft.date_of_receipt || null,
       date_of_initiation: draft.date_of_initiation || null,
