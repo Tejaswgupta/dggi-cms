@@ -121,11 +121,12 @@ export async function POST(req: NextRequest) {
     const selectCols = TABLE_COLUMNS[config.source_table];
     if (!selectCols) continue;
 
-    // 1. Fetch all records
+    // 1. Fetch all records. `deleted_at` is appended so soft-deleted rows can be
+    //    filtered out below — every register table carries this column.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: records, error: fetchErr } = await supabase
       .from(config.source_table)
-      .select(rawColumns(selectCols)) as { data: Record<string, any>[] | null; error: { message: string } | null };
+      .select(`${rawColumns(selectCols)},deleted_at`) as { data: Record<string, any>[] | null; error: { message: string } | null };
 
     if (fetchErr) {
       console.error(`[deadline-alerts] fetch error ${config.source_table}:`, fetchErr.message);
@@ -133,11 +134,17 @@ export async function POST(req: NextRequest) {
     }
     if (!records?.length) continue;
 
-    // Exclude closed/transferred records — a non-empty closure_by means the case
-    // is terminal and no further deadlines should be tracked.
-    const openRecords = config.source_table === "dggi_records"
-      ? records.filter((r) => !r.closure_by || !String(r.closure_by).trim())
-      : records;
+    // Exclude records that should no longer track deadlines:
+    //  • soft-deleted (deleted_at set) — every table supports soft delete and a
+    //    deleted case must vanish from every dashboard, including this cache.
+    //  • closed/transferred dggi_records — a non-empty closure_by is terminal.
+    const openRecords = records.filter((r) => {
+      if (r.deleted_at) return false;
+      if (config.source_table === "dggi_records") {
+        return !r.closure_by || !String(r.closure_by).trim();
+      }
+      return true;
+    });
 
     // 2. Compute deadlines. Even an empty result must proceed to the wipe below
     //    so a table that lost all its applicable deadlines (e.g. every record
