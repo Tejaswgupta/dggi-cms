@@ -2,7 +2,6 @@
 
 import { createClient } from "@supabase/supabase-js";
 import createSupabaseServerClient from "@/lib/supabase/server";
-import { getWorkspaceId } from "@/lib/action/workspace";
 
 const DEFAULT_PASSWORD = "Dggi@1234";
 
@@ -34,7 +33,12 @@ export async function addUserAction(params: {
       return { success: false, error: "Insufficient permissions" };
     }
 
-    const workspace_id = await getWorkspaceId();
+    const { data: callerUser } = await serverClient
+      .from("votum_users")
+      .select("workspace_id")
+      .eq("id", caller.id)
+      .single();
+    const workspace_id = callerUser?.workspace_id ?? caller.user_metadata?.workspace_id;
     if (!workspace_id) return { success: false, error: "No workspace found" };
 
     const admin = adminClient();
