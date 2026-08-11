@@ -139,9 +139,10 @@ export async function POST(req: NextRequest) {
       ? records.filter((r) => !r.closure_by || !String(r.closure_by).trim())
       : records;
 
-    // 2. Compute deadlines
+    // 2. Compute deadlines. Even an empty result must proceed to the wipe below
+    //    so a table that lost all its applicable deadlines (e.g. every record
+    //    closed) gets its stale rows cleared instead of stranded.
     const computed = computeDeadlinesForRecords(openRecords, config, today);
-    if (!computed.length) continue;
 
     // 3. Batch-resolve officer names for all unique officer user IDs in this table
     const rf = TABLE_RECIPIENTS[config.source_table];
@@ -197,42 +198,29 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // For deduped tables, wipe all existing rows before inserting the clean set.
-    if (config.dedup_field) {
-      const { error: delErr } = await supabase
-        .from("dggi_computed_deadlines")
-        .delete()
-        .eq("source_table", config.source_table);
-      if (delErr) {
-        console.error(`[deadline-alerts] cleanup error ${config.source_table}:`, delErr.message);
-      }
-    }
-
-    // Purge stale rows for closed dggi_records — they were filtered out above so
-    // they won't be upserted, but previous runs may have left rows behind.
-    if (config.source_table === "dggi_records") {
-      const closedIds = records
-        .filter((r) => r.closure_by && String(r.closure_by).trim())
-        .map((r) => r.id as string)
-        .filter(Boolean);
-      if (closedIds.length) {
-        await supabase
-          .from("dggi_computed_deadlines")
-          .delete()
-          .eq("source_table", "dggi_records")
-          .in("row_id", closedIds);
-      }
-    }
-
-    const { error: upsertErr } = await supabase
+    // Wipe all existing rows for this source table before inserting the clean
+    // set. `upsert` alone only adds/updates the row_ids it's given — it can
+    // never remove a row whose source record was deleted, re-ingested under a
+    // new id, or closed (closed dggi_records are excluded from `computed`). Such
+    // orphans keep stale denormalized data (e.g. an empty sio_user_id that made
+    // assigned cases show as "Unassigned" in Officer Exposure). Wiping first
+    // guarantees the table exactly mirrors the current, applicable deadline set.
+    const { error: delErr } = await supabase
       .from("dggi_computed_deadlines")
-      .upsert(upsertRows, {
-        onConflict: "workspace_id,rule_id,row_id",
-        ignoreDuplicates: false,
-      });
+      .delete()
+      .eq("source_table", config.source_table);
+    if (delErr) {
+      console.error(`[deadline-alerts] cleanup error ${config.source_table}:`, delErr.message);
+    }
 
-    if (upsertErr) {
-      console.error(`[deadline-alerts] upsert error ${config.source_table}:`, upsertErr.message);
+    if (upsertRows.length) {
+      const { error: upsertErr } = await supabase
+        .from("dggi_computed_deadlines")
+        .insert(upsertRows);
+
+      if (upsertErr) {
+        console.error(`[deadline-alerts] insert error ${config.source_table}:`, upsertErr.message);
+      }
     }
 
     summary[config.source_table] = { records: records.length, upserted: upsertRows.length };

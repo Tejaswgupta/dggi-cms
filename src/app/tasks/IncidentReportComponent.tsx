@@ -327,6 +327,8 @@ const IncidentReportComponent = () => {
     setSavingRow(true);
     const { record_id: _locked, ...editableFields } = dialogDraft as IncidentReportRecord;
     const updatePayload = nullifyEmpty({ ...editableFields }, COLUMNS);
+    (updatePayload as Record<string, unknown>).date_of_ir =
+      editableFields.date_of_ir || null;
     const { error } = await supabase
       .from("dggi_records")
       .update(updatePayload)
@@ -337,6 +339,24 @@ const IncidentReportComponent = () => {
       setRecords((prev) =>
         prev.map((r) => (r.id === dialogDraft.id ? { ...r, ...dialogDraft } : r)),
       );
+      // Refresh FY list in case the date change moved the record to a different FY
+      const { data: fyRows } = await supabase
+        .from("dggi_records")
+        .select("date_of_ir")
+        .eq("workspace_id", workspaceId)
+        .eq("is_ir", true)
+        .not("date_of_ir", "is", null);
+      if (fyRows) {
+        const fys = Array.from(new Set(
+          fyRows.map(({ date_of_ir }: { date_of_ir: string }) => {
+            const year = parseInt(date_of_ir.slice(0, 4), 10);
+            const month = parseInt(date_of_ir.slice(5, 7), 10);
+            const s = month >= 4 ? year : year - 1;
+            return `${s}-${String(s + 1).slice(2)}`;
+          })
+        )).sort((a, b) => b.localeCompare(a)) as string[];
+        setAvailableFYs(fys);
+      }
       toast.success("Record saved");
       setDialogOpen(false);
     }
