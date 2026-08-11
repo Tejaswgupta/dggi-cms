@@ -1244,7 +1244,7 @@ const ArrestRegisterComponent = () => {
             </button>
             )
           ) : col.key === "file_no" ? (
-            <span className="text-[#9a9a96]">—</span>
+            <span className="font-medium">{record.file_no || "—"}</span>
           ) : (
             <EditableCell
               value={((record as any)[col.key] as string) ?? ""}

@@ -242,13 +242,6 @@ const COLUMNS: RegisterColumn[] = [
     readOnly: true,
   },
   {
-    key: "attachment_batch_id",
-    label: "Attachment No.",
-    type: "text",
-    width: "160px",
-    readOnly: true,
-  },
-  {
     key: "linked_case_id",
     label: "Linked Case",
     type: "caselink",
@@ -1038,7 +1031,7 @@ const ProvisionalAttachmentComponent = () => {
     new Map(),
   );
   const [linkingBatch, setLinkingBatch] = useState<{
-    batchId: string;
+    attachmentBatchId: string;
     currentCaseId: string;
   } | null>(null);
   const [linkingCaseId, setLinkingCaseId] = useState("");
@@ -1193,8 +1186,9 @@ const ProvisionalAttachmentComponent = () => {
       return;
     }
 
-    // Step 2: fetch full records only for the batches on this page
-    const realBatchIds = pageBatches
+    // Step 2: fetch all records for the case-groups on this page.
+    // batch_key is now linked_case_id (real) or record id (fallback for unlinked).
+    const realCaseIds = pageBatches
       .filter((b) => !b.isFallback)
       .map((b) => b.batchId);
     const fallbackIds = pageBatches
@@ -1202,13 +1196,13 @@ const ProvisionalAttachmentComponent = () => {
       .map((b) => b.batchId);
 
     const queries: Promise<{ data: any[] | null; error: any }>[] = [];
-    if (realBatchIds.length > 0) {
+    if (realCaseIds.length > 0) {
       queries.push(
         supabase
           .from("dggi_provisional_attachment_records")
           .select("*")
           .eq("workspace_id", wid)
-          .in("attachment_batch_id", realBatchIds)
+          .in("linked_case_id", realCaseIds)
           .order(sortField, { ascending: currentSortDir === "asc" }) as any,
       );
     }
@@ -1233,11 +1227,11 @@ const ProvisionalAttachmentComponent = () => {
 
     const data = results.flatMap((r) => r.data ?? []);
 
-    // Reassemble in the RPC's batch order; DB sort governs order within each batch
+    // Reassemble in the RPC's case-group order; DB sort governs order within each group
     const batchOrder = new Map(pageBatches.map((b, i) => [b.batchId, i]));
     const sorted = data.slice().sort((a, b) => {
-      const ao = batchOrder.get(a.attachment_batch_id || a.id) ?? 999;
-      const bo = batchOrder.get(b.attachment_batch_id || b.id) ?? 999;
+      const ao = batchOrder.get(a.linked_case_id || a.id) ?? 999;
+      const bo = batchOrder.get(b.linked_case_id || b.id) ?? 999;
       return ao - bo;
     });
 
@@ -1444,13 +1438,13 @@ const ProvisionalAttachmentComponent = () => {
       .from("dggi_provisional_attachment_records")
       .update({ linked_case_id: linkingCaseId })
       .eq("workspace_id", workspaceId)
-      .eq("attachment_batch_id", linkingBatch.batchId);
+      .eq("attachment_batch_id", linkingBatch.attachmentBatchId);
     if (error) {
       toast.error("Failed to link IR: " + error.message);
     } else {
       setRecords((prev) =>
         prev.map((r) =>
-          r.attachment_batch_id === linkingBatch.batchId
+          r.attachment_batch_id === linkingBatch.attachmentBatchId
             ? { ...r, linked_case_id: linkingCaseId }
             : r,
         ),
@@ -1545,7 +1539,7 @@ const ProvisionalAttachmentComponent = () => {
   }[] = [];
   const batchIndex = new Map<string, number>();
   for (const r of tableRecords) {
-    const bid = r.attachment_batch_id || r.id;
+    const bid = r.linked_case_id || `__solo__${r.id}`;
     if (!batchIndex.has(bid)) {
       batchIndex.set(bid, batches.length);
       batches.push({ batchId: bid, properties: [] });
@@ -1735,17 +1729,31 @@ const ProvisionalAttachmentComponent = () => {
         >
           {COLUMNS.map((col) => (
             <TableCell key={col.key} className="px-3 py-2 text-[#1a1a1a]">
-              {col.key === "attachment_batch_id" ? (
+              {col.key === "linked_case_id" ? (
                 <span className="flex items-center gap-1.5 font-medium">
                   {isExpanded ? (
                     <ChevronUp size={13} className="text-[#6b6b6b]" />
                   ) : (
                     <ChevronDown size={13} className="text-[#6b6b6b]" />
                   )}
-                  {formatBatchDisplayId(properties)}
+                  {renderCell(rep.linked_case_id ?? "", col.key, col.type, rep)}
                   <span className="inline-flex items-center justify-center rounded-full bg-[#4A5FD4]/10 text-[#4A5FD4] text-[10px] font-semibold px-1.5 py-0.5 min-w-[18px]">
                     {properties.length}
                   </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLinkingCaseId(rep.linked_case_id ?? "");
+                      setLinkingBatch({
+                        attachmentBatchId: rep.attachment_batch_id,
+                        currentCaseId: rep.linked_case_id ?? "",
+                      });
+                    }}
+                    className="shrink-0 text-[#9a9a96] hover:text-[#4A5FD4]"
+                    title="Re-link IR"
+                  >
+                    <Link2 size={12} />
+                  </button>
                 </span>
               ) : col.key === "person_name" ? (
                 <span className="text-[#1a1a1a]">{rep.person_name || "—"}</span>
@@ -1767,24 +1775,6 @@ const ProvisionalAttachmentComponent = () => {
                     </span>
                   );
                 })()
-              ) : col.key === "linked_case_id" ? (
-                <div className="flex items-center gap-1.5">
-                  {renderCell(rep.linked_case_id ?? "", col.key, col.type, rep)}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLinkingCaseId(rep.linked_case_id ?? "");
-                      setLinkingBatch({
-                        batchId,
-                        currentCaseId: rep.linked_case_id ?? "",
-                      });
-                    }}
-                    className="shrink-0 text-[#9a9a96] hover:text-[#4A5FD4]"
-                    title="Link IR"
-                  >
-                    <Link2 size={12} />
-                  </button>
-                </div>
               ) : PROPERTY_FIELDS.has(
                   col.key as keyof ProvisionalAttachmentRecord,
                 ) ? (
@@ -2297,7 +2287,7 @@ const ProvisionalAttachmentComponent = () => {
               <span className="font-medium text-[#1a1a1a]">all records</span> in
               batch{" "}
               <span className="font-medium text-[#1a1a1a]">
-                {linkingBatch?.batchId}
+                {linkingBatch?.attachmentBatchId}
               </span>{" "}
               to the selected IR.
             </p>
