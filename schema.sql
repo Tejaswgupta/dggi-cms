@@ -2957,8 +2957,13 @@ BEGIN
         AND (%7$L = '' OR date_of_attachment::text >= %7$L)
         AND (%8$L = '' OR date_of_attachment::text <= %8$L)
     ),
+    partitioned AS (
+      SELECT *,
+             ROW_NUMBER() OVER (PARTITION BY batch_key ORDER BY %9$s) AS batch_rn
+      FROM filtered
+    ),
     first_per_batch AS (
-      SELECT DISTINCT ON (batch_key)
+      SELECT
         batch_key,
         is_fallback,
         date_of_attachment,
@@ -2966,8 +2971,8 @@ BEGIN
         date_of_release,
         _sort_val,
         created_at
-      FROM filtered
-      ORDER BY batch_key, %9$s
+      FROM partitioned
+      WHERE batch_rn = 1
     ),
     ordered AS (
       SELECT *,

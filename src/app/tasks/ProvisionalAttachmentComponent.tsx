@@ -1123,9 +1123,13 @@ const ProvisionalAttachmentComponent = () => {
     uid: string,
     pg: number,
     flt: Filters,
+    overrideSortCol?: string | null,
+    overrideSortDir?: "asc" | "desc",
   ) => {
     const fetchId = ++fetchIdRef.current;
-    const sortField = sortCol ?? "created_at";
+    const currentSortCol = overrideSortCol !== undefined ? overrideSortCol : sortCol;
+    const currentSortDir = overrideSortDir !== undefined ? overrideSortDir : sortDir;
+    const sortField = currentSortCol ?? "created_at";
 
     // Step 1: RPC returns one row per distinct batch, paginated server-side.
     // total_batches (window COUNT) comes back on every row.
@@ -1140,7 +1144,7 @@ const ProvisionalAttachmentComponent = () => {
         p_date_from: flt.dateFrom ?? "",
         p_date_to: flt.dateTo ?? "",
         p_sort_col: sortField,
-        p_sort_asc: sortDir === "asc",
+        p_sort_asc: currentSortDir === "asc",
         p_limit: PAGE_SIZE,
         p_offset: (pg - 1) * PAGE_SIZE,
       },
@@ -1205,7 +1209,7 @@ const ProvisionalAttachmentComponent = () => {
           .select("*")
           .eq("workspace_id", wid)
           .in("attachment_batch_id", realBatchIds)
-          .order(sortField, { ascending: sortDir === "asc" }) as any,
+          .order(sortField, { ascending: currentSortDir === "asc" }) as any,
       );
     }
     if (fallbackIds.length > 0) {
@@ -1215,7 +1219,7 @@ const ProvisionalAttachmentComponent = () => {
           .select("*")
           .eq("workspace_id", wid)
           .in("id", fallbackIds)
-          .order(sortField, { ascending: sortDir === "asc" }) as any,
+          .order(sortField, { ascending: currentSortDir === "asc" }) as any,
       );
     }
 
@@ -1459,10 +1463,13 @@ const ProvisionalAttachmentComponent = () => {
 
   const toggleSort = (col: string) => {
     setPage(1);
-    if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortCol(col);
-      setSortDir("asc");
+    const newDir = sortCol === col ? (sortDir === "asc" ? "desc" : "asc") : "asc";
+    setSortCol(col);
+    setSortDir(newDir);
+    if (authCtx.current) {
+      const { wid, role, groups, uid } = authCtx.current;
+      const effectiveFilters: Filters = { ...filters, search: debouncedSearch };
+      fetchRecords(wid, role, groups, uid, 1, effectiveFilters, col, newDir);
     }
   };
 
