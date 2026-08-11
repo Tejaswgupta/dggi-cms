@@ -59,6 +59,8 @@ interface ExposureItem {
   sourceTable?: string;
   // Optional display fields for the per-officer breakdown dialog.
   recordId?: string;
+  rowId?: string;
+  linkedCaseId?: string;
   entityName?: string;
   ruleLabel?: string;
   registerLabel?: string;
@@ -990,10 +992,36 @@ export function OfficerExposureChart({
   loading?: boolean;
 }) {
   const [selectedOfficer, setSelectedOfficer] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [uniqueMode, setUniqueMode] = useState(false);
 
-  // Only IR + NON-IR cases (both live in dggi_records); subsidiary registers
-  // (SCN, prosecution, provisional attachment, etc.) are excluded.
-  const irItems = items.filter((i) => i.sourceTable === "dggi_records");
+  // In unique mode, keep only the worst-urgency deadline per case (same logic
+  // as the dashboard's caseKey dedup — linked_case_id collapses child records
+  // onto their parent IR).
+  const URGENCY_RANK: Record<Urgency, number> = {
+    expired: 0,
+    critical: 1,
+    warning: 2,
+    safe: 3,
+  };
+  function caseKey(i: ExposureItem): string {
+    if (i.linkedCaseId) return i.linkedCaseId;
+    if (i.recordId && i.recordId !== "—") return i.recordId;
+    return i.rowId ?? `${i.sourceTable}|${i.officer}`;
+  }
+  const effectiveItems = uniqueMode
+    ? (() => {
+        const worst = new Map<string, ExposureItem>();
+        for (const i of items) {
+          const k = caseKey(i);
+          const prev = worst.get(k);
+          if (!prev || URGENCY_RANK[i.urgency] < URGENCY_RANK[prev.urgency]) {
+            worst.set(k, i);
+          }
+        }
+        return Array.from(worst.values());
+      })()
+    : items;
 
   // Named officers show only their action items (overdue/critical exposure).
   // "Unassigned" shows EVERY unassigned case regardless of urgency — an
@@ -1003,7 +1031,7 @@ export function OfficerExposureChart({
     string,
     { expired: number; critical: number; other: number; items: ExposureItem[] }
   > = {};
-  for (const item of irItems) {
+  for (const item of effectiveItems) {
     // Assignment is determined solely by sio_user_id.
     const assigned = !!item.sioUserId?.trim();
     const isAction = item.urgency === "expired" || item.urgency === "critical";
@@ -1027,15 +1055,12 @@ export function OfficerExposureChart({
     }))
     .sort((a, b) => b.total - a.total);
 
-  // Cap at 8 rows, but always keep "Unassigned" visible even if it ranks lower.
-  const unassignedRow = sorted.find((r) => r.officer === "Unassigned");
-  let topRows = sorted.slice(0, 8);
-  if (unassignedRow && !topRows.includes(unassignedRow)) {
-    topRows = [...sorted.slice(0, 7), unassignedRow];
-  }
+  const PAGE_SIZE = 8;
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const topRows = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const maxTotal =
-    topRows.length > 0 ? Math.max(...topRows.map((r) => r.total)) : 1;
+    sorted.length > 0 ? Math.max(...sorted.map((r) => r.total)) : 1;
 
   // Sort the selected officer's items worst-first for the breakdown dialog.
   const URGENCY_ORDER: Record<Urgency, number> = {
@@ -1077,11 +1102,24 @@ export function OfficerExposureChart({
   return (
     <>
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-      <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-        Officer Exposure
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+          Officer Exposure
+        </h3>
+        <button
+          type="button"
+          onClick={() => { setUniqueMode((v) => !v); setPage(0); }}
+          className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-colors ${
+            uniqueMode
+              ? "border-[#4A5FD4] bg-[#4A5FD4] text-white"
+              : "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4] hover:bg-[#4A5FD4] hover:text-white"
+          }`}
+        >
+          {uniqueMode ? "Unique cases" : "All deadlines"}
+        </button>
+      </div>
       <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
-        Action items by officer · all unassigned cases
+        Action items by officer · all unassigned cases · {sorted.length} officer{sorted.length !== 1 ? "s" : ""}
       </p>
       {topRows.length === 0 ? (
         <div className="py-8 text-center text-[11.5px] text-[#9a9a96]">
@@ -1144,6 +1182,32 @@ export function OfficerExposureChart({
               <span className="text-[9.5px] text-[#9a9a96]">Unassigned (other)</span>
             </div>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F3F2EF]">
+              <span className="text-[10px] text-[#9a9a96]">
+                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} of {sorted.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="w-6 h-6 flex items-center justify-center rounded text-[11px] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  ‹
+                </button>
+                <span className="text-[10px] text-[#9a9a96]">{page + 1} / {totalPages}</span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page === totalPages - 1}
+                  className="w-6 h-6 flex items-center justify-center rounded text-[11px] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
