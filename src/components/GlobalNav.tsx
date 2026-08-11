@@ -216,7 +216,7 @@ export default function GlobalNav() {
     <aside className="hidden md:flex flex-col w-[200px] shrink-0 border-r border-[#EDEDEA] bg-white h-full pt-5 pb-4 px-2 overflow-y-auto">
       <Link
         href="/dashboard"
-        className="block px-3 pb-4 text-2xl text-[#1a1a1a]"
+        className="block px-3 pb-4 text-[28px] text-[#5B4FCF]"
         style={{
           fontFamily:
             '"Lucida Calligraphy", "Apple Chancery", "URW Chancery L", cursive',
@@ -224,8 +224,10 @@ export default function GlobalNav() {
       >
         AeGiS
         <span
-          className="block text-[9px] font-normal text-[#9a9a96] tracking-wide leading-tight mt-0.5"
-          style={{ fontFamily: '"Bookman Old Style", "URW Bookman L", Bookman, serif' }}
+          className="block text-[11px] font-normal text-[#8B6A3E] tracking-wide leading-tight mt-0.5"
+          style={{
+            fontFamily: '"Bookman Old Style", "URW Bookman L", Bookman, serif',
+          }}
         >
           Alert Enabled GST Investigation Supervision
         </span>

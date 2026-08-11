@@ -1032,8 +1032,9 @@ export function OfficerExposureChart({
     { expired: number; critical: number; other: number; items: ExposureItem[] }
   > = {};
   for (const item of effectiveItems) {
-    // Assignment is determined solely by sio_user_id.
-    const assigned = !!item.sioUserId?.trim();
+    // A record is assigned if it has a sio_user_id OR a non-empty officer name
+    // (child registers like SCN/arrest carry officer_name but not sio_user_id).
+    const assigned = !!item.sioUserId?.trim() || !!item.officer?.trim();
     const isAction = item.urgency === "expired" || item.urgency === "critical";
     if (assigned && !isAction) continue;
     const key = assigned ? item.officer?.trim() || "Unknown officer" : "Unassigned";
