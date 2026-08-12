@@ -209,10 +209,23 @@ const SHARED_COLUMNS: ColDef[] = [
   },
 ];
 
+const NON_IR_EXCLUDED_KEYS = new Set<keyof ClosureRecord>([
+  "detection_amount",
+  "recovery_itc",
+  "recovery_cash",
+  "total_recovery",
+  "digit_id",
+  "bo_id",
+  "hsn_code",
+  "date_of_receipt",
+]);
+
 const NON_IR_COLUMNS: ColDef[] = [
-  ...SHARED_COLUMNS.map((c) =>
-    c.key === "source_record_id" ? { ...c, label: "NON-IR No." } : c
-  ),
+  ...SHARED_COLUMNS
+    .filter((c) => !NON_IR_EXCLUDED_KEYS.has(c.key as keyof ClosureRecord))
+    .map((c) =>
+      c.key === "source_record_id" ? { ...c, label: "NON-IR No." } : c
+    ),
   {
     key: "date_of_non_ir",
     label: "Date of NON-IR",

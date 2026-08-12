@@ -1285,7 +1285,8 @@ export default function DGGIDashboard() {
         prevArrCount,
         prevInvCount,
         irRecordsRes,
-        caseRecordsRes,
+        irIssueRecordsRes,
+        nonIrIssueRecordsRes,
         nonIrRecordsRes,
       ] = await Promise.all([
         // Single query replaces 9 source-table fetches — DB already computed & stored everything
@@ -1363,13 +1364,29 @@ export default function DGGIDashboard() {
           "dggi_records",
           rbac,
         ),
+        // IR records with issue_involved, current FY
         applyRbacFilter(
           supabase
             .from("dggi_records")
             .select("issue_involved")
             .eq("workspace_id", wid)
+            .eq("is_ir", true)
             .not("issue_involved", "is", null)
-            .neq("issue_involved", ""),
+            .neq("issue_involved", "")
+            .gte("date_of_ir", fyStart),
+          "dggi_records",
+          rbac,
+        ),
+        // NON-IR records with issue_involved, current FY
+        applyRbacFilter(
+          supabase
+            .from("dggi_records")
+            .select("issue_involved")
+            .eq("workspace_id", wid)
+            .eq("is_ir", false)
+            .not("issue_involved", "is", null)
+            .neq("issue_involved", "")
+            .gte("date_of_non_ir", fyStart),
           "dggi_records",
           rbac,
         ),
@@ -1439,8 +1456,11 @@ export default function DGGIDashboard() {
           })),
       );
 
-      // Issue involved distribution
-      const caseRows = (caseRecordsRes.data ?? []) as AnyRecord[];
+      // Issue involved distribution — current FY, IR + NON-IR combined
+      const caseRows = [
+        ...((irIssueRecordsRes.data ?? []) as AnyRecord[]),
+        ...((nonIrIssueRecordsRes.data ?? []) as AnyRecord[]),
+      ];
       const issueMap = new Map<string, number>();
       for (const row of caseRows) {
         const issue = row.issue_involved as string;
