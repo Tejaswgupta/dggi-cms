@@ -24,6 +24,10 @@ import {
   TooltipProvider as RadixTooltipProvider,
   TooltipTrigger as RadixTooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ISSUE_INVOLVED_COLORS,
+  ISSUE_INVOLVED_OPTIONS,
+} from "@/lib/dggi-constants";
 
 ChartJS.register(
   ArcElement,
@@ -878,14 +882,6 @@ export interface RegisterPendencyCardRow {
   warning: number;
 }
 
-const ISSUE_COLORS: Record<string, string> = {
-  Fake: "#EF4444",
-  Technical: "#F59E0B",
-  Clandestine: "#8B5CF6",
-  Misclassification: "#06B6D4",
-  Others: "#9a9a96",
-};
-
 export function IssueInvolvedChart({
   data,
   loading,
@@ -893,7 +889,8 @@ export function IssueInvolvedChart({
   data: IssueInvolvedRow[];
   loading?: boolean;
 }) {
-  const KNOWN_ISSUES = ["Fake", "Technical", "Clandestine", "Misclassification"];
+  // Known issues are every option except the "Others" catch-all bucket.
+  const KNOWN_ISSUES = ISSUE_INVOLVED_OPTIONS.filter((o) => o !== "Others");
 
   // Bucket any value not in KNOWN_ISSUES into "Others"
   const othersCount = data
@@ -904,7 +901,7 @@ export function IssueInvolvedChart({
     ...KNOWN_ISSUES.map((issue) => ({
       issue,
       count: data.find((d) => d.issue === issue)?.count ?? 0,
-    })),
+    })).filter((d) => d.count > 0),
     ...(othersCount > 0 ? [{ issue: "Others", count: othersCount }] : []),
   ];
 
@@ -926,7 +923,9 @@ export function IssueInvolvedChart({
     datasets: [
       {
         data: merged.map((d) => d.count),
-        backgroundColor: merged.map((d) => ISSUE_COLORS[d.issue] ?? "#9a9a96"),
+        backgroundColor: merged.map(
+          (d) => ISSUE_INVOLVED_COLORS[d.issue] ?? "#9a9a96",
+        ),
         borderWidth: 0,
         cutout: "60%",
       },
@@ -965,7 +964,7 @@ export function IssueInvolvedChart({
               <div
                 className="w-2.5 h-2.5 rounded-sm shrink-0"
                 style={{
-                  backgroundColor: ISSUE_COLORS[d.issue] ?? "#9a9a96",
+                  backgroundColor: ISSUE_INVOLVED_COLORS[d.issue] ?? "#9a9a96",
                 }}
               />
               <span className="text-[11px] text-[#1a1a1a]">{d.issue}</span>

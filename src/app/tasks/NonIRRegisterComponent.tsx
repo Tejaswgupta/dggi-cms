@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/table";
 import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
-import { DGGI_GROUPS } from "@/lib/dggi-constants";
+import { DGGI_GROUPS, ISSUE_INVOLVED_OPTIONS } from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import {
   Check,
@@ -60,12 +60,6 @@ const LS_HIDDEN_COLS_KEY = "nir_hidden_columns";
 
 const SOURCE_OPTIONS = ["Int", "Group", "STR"];
 const MODE_OPTIONS = ["Letter", "Email", "Summons", "Inspection", "Search"];
-const ISSUE_INVOLVED_OPTIONS = [
-  "Fake ITC",
-  "Clandestine Supply",
-  "Misclassification",
-  "Online Gaming",
-];
 const LATEST_STATUS_OPTIONS = ["Kept in Abeyance"];
 const NON_IR_CLOSURE_OPTIONS = ["Closed", "Transferred", "Convert to IR"];
 

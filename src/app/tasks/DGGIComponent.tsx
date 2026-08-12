@@ -53,7 +53,11 @@ import {
 } from "@/components/ui/table";
 import { getAllUsers } from "@/hooks/useWorkspaceUsers";
 import { getWorkspaceId } from "@/lib/action/workspace";
-import { DGGI_GROUPS, type GroupName } from "@/lib/dggi-constants";
+import {
+  DGGI_GROUPS,
+  ISSUE_INVOLVED_OPTIONS,
+  type GroupName,
+} from "@/lib/dggi-constants";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
 import { format, isValid, parseISO } from "date-fns";
 import {
@@ -226,12 +230,6 @@ const CLOSURE_NEEDS_REASON = new Set([
 ]);
 const SOURCE_OPTIONS = ["Int", "Group", "STR"];
 const DUE_DATE_YEAR_OPTIONS = ["2026", "2027", "2028"];
-const ISSUE_INVOLVED_OPTIONS = [
-  "Fake ITC",
-  "Clandestine Supply",
-  "Misclassification",
-  "Online Gaming",
-];
 
 export const EMPTY_RECORD: Omit<DGGIRecord, "id"> = {
   record_id: "",

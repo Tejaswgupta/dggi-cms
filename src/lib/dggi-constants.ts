@@ -34,3 +34,34 @@ export const DGGI_ROLE_LABELS: Record<DggiRole, string> = {
   SIO: "Senior Intelligence Officer",
   IO: "Intelligence Officer",
 };
+
+// ── Issue Involved (nature of offence) ─────────────────────────────────────
+// Shared across the IR / Non-IR / DGGI registers (dropdown options) and the
+// dashboard Issue Involved chart (colors + bucketing). "Others" is the
+// catch-all bucket for any stored value not in this list.
+export const ISSUE_INVOLVED_OPTIONS: string[] = [
+  "Fake ITC",
+  "Clandestine Supply",
+  "Online Money Gaming",
+  "Ineligible ITC",
+  "Misclassification of Supplies",
+  "RCM Import",
+  "Tax Collected but not Deposited",
+  "Undervaluation",
+  "Non Payment/Short Payment of GST",
+  "Others",
+];
+
+// Chart colors keyed by option label; falls back to the "Others" grey.
+export const ISSUE_INVOLVED_COLORS: Record<string, string> = {
+  "Fake ITC": "#EF4444",
+  "Clandestine Supply": "#8B5CF6",
+  "Online Money Gaming": "#F59E0B",
+  "Ineligible ITC": "#06B6D4",
+  "Misclassification of Supplies": "#10B981",
+  "RCM Import": "#3B82F6",
+  "Tax Collected but not Deposited": "#EC4899",
+  Undervaluation: "#F97316",
+  "Non Payment/Short Payment of GST": "#6366F1",
+  Others: "#9a9a96",
+};
