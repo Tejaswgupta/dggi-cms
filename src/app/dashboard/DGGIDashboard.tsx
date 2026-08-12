@@ -1078,6 +1078,7 @@ export default function DGGIDashboard() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("");
   const [isAdg, setIsAdg] = useState(false);
+  const [canViewGraph, setCanViewGraph] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [userRbac, setUserRbac] = useState<UserRbac>({
     role: "",
@@ -1194,6 +1195,10 @@ export default function DGGIDashboard() {
       // ADG role check — also covers dggi_role field
       if (dggiRole === "ADG") {
         setIsAdg(true);
+      }
+      // Graph view is available to everyone except SIO
+      if (dggiRole !== "SIO") {
+        setCanViewGraph(true);
       }
 
       // Fetch unread comment notifications for banner
@@ -1935,8 +1940,8 @@ export default function DGGIDashboard() {
                   Unique Cases
                 </button>
               </div>
-              {/* View mode toggle — Graph tab is ADG-only */}
-              {isAdg && (
+              {/* View mode toggle — available to all roles except SIO */}
+              {canViewGraph && (
                 <div className="flex items-center bg-[#F3F2EF] rounded-lg p-0.5 text-[11.5px] font-medium">
                   <button
                     onClick={() => setViewMode("table")}
@@ -2148,7 +2153,7 @@ export default function DGGIDashboard() {
         </div>
 
         {/* ── Main Grid (conditional on view mode) ── */}
-        {viewMode === "graph" && isAdg ? (
+        {viewMode === "graph" && canViewGraph ? (
           <GraphView
             expiredItems={expiredItems}
             criticalItems={criticalItems}

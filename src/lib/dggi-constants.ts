@@ -37,8 +37,9 @@ export const DGGI_ROLE_LABELS: Record<DggiRole, string> = {
 
 // ── Issue Involved (nature of offence) ─────────────────────────────────────
 // Shared across the IR / Non-IR / DGGI registers (dropdown options) and the
-// dashboard Issue Involved chart (colors + bucketing). "Others" is the
-// catch-all bucket for any stored value not in this list.
+// dashboard Issue Involved chart (colors + bucketing). The register dropdowns
+// append their own "Others…" free-text option, so it is NOT listed here; the
+// chart buckets any stored value outside this list into "Others" on its own.
 export const ISSUE_INVOLVED_OPTIONS: string[] = [
   "Fake ITC",
   "Clandestine Supply",
@@ -49,7 +50,6 @@ export const ISSUE_INVOLVED_OPTIONS: string[] = [
   "Tax Collected but not Deposited",
   "Undervaluation",
   "Non Payment/Short Payment of GST",
-  "Others",
 ];
 
 // Chart colors keyed by option label; falls back to the "Others" grey.
