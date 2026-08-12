@@ -1346,14 +1346,6 @@ export function OfficerExposureChart({
                             </span>
                           </>
                         )}
-                        {uniqueMode && item.totalDeadlines != null && (
-                          <>
-                            <span className="text-[#D4D3CE] text-[10px]">·</span>
-                            <span className="text-[10px] font-semibold text-[#4A5FD4]">
-                              {item.totalDeadlines} deadline{item.totalDeadlines !== 1 ? "s" : ""}
-                            </span>
-                          </>
-                        )}
                       </div>
                       {item.recordId &&
                         item.recordId !== "—" &&
