@@ -3839,24 +3839,7 @@ const DGGIComponent = () => {
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
-  const EDIT_WINDOW_DAYS = 7;
-
-  const canEditRecord = (record: DGGIRecord): boolean => {
-    if (userRole === "ADG" || userRole === "DD_INT") return true;
-    const createdAt = (record as any).created_at as string | undefined;
-    if (!createdAt) return true;
-    const created = new Date(createdAt).getTime();
-    const cutoff = created + EDIT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    return Date.now() <= cutoff;
-  };
-
   const startEdit = (record: DGGIRecord) => {
-    if (!canEditRecord(record)) {
-      toast.error(
-        `Edit window closed — records can only be edited within ${EDIT_WINDOW_DAYS} days of creation.`,
-      );
-      return;
-    }
     setDialogDraft({
       ...record,
       due_date: record.due_date || (!record.is_ir ? today() : ""),
@@ -4582,12 +4565,6 @@ const DGGIComponent = () => {
   };
 
   const startEditWithRegisters = async (record: DGGIRecord) => {
-    if (!canEditRecord(record)) {
-      toast.error(
-        `Edit window closed — records can only be edited within ${EDIT_WINDOW_DAYS} days of creation.`,
-      );
-      return;
-    }
     setDialogDraft({ ...record });
     setDialogEditingId(record.id);
     setDialogMode("edit");

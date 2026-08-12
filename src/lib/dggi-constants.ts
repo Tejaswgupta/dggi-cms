@@ -52,6 +52,10 @@ export const ISSUE_INVOLVED_OPTIONS: string[] = [
   "Non Payment/Short Payment of GST",
 ];
 
+// Number of days after creation during which non-privileged roles (not ADG/DD_INT/DD)
+// may edit a record. Change here to adjust the window across all registers.
+export const EDIT_WINDOW_DAYS = 7;
+
 // Chart colors keyed by option label; falls back to the "Others" grey.
 export const ISSUE_INVOLVED_COLORS: Record<string, string> = {
   "Fake ITC": "#EF4444",
