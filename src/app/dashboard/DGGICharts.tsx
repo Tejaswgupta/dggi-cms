@@ -1,6 +1,16 @@
 "use client";
 
 import {
+  Tooltip as RadixTooltip,
+  TooltipContent as RadixTooltipContent,
+  TooltipProvider as RadixTooltipProvider,
+  TooltipTrigger as RadixTooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  ISSUE_INVOLVED_COLORS,
+  ISSUE_INVOLVED_OPTIONS,
+} from "@/lib/dggi-constants";
+import {
   ArcElement,
   BarElement,
   CategoryScale,
@@ -18,16 +28,6 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Bar, Doughnut } from "react-chartjs-2";
-import {
-  Tooltip as RadixTooltip,
-  TooltipContent as RadixTooltipContent,
-  TooltipProvider as RadixTooltipProvider,
-  TooltipTrigger as RadixTooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
-  ISSUE_INVOLVED_COLORS,
-  ISSUE_INVOLVED_OPTIONS,
-} from "@/lib/dggi-constants";
 
 ChartJS.register(
   ArcElement,
@@ -70,6 +70,10 @@ interface ExposureItem {
   registerLabel?: string;
   registerHref?: string;
   daysUntil?: number;
+  // Only set for dggi_records items: true = IR case, false = NON-IR case
+  isIr?: boolean;
+  // Set in unique mode: total deadlines across all linked registers for this case
+  totalDeadlines?: number;
 }
 
 // ─── ComplianceGauge ─────────────────────────────────────────────────────────
@@ -657,7 +661,10 @@ export function ZoneIntelligencePanel({
                           {tile.delta} MoM
                         </span>
                       </RadixTooltipTrigger>
-                      <RadixTooltipContent side="top" className="max-w-[200px] text-center leading-snug">
+                      <RadixTooltipContent
+                        side="top"
+                        className="max-w-[200px] text-center leading-snug"
+                      >
                         {tile.delta > 0
                           ? `${tile.delta} more than last month — activity is increasing`
                           : `${Math.abs(tile.delta)} fewer than last month — activity is declining`}
@@ -673,7 +680,10 @@ export function ZoneIntelligencePanel({
                           ± 0 MoM
                         </span>
                       </RadixTooltipTrigger>
-                      <RadixTooltipContent side="top" className="max-w-[200px] text-center leading-snug">
+                      <RadixTooltipContent
+                        side="top"
+                        className="max-w-[200px] text-center leading-snug"
+                      >
                         Same count as last month
                       </RadixTooltipContent>
                     </RadixTooltip>
@@ -702,8 +712,13 @@ export function ZoneIntelligencePanel({
                           </div>
                         </div>
                       </RadixTooltipTrigger>
-                      <RadixTooltipContent side="bottom" className="max-w-[220px] text-center leading-snug">
-                        {tile.currMonth} of {tile.value} cases this FY were added in {currentMonthLabel} — {pct}% of the annual total
+                      <RadixTooltipContent
+                        side="bottom"
+                        className="max-w-[220px] text-center leading-snug"
+                      >
+                        {tile.currMonth} of {tile.value} cases this FY were
+                        added in {currentMonthLabel} — {pct}% of the annual
+                        total
                       </RadixTooltipContent>
                     </RadixTooltip>
                   </RadixTooltipProvider>
@@ -737,18 +752,31 @@ export function DetectionRecoveryChart({
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
         <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-          Detection vs Recovery (Monthly)
+          Detection vs Recovery
         </h3>
         <div className="h-[200px] bg-[#F3F2EF] rounded-xl animate-pulse mt-4" />
       </div>
     );
   }
 
+  const toLakhs = (v: number) => {
+    const l = v / 100000;
+    return l === 0
+      ? "0"
+      : l < 0.01
+        ? "<0.01"
+        : l >= 100
+          ? `${Math.round(l)}`
+          : l % 1 === 0
+            ? `${l}`
+            : `${parseFloat(l.toFixed(2))}`;
+  };
+
   const chartData = {
     labels: data.map((d) => d.group),
     datasets: [
       {
-        label: "Detection (₹)",
+        label: "Detection",
         data: data.map((d) => d.detection),
         backgroundColor: "#4A5FD4",
         borderRadius: 4,
@@ -756,7 +784,7 @@ export function DetectionRecoveryChart({
         categoryPercentage: 0.65,
       },
       {
-        label: "Recovery Cash (₹)",
+        label: "Recovery Cash",
         data: data.map((d) => d.recoveryCash),
         backgroundColor: "#10B981",
         borderRadius: 4,
@@ -764,7 +792,7 @@ export function DetectionRecoveryChart({
         categoryPercentage: 0.65,
       },
       {
-        label: "Recovery ITC (₹)",
+        label: "Recovery ITC",
         data: data.map((d) => d.recoveryItc),
         backgroundColor: "#F59E0B",
         borderRadius: 4,
@@ -791,8 +819,7 @@ export function DetectionRecoveryChart({
           label: (ctx: {
             dataset: { label?: string };
             parsed: { y: number };
-          }) =>
-            `${ctx.dataset.label}: ₹${ctx.parsed.y.toLocaleString("en-IN")}`,
+          }) => `${ctx.dataset.label}: ₹${toLakhs(ctx.parsed.y)} L`,
         },
       },
     },
@@ -806,8 +833,7 @@ export function DetectionRecoveryChart({
         ticks: {
           font: { size: 10, family: "DM Sans" },
           color: "#9a9a96",
-          callback: (value: number | string) =>
-            `₹${Number(value).toLocaleString("en-IN")}`,
+          callback: (value: number | string) => `₹${toLakhs(Number(value))} L`,
         },
       },
     },
@@ -820,25 +846,25 @@ export function DetectionRecoveryChart({
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
       <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-        Detection vs Recovery (Monthly)
+        Detection vs Recovery
       </h3>
       <div className="flex items-center gap-3 mt-1 mb-3 flex-wrap">
         <span className="text-[10.5px] text-[#9a9a96]">
           Detection:{" "}
           <span className="font-medium text-[#4A5FD4]">
-            ₹{totalDetection.toLocaleString("en-IN")}
+            ₹{toLakhs(totalDetection)} L
           </span>
         </span>
         <span className="text-[10.5px] text-[#9a9a96]">
           Cash:{" "}
           <span className="font-medium text-emerald-600">
-            ₹{totalRecoveryCash.toLocaleString("en-IN")}
+            ₹{toLakhs(totalRecoveryCash)} L
           </span>
         </span>
         <span className="text-[10.5px] text-[#9a9a96]">
           ITC:{" "}
           <span className="font-medium text-amber-500">
-            ₹{totalRecoveryItc.toLocaleString("en-IN")}
+            ₹{toLakhs(totalRecoveryItc)} L
           </span>
         </span>
       </div>
@@ -994,31 +1020,45 @@ export function OfficerExposureChart({
   const [page, setPage] = useState(0);
   const [uniqueMode, setUniqueMode] = useState(false);
 
-  // In unique mode, keep only the worst-urgency deadline per case (same logic
-  // as the dashboard's caseKey dedup — linked_case_id collapses child records
-  // onto their parent IR).
-  const URGENCY_RANK: Record<Urgency, number> = {
-    expired: 0,
-    critical: 1,
-    warning: 2,
-    safe: 3,
-  };
-  function caseKey(i: ExposureItem): string {
-    if (i.linkedCaseId) return i.linkedCaseId;
-    if (i.recordId && i.recordId !== "—") return i.recordId;
-    return i.rowId ?? `${i.sourceTable}|${i.officer}`;
-  }
-  const effectiveItems = uniqueMode
+  // In unique mode: one row per case, representative = dggi_records item, count = all linked deadlines.
+  const effectiveItems: ExposureItem[] = uniqueMode
     ? (() => {
-        const worst = new Map<string, ExposureItem>();
-        for (const i of items) {
+        const URGENCY_RANK: Record<Urgency, number> = {
+          expired: 0, critical: 1, warning: 2, safe: 3,
+        };
+        function caseKey(i: ExposureItem): string {
+          if (i.linkedCaseId) return i.linkedCaseId;
+          if (i.recordId && i.recordId !== "—") return i.recordId;
+          return i.rowId ?? `${i.sourceTable}|${i.officer}`;
+        }
+        // Only include dggi_records items (IR/NON-IR cases) or sub-register items that
+        // carry a linked_case_id so they can be merged into their parent case.
+        // PA/SCN items with no linked_case_id would become orphan rows and are excluded.
+        const groupableItems = items.filter(
+          (i) => i.sourceTable === "dggi_records" || !!i.linkedCaseId
+        );
+        const caseMap = new Map<string, { rep: ExposureItem; count: number; worst: Urgency }>();
+        for (const i of groupableItems) {
           const k = caseKey(i);
-          const prev = worst.get(k);
-          if (!prev || URGENCY_RANK[i.urgency] < URGENCY_RANK[prev.urgency]) {
-            worst.set(k, i);
+          const cur = caseMap.get(k);
+          if (!cur) {
+            caseMap.set(k, { rep: i, count: 1, worst: i.urgency });
+          } else {
+            // Prefer the dggi_records item as the representative row
+            const rep =
+              i.sourceTable === "dggi_records" && cur.rep.sourceTable !== "dggi_records"
+                ? i
+                : cur.rep;
+            const worst =
+              URGENCY_RANK[i.urgency] < URGENCY_RANK[cur.worst] ? i.urgency : cur.worst;
+            caseMap.set(k, { rep, count: cur.count + 1, worst });
           }
         }
-        return Array.from(worst.values());
+        return Array.from(caseMap.values()).map(({ rep, count, worst }) => ({
+          ...rep,
+          urgency: worst,
+          totalDeadlines: count,
+        }));
       })()
     : items;
 
@@ -1036,7 +1076,9 @@ export function OfficerExposureChart({
     const assigned = !!item.sioUserId?.trim() || !!item.officer?.trim();
     const isAction = item.urgency === "expired" || item.urgency === "critical";
     if (assigned && !isAction) continue;
-    const key = assigned ? item.officer?.trim() || "Unknown officer" : "Unassigned";
+    const key = assigned
+      ? item.officer?.trim() || "Unknown officer"
+      : "Unassigned";
     if (!byOfficer[key])
       byOfficer[key] = { expired: 0, critical: 0, other: 0, items: [] };
     if (item.urgency === "expired") byOfficer[key].expired++;
@@ -1101,212 +1143,237 @@ export function OfficerExposureChart({
 
   return (
     <>
-    <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-          Officer Exposure
-        </h3>
-        <button
-          type="button"
-          onClick={() => { setUniqueMode((v) => !v); setPage(0); }}
-          className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-colors ${
-            uniqueMode
-              ? "border-[#4A5FD4] bg-[#4A5FD4] text-white"
-              : "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4] hover:bg-[#4A5FD4] hover:text-white"
-          }`}
-        >
-          {uniqueMode ? "Unique cases" : "All deadlines"}
-        </button>
-      </div>
-      <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
-        Action items by officer · all unassigned cases · {sorted.length} officer{sorted.length !== 1 ? "s" : ""}
-      </p>
-      {topRows.length === 0 ? (
-        <div className="py-8 text-center text-[11.5px] text-[#9a9a96]">
-          No action items — all clear
+      <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+            Officer Exposure
+          </h3>
+          <button
+            type="button"
+            onClick={() => { setUniqueMode((v) => !v); setPage(0); }}
+            className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-colors ${
+              uniqueMode
+                ? "border-[#4A5FD4] bg-[#4A5FD4] text-white"
+                : "border-[#4A5FD4] bg-[#EEF2FF] text-[#4A5FD4] hover:bg-[#4A5FD4] hover:text-white"
+            }`}
+          >
+            {uniqueMode ? "Unique cases" : "All deadlines"}
+          </button>
         </div>
-      ) : (
-        <>
-          <div className="flex flex-col gap-2.5">
-            {topRows.map((row) => (
-              <button
-                key={row.officer}
-                type="button"
-                onClick={() => setSelectedOfficer(row.officer)}
-                className="flex items-center gap-3 w-full text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-[#F3F2EF] transition-colors cursor-pointer"
-                title={`View ${row.total} case${row.total !== 1 ? "s" : ""} for ${row.officer}`}
-              >
-                <span
-                  className="text-[11px] font-medium text-[#6b6b6b] shrink-0 w-28 truncate"
-                  title={row.officer}
-                >
-                  {row.officer}
-                </span>
-                <div className="flex-1 h-5 bg-[#F3F2EF] rounded-full overflow-hidden flex">
-                  {row.expired > 0 && (
-                    <div
-                      style={{ width: `${(row.expired / maxTotal) * 100}%` }}
-                      className="bg-red-400 h-full"
-                    />
-                  )}
-                  {row.critical > 0 && (
-                    <div
-                      style={{ width: `${(row.critical / maxTotal) * 100}%` }}
-                      className="bg-orange-400 h-full"
-                    />
-                  )}
-                  {row.other > 0 && (
-                    <div
-                      style={{ width: `${(row.other / maxTotal) * 100}%` }}
-                      className="bg-[#C7C6C0] h-full"
-                    />
-                  )}
-                </div>
-                <span className="text-[12px] font-bold text-[#1a1a1a] tabular-nums w-5 text-right shrink-0">
-                  {row.total}
-                </span>
-              </button>
-            ))}
+        <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
+          Action items by officer · all unassigned cases · {sorted.length}{" "}
+          officer{sorted.length !== 1 ? "s" : ""}
+        </p>
+        {topRows.length === 0 ? (
+          <div className="py-8 text-center text-[11.5px] text-[#9a9a96]">
+            No action items — all clear
           </div>
-          <div className="flex items-center gap-3 mt-3">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-red-400" />
-              <span className="text-[9.5px] text-[#9a9a96]">Overdue</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-orange-400" />
-              <span className="text-[9.5px] text-[#9a9a96]">Critical</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-[#C7C6C0]" />
-              <span className="text-[9.5px] text-[#9a9a96]">Unassigned (other)</span>
-            </div>
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F3F2EF]">
-              <span className="text-[10px] text-[#9a9a96]">
-                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} of {sorted.length}
-              </span>
-              <div className="flex items-center gap-2">
+        ) : (
+          <>
+            <div className="flex flex-col gap-2.5">
+              {topRows.map((row) => (
                 <button
+                  key={row.officer}
                   type="button"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                  className="w-6 h-6 flex items-center justify-center rounded text-[11px] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  onClick={() => setSelectedOfficer(row.officer)}
+                  className="flex items-center gap-3 w-full text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-[#F3F2EF] transition-colors cursor-pointer"
+                  title={`View ${row.total} case${row.total !== 1 ? "s" : ""} for ${row.officer}`}
                 >
-                  ‹
+                  <span
+                    className="text-[11px] font-medium text-[#6b6b6b] shrink-0 w-28 truncate"
+                    title={row.officer}
+                  >
+                    {row.officer}
+                  </span>
+                  <div className="flex-1 h-5 bg-[#F3F2EF] rounded-full overflow-hidden flex">
+                    {row.expired > 0 && (
+                      <div
+                        style={{ width: `${(row.expired / maxTotal) * 100}%` }}
+                        className="bg-red-400 h-full"
+                      />
+                    )}
+                    {row.critical > 0 && (
+                      <div
+                        style={{ width: `${(row.critical / maxTotal) * 100}%` }}
+                        className="bg-orange-400 h-full"
+                      />
+                    )}
+                    {row.other > 0 && (
+                      <div
+                        style={{ width: `${(row.other / maxTotal) * 100}%` }}
+                        className="bg-[#C7C6C0] h-full"
+                      />
+                    )}
+                  </div>
+                  <span className="text-[12px] font-bold text-[#1a1a1a] tabular-nums w-5 text-right shrink-0">
+                    {row.total}
+                  </span>
                 </button>
-                <span className="text-[10px] text-[#9a9a96]">{page + 1} / {totalPages}</span>
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={page === totalPages - 1}
-                  className="w-6 h-6 flex items-center justify-center rounded text-[11px] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  ›
-                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 mt-3">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-red-400" />
+                <span className="text-[9.5px] text-[#9a9a96]">Overdue</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-orange-400" />
+                <span className="text-[9.5px] text-[#9a9a96]">Critical</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-[#C7C6C0]" />
+                <span className="text-[9.5px] text-[#9a9a96]">
+                  Unassigned (other)
+                </span>
               </div>
             </div>
-          )}
-        </>
-      )}
-    </div>
-
-    {/* Per-officer breakdown dialog */}
-    {selectedOfficer !== null && (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
-        onClick={() => setSelectedOfficer(null)}
-      >
-        <div
-          className="relative bg-white rounded-2xl shadow-2xl border border-[#EDEDEA] w-full max-w-lg max-h-[80vh] flex flex-col mx-4"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F2EF]">
-            <div>
-              <h2 className="text-[15px] font-semibold text-[#1a1a1a]">
-                {selectedOfficer}
-              </h2>
-              <p className="text-[11px] text-[#9a9a96] mt-0.5">
-                {dialogItems.length}{" "}
-                {selectedOfficer === "Unassigned" ? "unassigned case" : "action item"}
-                {dialogItems.length !== 1 ? "s" : ""}
-                {selectedOfficer === "Unassigned" ? "" : " · overdue & critical"}
-              </p>
-            </div>
-            <button
-              onClick={() => setSelectedOfficer(null)}
-              className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#F3F2EF] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all"
-            >
-              <X size={14} />
-            </button>
-          </div>
-
-          {/* Items list */}
-          <div className="overflow-y-auto flex-1 px-5 py-3 flex flex-col gap-2">
-            {dialogItems.length === 0 ? (
-              <p className="text-[12px] text-[#9a9a96] text-center py-8">
-                No action items
-              </p>
-            ) : (
-              dialogItems.map((item, idx) => {
-                const daysAbs = Math.abs(item.daysUntil ?? 0);
-                const dueLabel =
-                  item.urgency === "expired"
-                    ? `${daysAbs}d overdue`
-                    : (item.daysUntil ?? 0) === 0
-                      ? "Due today"
-                      : `${item.daysUntil}d left`;
-                return (
-                  <div
-                    key={idx}
-                    className="flex flex-col gap-1 px-3.5 py-3 rounded-xl bg-[#FAFAF8] border border-[#F0EFE9]"
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-[#F3F2EF]">
+                <span className="text-[10px] text-[#9a9a96]">
+                  {page * PAGE_SIZE + 1}–
+                  {Math.min((page + 1) * PAGE_SIZE, sorted.length)} of{" "}
+                  {sorted.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="w-6 h-6 flex items-center justify-center rounded text-[11px] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-[12px] font-semibold text-[#1a1a1a] leading-snug flex-1">
-                        {item.ruleLabel ?? "Deadline"}
-                      </span>
-                      <span
-                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${URGENCY_PILL[item.urgency]}`}
-                      >
-                        {dueLabel}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {item.registerLabel && (
-                        <span className="text-[10px] font-semibold text-[#9a9a96] uppercase tracking-wide">
-                          {item.registerLabel}
-                        </span>
-                      )}
-                      {item.entityName && item.entityName !== "—" && (
-                        <>
-                          <span className="text-[#D4D3CE] text-[10px]">·</span>
-                          <span className="text-[11px] text-[#6b6b6b]">
-                            {item.entityName}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {item.recordId &&
-                      item.recordId !== "—" &&
-                      item.registerHref && (
-                        <Link
-                          href={item.registerHref}
-                          className="text-[10.5px] font-mono text-[#4A5FD4] hover:underline w-fit"
-                          onClick={() => setSelectedOfficer(null)}
-                        >
-                          {item.recordId}
-                        </Link>
-                      )}
-                  </div>
-                );
-              })
+                    ‹
+                  </button>
+                  <span className="text-[10px] text-[#9a9a96]">
+                    {page + 1} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPage((p) => Math.min(totalPages - 1, p + 1))
+                    }
+                    disabled={page === totalPages - 1}
+                    className="w-6 h-6 flex items-center justify-center rounded text-[11px] text-[#6b6b6b] hover:bg-[#F3F2EF] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
             )}
+          </>
+        )}
+      </div>
+
+      {/* Per-officer breakdown dialog */}
+      {selectedOfficer !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
+          onClick={() => setSelectedOfficer(null)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl border border-[#EDEDEA] w-full max-w-lg max-h-[80vh] flex flex-col mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F2EF]">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#1a1a1a]">
+                  {selectedOfficer}
+                </h2>
+                <p className="text-[11px] text-[#9a9a96] mt-0.5">
+                  {dialogItems.length}{" "}
+                  {uniqueMode
+                    ? "case"
+                    : selectedOfficer === "Unassigned"
+                      ? "unassigned case"
+                      : "action item"}
+                  {dialogItems.length !== 1 ? "s" : ""}
+                  {!uniqueMode && selectedOfficer !== "Unassigned" && " · overdue & critical"}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedOfficer(null)}
+                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#F3F2EF] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Items list */}
+            <div className="overflow-y-auto flex-1 px-5 py-3 flex flex-col gap-2">
+              {dialogItems.length === 0 ? (
+                <p className="text-[12px] text-[#9a9a96] text-center py-8">
+                  No action items
+                </p>
+              ) : (
+                dialogItems.map((item, idx) => {
+                  const daysAbs = Math.abs(item.daysUntil ?? 0);
+                  const dueLabel =
+                    item.urgency === "expired"
+                      ? `${daysAbs}d overdue`
+                      : (item.daysUntil ?? 0) === 0
+                        ? "Due today"
+                        : `${item.daysUntil}d left`;
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-1 px-3.5 py-3 rounded-xl bg-[#FAFAF8] border border-[#F0EFE9]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[12px] font-semibold text-[#1a1a1a] leading-snug flex-1">
+                          {uniqueMode
+                            ? (item.entityName && item.entityName !== "—"
+                                ? item.entityName
+                                : (item.recordId && item.recordId !== "—" ? item.recordId : "—"))
+                            : (item.ruleLabel ?? "Deadline")}
+                        </span>
+                        <span
+                          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${URGENCY_PILL[item.urgency]}`}
+                        >
+                          {dueLabel}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {item.registerLabel && (
+                          <span className="text-[10px] font-semibold text-[#9a9a96] uppercase tracking-wide">
+                            {item.registerLabel}
+                          </span>
+                        )}
+                        {!uniqueMode && item.entityName && item.entityName !== "—" && (
+                          <>
+                            <span className="text-[#D4D3CE] text-[10px]">·</span>
+                            <span className="text-[11px] text-[#6b6b6b]">
+                              {item.entityName}
+                            </span>
+                          </>
+                        )}
+                        {uniqueMode && item.totalDeadlines != null && (
+                          <>
+                            <span className="text-[#D4D3CE] text-[10px]">·</span>
+                            <span className="text-[10px] font-semibold text-[#4A5FD4]">
+                              {item.totalDeadlines} deadline{item.totalDeadlines !== 1 ? "s" : ""}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {item.recordId &&
+                        item.recordId !== "—" &&
+                        item.registerHref && (
+                          <Link
+                            href={item.registerHref}
+                            className="text-[10.5px] font-mono text-[#4A5FD4] hover:underline w-fit"
+                            onClick={() => setSelectedOfficer(null)}
+                          >
+                            {item.recordId}
+                          </Link>
+                        )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </>
   );
 }
@@ -1456,7 +1523,9 @@ export function NonIrConversionChart({
     d.nonIrTotal > 0 ? Math.round((d.converted / d.nonIrTotal) * 100) : 0,
   );
   const avgRate =
-    data.length > 0 ? Math.round(rates.reduce((s, r) => s + r, 0) / data.length) : 0;
+    data.length > 0
+      ? Math.round(rates.reduce((s, r) => s + r, 0) / data.length)
+      : 0;
 
   const chartData = {
     labels: data.map((d) => d.month),
@@ -1704,4 +1773,3 @@ export function OfficerWorkloadChart({
     </div>
   );
 }
-

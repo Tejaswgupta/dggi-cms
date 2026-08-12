@@ -320,6 +320,8 @@ interface DeadlineItem {
   urgency: Urgency;
   criticalDays: number;
   warningDays: number;
+  // Only set for dggi_records items: true = IR case, false = NON-IR case
+  isIr?: boolean;
 }
 
 // ─── Urgency config ───────────────────────────────────────────────────────────
@@ -458,6 +460,9 @@ function dbRowToDeadlineItem(
     urgency,
     criticalDays,
     warningDays,
+    ...(row.source_table === "dggi_records"
+      ? { isIr: !row.record_id?.startsWith("NIR-") }
+      : {}),
   };
 }
 
@@ -1353,7 +1358,8 @@ export default function DGGIDashboard() {
             .from("dggi_records")
             .select("date_of_ir, detection_amount, recovery_itc, recovery_cash")
             .eq("workspace_id", wid)
-            .eq("is_ir", true),
+            .eq("is_ir", true)
+            .gte("date_of_ir", fyStart),
           "dggi_records",
           rbac,
         ),
