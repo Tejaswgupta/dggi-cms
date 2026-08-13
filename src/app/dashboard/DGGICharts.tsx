@@ -1062,27 +1062,28 @@ export function OfficerExposureChart({
       })()
     : items;
 
-  // Named officers show only their action items (overdue/critical exposure).
+  // Named officers show overdue/critical/warning exposure.
   // "Unassigned" shows EVERY unassigned case regardless of urgency — an
   // ownerless case is a gap even before its deadline turns urgent. Non-urgent
   // unassigned cases are bucketed as `other` (rendered as a neutral segment).
   const byOfficer: Record<
     string,
-    { expired: number; critical: number; other: number; items: ExposureItem[] }
+    { expired: number; critical: number; warning: number; other: number; items: ExposureItem[] }
   > = {};
   for (const item of effectiveItems) {
     // A record is assigned if it has a sio_user_id OR a non-empty officer name
     // (child registers like SCN/arrest carry officer_name but not sio_user_id).
     const assigned = !!item.sioUserId?.trim() || !!item.officer?.trim();
-    const isAction = item.urgency === "expired" || item.urgency === "critical";
+    const isAction = item.urgency === "expired" || item.urgency === "critical" || item.urgency === "warning";
     if (assigned && !isAction) continue;
     const key = assigned
       ? item.officer?.trim() || "Unknown officer"
       : "Unassigned";
     if (!byOfficer[key])
-      byOfficer[key] = { expired: 0, critical: 0, other: 0, items: [] };
+      byOfficer[key] = { expired: 0, critical: 0, warning: 0, other: 0, items: [] };
     if (item.urgency === "expired") byOfficer[key].expired++;
     else if (item.urgency === "critical") byOfficer[key].critical++;
+    else if (item.urgency === "warning") byOfficer[key].warning++;
     else byOfficer[key].other++;
     byOfficer[key].items.push(item);
   }
@@ -1092,8 +1093,9 @@ export function OfficerExposureChart({
       officer,
       expired: counts.expired,
       critical: counts.critical,
+      warning: counts.warning,
       other: counts.other,
-      total: counts.expired + counts.critical + counts.other,
+      total: counts.expired + counts.critical + counts.warning + counts.other,
     }))
     .sort((a, b) => b.total - a.total);
 
@@ -1198,6 +1200,12 @@ export function OfficerExposureChart({
                         className="bg-orange-400 h-full"
                       />
                     )}
+                    {row.warning > 0 && (
+                      <div
+                        style={{ width: `${(row.warning / maxTotal) * 100}%` }}
+                        className="bg-amber-300 h-full"
+                      />
+                    )}
                     {row.other > 0 && (
                       <div
                         style={{ width: `${(row.other / maxTotal) * 100}%` }}
@@ -1211,7 +1219,7 @@ export function OfficerExposureChart({
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3 mt-3">
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-red-400" />
                 <span className="text-[9.5px] text-[#9a9a96]">Overdue</span>
@@ -1219,6 +1227,10 @@ export function OfficerExposureChart({
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-orange-400" />
                 <span className="text-[9.5px] text-[#9a9a96]">Critical</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-amber-300" />
+                <span className="text-[9.5px] text-[#9a9a96]">Warning</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-[#C7C6C0]" />
@@ -1287,7 +1299,7 @@ export function OfficerExposureChart({
                       ? "unassigned case"
                       : "action item"}
                   {dialogItems.length !== 1 ? "s" : ""}
-                  {!uniqueMode && selectedOfficer !== "Unassigned" && " · overdue & critical"}
+                  {!uniqueMode && selectedOfficer !== "Unassigned" && " · overdue, critical & warning"}
                 </p>
               </div>
               <button

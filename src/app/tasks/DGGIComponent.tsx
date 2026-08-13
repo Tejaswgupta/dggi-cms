@@ -2687,6 +2687,18 @@ export function DGGIRecordDialog({
                   )}
                 </div>
               ))}
+              {!!draft.closure_by && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#6b6b6b]">
+                    Date of Closure
+                  </label>
+                  <DateInput
+                    value={(draft.due_date as string) ?? ""}
+                    onChange={(v) => onDraftChange("due_date", v)}
+                    className="w-full"
+                  />
+                </div>
+              )}
               {(draft.closure_by === "Transfer To" ||
                 draft.closure_by === "Transferred") && (
                 <div className="flex flex-col gap-1.5">
@@ -5145,22 +5157,24 @@ const DGGIComponent = () => {
               )
             ) : col.key === "converted_from_non_ir" &&
               record.converted_from_non_ir ? (
-              (() => {
-                const nirRecord = records.find(
-                  (r) => r.record_id === record.converted_from_non_ir,
-                );
-                const href = nirRecord?.closure_by
-                  ? `/tasks/closure-register?caseId=${encodeURIComponent(record.converted_from_non_ir)}`
-                  : `/tasks/investigation-cases?caseId=${encodeURIComponent(record.converted_from_non_ir)}`;
-                return (
-                  <a
-                    href={href}
-                    className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5]"
-                  >
-                    {record.converted_from_non_ir}
-                  </a>
-                );
-              })()
+              <button
+                className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5] text-left"
+                onClick={async () => {
+                  const nonIrId = record.converted_from_non_ir;
+                  const { data } = await supabase
+                    .from("dggi_records")
+                    .select("closure_by")
+                    .eq("workspace_id", workspaceId)
+                    .eq("record_id", nonIrId)
+                    .single();
+                  const href = data?.closure_by
+                    ? `/tasks/closure-register?tab=non-ir&caseId=${encodeURIComponent(nonIrId)}`
+                    : `/tasks/investigation-cases?tab=non-ir&caseId=${encodeURIComponent(nonIrId)}`;
+                  window.location.href = href;
+                }}
+              >
+                {record.converted_from_non_ir}
+              </button>
             ) : col.key === "due_date" && record.is_ir ? (
               <span className="whitespace-nowrap">{fmt(irDeadline)}</span>
             ) : col.key === "pr_adg_comments" &&
@@ -5317,7 +5331,13 @@ const DGGIComponent = () => {
         mode={dialogMode}
         draft={dialogDraft}
         onDraftChange={(k, v) =>
-          setDialogDraft((prev) => ({ ...prev, [k]: v }))
+          setDialogDraft((prev) => {
+            const next = { ...prev, [k]: v };
+            if (k === "closure_by" && v && !prev.closure_by && prev.is_ir) {
+              next.due_date = today();
+            }
+            return next;
+          })
         }
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}

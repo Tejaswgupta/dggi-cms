@@ -791,6 +791,30 @@ const ClosureRegisterComponent = () => {
                           <option key={u.id} value={u.id}>{u.name}</option>
                         ))}
                       </select>
+                    ) : colDef?.type === "datepicker" ? (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="flex h-9 w-full items-center gap-2 rounded-lg border border-[#EDEDEA] bg-white px-3 text-base text-[#1a1a1a] hover:bg-[#F3F2EF]">
+                            <CalendarIcon size={13} className="text-[#9a9a96] shrink-0" />
+                            {value && isValid(parseISO(value)) ? (
+                              format(parseISO(value), "dd-MM-yyyy")
+                            ) : (
+                              <span className="text-[#9a9a96]">DD-MM-YYYY</span>
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-auto p-0 border border-[#EDEDEA] shadow-none rounded-xl"
+                          align="start"
+                        >
+                          <Calendar
+                            mode="single"
+                            selected={value && isValid(parseISO(value)) ? parseISO(value) : undefined}
+                            onSelect={(d) => setEditDraft((dr) => ({ ...dr, [key]: d ? format(d, "yyyy-MM-dd") : "" }))}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     ) : (
                       <Input
                         value={value}
