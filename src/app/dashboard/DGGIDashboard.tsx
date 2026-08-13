@@ -31,6 +31,7 @@ import { toast } from "react-toastify";
 import type {
   DetectionRecoveryRow,
   IssueInvolvedRow,
+  NonIrConversionCase,
   NonIrConversionRow,
   RegisterActivityDataset,
   RegisterPendencyCardRow,
@@ -1390,11 +1391,13 @@ export default function DGGIDashboard() {
           "dggi_records",
           rbac,
         ),
-        // NON-IR conversion: fetch all dggi_records with date_of_non_ir set (current FY)
+        // NON-IR conversion: fetch all dggi_records with date_of_non_ir set (current FY).
+        // A conversion is marked by closure_by = "Convert to IR" on the source NON-IR
+        // row (which stays is_ir = false); the new IR row has no date_of_non_ir.
         applyRbacFilter(
           supabase
             .from("dggi_records")
-            .select("date_of_non_ir, is_ir")
+            .select("date_of_non_ir, closure_by, record_id, taxpayer_name")
             .eq("workspace_id", wid)
             .not("date_of_non_ir", "is", null)
             .gte("date_of_non_ir", fyStart),
@@ -1476,16 +1479,34 @@ export default function DGGIDashboard() {
       const nonIrRows = (nonIrRecordsRes.data ?? []) as AnyRecord[];
       const conversionMap = new Map<
         string,
-        { nonIrTotal: number; converted: number }
+        {
+          nonIrTotal: number;
+          converted: number;
+          cases: NonIrConversionCase[];
+        }
       >();
       for (const row of nonIrRows) {
         if (!row.date_of_non_ir) continue;
         const d = new Date(row.date_of_non_ir as string);
         if (isNaN(d.getTime())) continue;
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        const entry = conversionMap.get(key) ?? { nonIrTotal: 0, converted: 0 };
+        const entry = conversionMap.get(key) ?? {
+          nonIrTotal: 0,
+          converted: 0,
+          cases: [],
+        };
+        const wasConverted = row.closure_by === "Convert to IR";
         entry.nonIrTotal++;
-        if (row.is_ir === true) entry.converted++;
+        if (wasConverted) entry.converted++;
+        const rid = (row.record_id as string) || "";
+        entry.cases.push({
+          recordId: rid || "—",
+          entityName: (row.taxpayer_name as string) || "—",
+          converted: wasConverted,
+          href: rid
+            ? `/tasks/investigation-cases?tab=non-ir&caseId=${encodeURIComponent(rid)}`
+            : "/tasks/investigation-cases?tab=non-ir",
+        });
         conversionMap.set(key, entry);
       }
       setNonIrConversionData(
@@ -1497,6 +1518,10 @@ export default function DGGIDashboard() {
               year: "2-digit",
             }),
             ...vals,
+            // Converted cases first within the month's breakdown.
+            cases: vals.cases.sort(
+              (a, b) => Number(b.converted) - Number(a.converted),
+            ),
           })),
       );
 

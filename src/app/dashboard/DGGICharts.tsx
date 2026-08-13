@@ -937,7 +937,7 @@ export function IssueInvolvedChart({
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
         <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-          Issue Involved
+          Issue Involved (Current FY)
         </h3>
         <div className="h-[200px] bg-[#F3F2EF] rounded-xl animate-pulse mt-4" />
       </div>
@@ -975,7 +975,7 @@ export function IssueInvolvedChart({
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
       <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-        Issue Involved
+        Issue (Current FY)
       </h3>
       <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-3">
         {total} case{total !== 1 ? "s" : ""} by issue type
@@ -1024,7 +1024,10 @@ export function OfficerExposureChart({
   const effectiveItems: ExposureItem[] = uniqueMode
     ? (() => {
         const URGENCY_RANK: Record<Urgency, number> = {
-          expired: 0, critical: 1, warning: 2, safe: 3,
+          expired: 0,
+          critical: 1,
+          warning: 2,
+          safe: 3,
         };
         function caseKey(i: ExposureItem): string {
           if (i.linkedCaseId) return i.linkedCaseId;
@@ -1035,9 +1038,12 @@ export function OfficerExposureChart({
         // carry a linked_case_id so they can be merged into their parent case.
         // PA/SCN items with no linked_case_id would become orphan rows and are excluded.
         const groupableItems = items.filter(
-          (i) => i.sourceTable === "dggi_records" || !!i.linkedCaseId
+          (i) => i.sourceTable === "dggi_records" || !!i.linkedCaseId,
         );
-        const caseMap = new Map<string, { rep: ExposureItem; count: number; worst: Urgency }>();
+        const caseMap = new Map<
+          string,
+          { rep: ExposureItem; count: number; worst: Urgency }
+        >();
         for (const i of groupableItems) {
           const k = caseKey(i);
           const cur = caseMap.get(k);
@@ -1046,11 +1052,14 @@ export function OfficerExposureChart({
           } else {
             // Prefer the dggi_records item as the representative row
             const rep =
-              i.sourceTable === "dggi_records" && cur.rep.sourceTable !== "dggi_records"
+              i.sourceTable === "dggi_records" &&
+              cur.rep.sourceTable !== "dggi_records"
                 ? i
                 : cur.rep;
             const worst =
-              URGENCY_RANK[i.urgency] < URGENCY_RANK[cur.worst] ? i.urgency : cur.worst;
+              URGENCY_RANK[i.urgency] < URGENCY_RANK[cur.worst]
+                ? i.urgency
+                : cur.worst;
             caseMap.set(k, { rep, count: cur.count + 1, worst });
           }
         }
@@ -1068,19 +1077,34 @@ export function OfficerExposureChart({
   // unassigned cases are bucketed as `other` (rendered as a neutral segment).
   const byOfficer: Record<
     string,
-    { expired: number; critical: number; warning: number; other: number; items: ExposureItem[] }
+    {
+      expired: number;
+      critical: number;
+      warning: number;
+      other: number;
+      items: ExposureItem[];
+    }
   > = {};
   for (const item of effectiveItems) {
     // A record is assigned if it has a sio_user_id OR a non-empty officer name
     // (child registers like SCN/arrest carry officer_name but not sio_user_id).
     const assigned = !!item.sioUserId?.trim() || !!item.officer?.trim();
-    const isAction = item.urgency === "expired" || item.urgency === "critical" || item.urgency === "warning";
+    const isAction =
+      item.urgency === "expired" ||
+      item.urgency === "critical" ||
+      item.urgency === "warning";
     if (assigned && !isAction) continue;
     const key = assigned
       ? item.officer?.trim() || "Unknown officer"
       : "Unassigned";
     if (!byOfficer[key])
-      byOfficer[key] = { expired: 0, critical: 0, warning: 0, other: 0, items: [] };
+      byOfficer[key] = {
+        expired: 0,
+        critical: 0,
+        warning: 0,
+        other: 0,
+        items: [],
+      };
     if (item.urgency === "expired") byOfficer[key].expired++;
     else if (item.urgency === "critical") byOfficer[key].critical++;
     else if (item.urgency === "warning") byOfficer[key].warning++;
@@ -1152,7 +1176,10 @@ export function OfficerExposureChart({
           </h3>
           <button
             type="button"
-            onClick={() => { setUniqueMode((v) => !v); setPage(0); }}
+            onClick={() => {
+              setUniqueMode((v) => !v);
+              setPage(0);
+            }}
             className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-colors ${
               uniqueMode
                 ? "border-[#4A5FD4] bg-[#4A5FD4] text-white"
@@ -1299,7 +1326,9 @@ export function OfficerExposureChart({
                       ? "unassigned case"
                       : "action item"}
                   {dialogItems.length !== 1 ? "s" : ""}
-                  {!uniqueMode && selectedOfficer !== "Unassigned" && " · overdue, critical & warning"}
+                  {!uniqueMode &&
+                    selectedOfficer !== "Unassigned" &&
+                    " · overdue, critical & warning"}
                 </p>
               </div>
               <button
@@ -1333,9 +1362,11 @@ export function OfficerExposureChart({
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-[12px] font-semibold text-[#1a1a1a] leading-snug flex-1">
                           {uniqueMode
-                            ? (item.entityName && item.entityName !== "—"
-                                ? item.entityName
-                                : (item.recordId && item.recordId !== "—" ? item.recordId : "—"))
+                            ? item.entityName && item.entityName !== "—"
+                              ? item.entityName
+                              : item.recordId && item.recordId !== "—"
+                                ? item.recordId
+                                : "—"
                             : (item.ruleLabel ?? "Deadline")}
                         </span>
                         <span
@@ -1350,14 +1381,18 @@ export function OfficerExposureChart({
                             {item.registerLabel}
                           </span>
                         )}
-                        {!uniqueMode && item.entityName && item.entityName !== "—" && (
-                          <>
-                            <span className="text-[#D4D3CE] text-[10px]">·</span>
-                            <span className="text-[11px] text-[#6b6b6b]">
-                              {item.entityName}
-                            </span>
-                          </>
-                        )}
+                        {!uniqueMode &&
+                          item.entityName &&
+                          item.entityName !== "—" && (
+                            <>
+                              <span className="text-[#D4D3CE] text-[10px]">
+                                ·
+                              </span>
+                              <span className="text-[11px] text-[#6b6b6b]">
+                                {item.entityName}
+                              </span>
+                            </>
+                          )}
                       </div>
                       {item.recordId &&
                         item.recordId !== "—" &&
@@ -1499,10 +1534,18 @@ export function RegisterPendencyCards({
 // ─── NonIrConversionChart ─────────────────────────────────────────────────────
 // Bar chart showing monthly NON-IR → IR conversion rate (%).
 
+export interface NonIrConversionCase {
+  recordId: string;
+  entityName: string;
+  converted: boolean; // true if this NON-IR was converted to an IR case
+  href: string; // deep-link to the NON-IR register row
+}
+
 export interface NonIrConversionRow {
   month: string; // display label, e.g. "Jan 26"
   nonIrTotal: number;
   converted: number; // subset of nonIrTotal that became IR cases
+  cases: NonIrConversionCase[]; // per-case breakdown for the click-through sheet
 }
 
 export function NonIrConversionChart({
@@ -1512,6 +1555,8 @@ export function NonIrConversionChart({
   data: NonIrConversionRow[];
   loading?: boolean;
 }) {
+  const [selectedMonthIdx, setSelectedMonthIdx] = useState<number | null>(null);
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
@@ -1550,6 +1595,13 @@ export function NonIrConversionChart({
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    onClick: (_evt: unknown, elements: { index: number }[]) => {
+      if (elements.length > 0) setSelectedMonthIdx(elements[0].index);
+    },
+    onHover: (evt: { native: Event | null }, elements: unknown[]) => {
+      const canvas = evt.native?.target as HTMLElement | null;
+      if (canvas) canvas.style.cursor = elements.length ? "pointer" : "default";
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -1559,6 +1611,7 @@ export function NonIrConversionChart({
             return [
               `Rate: ${ctx.parsed.y}%`,
               `Converted: ${row.converted} of ${row.nonIrTotal}`,
+              "Click to see cases",
             ];
           },
         },
@@ -1585,49 +1638,131 @@ export function NonIrConversionChart({
   const totalConverted = data.reduce((s, d) => s + d.converted, 0);
   const totalNonIr = data.reduce((s, d) => s + d.nonIrTotal, 0);
 
+  const selectedRow =
+    selectedMonthIdx !== null ? (data[selectedMonthIdx] ?? null) : null;
+
   return (
-    <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
-      <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
-        NON-IR → IR Conversion Rate
-      </h3>
-      <div className="flex items-center gap-4 mt-1 mb-3 flex-wrap">
-        <span className="text-[10.5px] text-[#9a9a96]">
-          Total converted:{" "}
-          <span className="font-medium text-[#4A5FD4]">
-            {totalConverted} / {totalNonIr}
+    <>
+      <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
+        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+          NON-IR → IR Conversion Rate
+        </h3>
+        <p className="text-[10.5px] text-[#9a9a96] mt-0.5">
+          Click a bar to see the cases raised that month
+        </p>
+        <div className="flex items-center gap-4 mt-1 mb-3 flex-wrap">
+          <span className="text-[10.5px] text-[#9a9a96]">
+            Total converted:{" "}
+            <span className="font-medium text-[#4A5FD4]">
+              {totalConverted} / {totalNonIr}
+            </span>
           </span>
-        </span>
-        <span className="text-[10.5px] text-[#9a9a96]">
-          Avg rate:{" "}
-          <span
-            className={`font-medium ${avgRate >= 50 ? "text-emerald-600" : avgRate >= 25 ? "text-amber-500" : "text-red-500"}`}
-          >
-            {avgRate}%
+          <span className="text-[10.5px] text-[#9a9a96]">
+            Avg rate:{" "}
+            <span
+              className={`font-medium ${avgRate >= 50 ? "text-emerald-600" : avgRate >= 25 ? "text-amber-500" : "text-red-500"}`}
+            >
+              {avgRate}%
+            </span>
           </span>
-        </span>
-        <div className="flex items-center gap-2 ml-auto flex-wrap">
-          {[
-            { cls: "bg-emerald-500", label: "≥50%" },
-            { cls: "bg-amber-400", label: "25–49%" },
-            { cls: "bg-red-400", label: "<25%" },
-          ].map(({ cls, label }) => (
-            <div key={label} className="flex items-center gap-1">
-              <div className={`w-2 h-2 rounded-sm ${cls}`} />
-              <span className="text-[9.5px] text-[#9a9a96]">{label}</span>
-            </div>
-          ))}
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            {[
+              { cls: "bg-emerald-500", label: "≥50%" },
+              { cls: "bg-amber-400", label: "25–49%" },
+              { cls: "bg-red-400", label: "<25%" },
+            ].map(({ cls, label }) => (
+              <div key={label} className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-sm ${cls}`} />
+                <span className="text-[9.5px] text-[#9a9a96]">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
+        {data.length === 0 ? (
+          <div className="h-[200px] flex items-center justify-center text-[11px] text-[#9a9a96]">
+            No conversion data available
+          </div>
+        ) : (
+          <div className="h-[200px]">
+            <Bar data={chartData} options={options} />
+          </div>
+        )}
       </div>
-      {data.length === 0 ? (
-        <div className="h-[200px] flex items-center justify-center text-[11px] text-[#9a9a96]">
-          No conversion data available
-        </div>
-      ) : (
-        <div className="h-[200px]">
-          <Bar data={chartData} options={options} />
+
+      {/* ── Month breakdown sheet ── */}
+      {selectedRow !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-[2px]"
+          onClick={() => setSelectedMonthIdx(null)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl border border-[#EDEDEA] w-full max-w-lg max-h-[80vh] flex flex-col mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#F3F2EF]">
+              <div>
+                <h2 className="text-[15px] font-semibold text-[#1a1a1a]">
+                  {selectedRow.month} · Converted cases
+                </h2>
+                <p className="text-[11px] text-[#9a9a96] mt-0.5">
+                  {selectedRow.converted} of {selectedRow.nonIrTotal} NON-IR
+                  converted to IR ·{" "}
+                  {selectedRow.nonIrTotal > 0
+                    ? Math.round(
+                        (selectedRow.converted / selectedRow.nonIrTotal) * 100,
+                      )
+                    : 0}
+                  % rate
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedMonthIdx(null)}
+                className="flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#F3F2EF] text-[#6b6b6b] hover:text-[#1a1a1a] transition-all"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Converted cases list */}
+            <div className="overflow-y-auto flex-1 px-5 py-3 flex flex-col gap-2">
+              {selectedRow.cases.filter((c) => c.converted).length === 0 ? (
+                <p className="text-[12px] text-[#9a9a96] text-center py-8">
+                  No conversions this month
+                </p>
+              ) : (
+                selectedRow.cases
+                  .filter((c) => c.converted)
+                  .map((c, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-1 px-3.5 py-3 rounded-xl bg-[#FAFAF8] border border-[#F0EFE9]"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[12px] font-semibold text-[#1a1a1a] leading-snug flex-1">
+                          {c.entityName !== "—" ? c.entityName : c.recordId}
+                        </span>
+                        <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold shrink-0 bg-emerald-100 text-emerald-700">
+                          Converted
+                        </span>
+                      </div>
+                      {c.recordId !== "—" && (
+                        <Link
+                          href={c.href}
+                          className="text-[10.5px] font-mono text-[#4A5FD4] hover:underline w-fit"
+                          onClick={() => setSelectedMonthIdx(null)}
+                        >
+                          {c.recordId}
+                        </Link>
+                      )}
+                    </div>
+                  ))
+              )}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
