@@ -182,7 +182,6 @@ const SHARED_COLUMNS: ColDef[] = [
   },
   { key: "digit_id", label: "DIGIT ID", type: "text", width: "140px" },
   { key: "bo_id", label: "BO ID", type: "text", width: "130px" },
-  { key: "hsn_code", label: "HSN Code", type: "text", width: "130px" },
   {
     key: "latest_status",
     label: "Latest Status",
@@ -216,7 +215,6 @@ const NON_IR_EXCLUDED_KEYS = new Set<keyof ClosureRecord>([
   "total_recovery",
   "digit_id",
   "bo_id",
-  "hsn_code",
   "date_of_receipt",
 ]);
 
@@ -290,6 +288,7 @@ function FilterDatePicker({
 }
 
 const EDITABLE_CLOSURE_KEYS: (keyof ClosureRecord)[] = [
+  "source_record_id",
   "taxpayer_name",
   "gstins",
   "file_no",
@@ -303,12 +302,13 @@ const EDITABLE_CLOSURE_KEYS: (keyof ClosureRecord)[] = [
   "total_recovery",
   "digit_id",
   "bo_id",
-  "hsn_code",
   "closure_by",
   "closure_reason",
   "transferred_to",
   "due_date",
   "latest_status",
+  "date_of_ir",
+  "date_of_non_ir",
 ];
 
 const ClosureRegisterComponent = () => {
@@ -773,8 +773,13 @@ const ClosureRegisterComponent = () => {
               <DialogTitle>Edit Closure Record — {editingRecord.record_id}</DialogTitle>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
-              {EDITABLE_CLOSURE_KEYS.map((key) => {
-                const colDef = [...IR_COLUMNS, ...NON_IR_COLUMNS].find((c) => c.key === key);
+              {EDITABLE_CLOSURE_KEYS.filter((key) => {
+                if (key === "date_of_ir" && !editingRecord.is_ir) return false;
+                if (key === "date_of_non_ir" && editingRecord.is_ir) return false;
+                return true;
+              }).map((key) => {
+                const activeColumns = editingRecord.is_ir ? IR_COLUMNS : NON_IR_COLUMNS;
+                const colDef = activeColumns.find((c) => c.key === key) ?? [...IR_COLUMNS, ...NON_IR_COLUMNS].find((c) => c.key === key);
                 const label = colDef?.label ?? String(key);
                 const value = (editDraft as any)[key] ?? "";
                 return (

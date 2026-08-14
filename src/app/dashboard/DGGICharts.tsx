@@ -759,17 +759,14 @@ export function DetectionRecoveryChart({
     );
   }
 
-  const toLakhs = (v: number) => {
-    const l = v / 100000;
-    return l === 0
-      ? "0"
-      : l < 0.01
-        ? "<0.01"
-        : l >= 100
-          ? `${Math.round(l)}`
-          : l % 1 === 0
-            ? `${l}`
-            : `${parseFloat(l.toFixed(2))}`;
+  const fmtAmount = (v: number) => {
+    const cr = v / 10_000_000;
+    if (cr >= 1)
+      return `₹${parseFloat(cr.toFixed(2))} Cr`;
+    const l = v / 100_000;
+    if (l === 0) return "₹0";
+    if (l < 0.01) return "₹<0.01 L";
+    return `₹${parseFloat(l.toFixed(2))} L`;
   };
 
   const chartData = {
@@ -819,7 +816,7 @@ export function DetectionRecoveryChart({
           label: (ctx: {
             dataset: { label?: string };
             parsed: { y: number };
-          }) => `${ctx.dataset.label}: ₹${toLakhs(ctx.parsed.y)} L`,
+          }) => `${ctx.dataset.label}: ${fmtAmount(ctx.parsed.y)}`,
         },
       },
     },
@@ -833,7 +830,7 @@ export function DetectionRecoveryChart({
         ticks: {
           font: { size: 10, family: "DM Sans" },
           color: "#9a9a96",
-          callback: (value: number | string) => `₹${toLakhs(Number(value))} L`,
+          callback: (value: number | string) => fmtAmount(Number(value)),
         },
       },
     },
@@ -852,19 +849,19 @@ export function DetectionRecoveryChart({
         <span className="text-[10.5px] text-[#9a9a96]">
           Detection:{" "}
           <span className="font-medium text-[#4A5FD4]">
-            ₹{toLakhs(totalDetection)} L
+            {fmtAmount(totalDetection)}
           </span>
         </span>
         <span className="text-[10.5px] text-[#9a9a96]">
           Cash:{" "}
           <span className="font-medium text-emerald-600">
-            ₹{toLakhs(totalRecoveryCash)} L
+            {fmtAmount(totalRecoveryCash)}
           </span>
         </span>
         <span className="text-[10.5px] text-[#9a9a96]">
           ITC:{" "}
           <span className="font-medium text-amber-500">
-            ₹{toLakhs(totalRecoveryItc)} L
+            {fmtAmount(totalRecoveryItc)}
           </span>
         </span>
       </div>

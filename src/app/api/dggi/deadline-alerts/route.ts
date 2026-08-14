@@ -111,13 +111,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Supabase database webhooks POST a JSON body containing a `table` field.
+  // When present, only recompute deadlines for that table so each webhook
+  // call is fast. Falls back to all tables when invoked from the daily cron
+  // (no body or no table field).
+  let targetTable: string | null = null;
+  try {
+    const body = await req.json();
+    targetTable = typeof body?.table === "string" ? body.table : null;
+  } catch {
+    // non-JSON or empty body — full recompute
+  }
+
+  const configs = targetTable
+    ? ALL_TABLE_CONFIGS.filter((c) => c.source_table === targetTable)
+    : ALL_TABLE_CONFIGS;
+
   const supabase = adminClient();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const summary: Record<string, { records: number; upserted: number }> = {};
 
-  for (const config of ALL_TABLE_CONFIGS) {
+  for (const config of configs) {
     const selectCols = TABLE_COLUMNS[config.source_table];
     if (!selectCols) continue;
 

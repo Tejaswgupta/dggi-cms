@@ -431,7 +431,7 @@ const COLUMNS: RegisterColumn[] = [
   },
   {
     key: "scn_issuing_authority",
-    label: "SCN Issuing Authority",
+    label: "SCN Issuing Authority *",
     type: "usercombobox",
     width: "200px",
   },
@@ -761,6 +761,10 @@ const SCNRegisterComponent = () => {
 
   const saveNew = async () => {
     if (!workspaceId) return;
+    if (!dialogDraft.scn_issuing_authority) {
+      toast.error("SCN Issuing Authority is required.");
+      return;
+    }
     setSavingRow(true);
     const payload = nullifyEmpty(
       {
