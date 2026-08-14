@@ -1289,6 +1289,7 @@ export default function DGGIDashboard() {
         irIssueRecordsRes,
         nonIrIssueRecordsRes,
         nonIrRecordsRes,
+        nonIrTotalRes,
       ] = await Promise.all([
         // Single query replaces 9 source-table fetches — DB already computed & stored everything
         (async () => {
@@ -1391,16 +1392,26 @@ export default function DGGIDashboard() {
           "dggi_records",
           rbac,
         ),
-        // NON-IR conversion: fetch all dggi_records with date_of_non_ir set (current FY).
-        // A conversion is marked by closure_by = "Convert to IR" on the source NON-IR
-        // row (which stays is_ir = false); the new IR row has no date_of_non_ir.
+        // NON-IR → IR conversions: IR records that were converted from a NON-IR case,
+        // grouped later by date_of_ir (the actual conversion date).
         applyRbacFilter(
           supabase
             .from("dggi_records")
-            .select("date_of_non_ir, closure_by, record_id, taxpayer_name")
+            .select("date_of_ir, converted_from_non_ir, record_id, taxpayer_name")
             .eq("workspace_id", wid)
-            .not("date_of_non_ir", "is", null)
-            .gte("date_of_non_ir", fyStart),
+            .eq("is_ir", true)
+            .not("converted_from_non_ir", "is", null)
+            .gte("date_of_ir", fyStart),
+          "dggi_records",
+          rbac,
+        ),
+        // Total NON-IR pool (all time) — used as denominator for the conversion rate.
+        applyRbacFilter(
+          supabase
+            .from("dggi_records")
+            .select("*", { count: "exact", head: true })
+            .eq("workspace_id", wid)
+            .not("date_of_non_ir", "is", null),
           "dggi_records",
           rbac,
         ),
@@ -1475,8 +1486,9 @@ export default function DGGIDashboard() {
           .map(([issue, count]) => ({ issue, count })),
       );
 
-      // NON-IR → IR conversion by month
+      // NON-IR → IR conversion by month (grouped by actual conversion date)
       const nonIrRows = (nonIrRecordsRes.data ?? []) as AnyRecord[];
+      const totalNonIr = (nonIrTotalRes as { count: number | null }).count ?? 0;
       const conversionMap = new Map<
         string,
         {
@@ -1486,23 +1498,21 @@ export default function DGGIDashboard() {
         }
       >();
       for (const row of nonIrRows) {
-        if (!row.date_of_non_ir) continue;
-        const d = new Date(row.date_of_non_ir as string);
+        if (!row.date_of_ir) continue;
+        const d = new Date(row.date_of_ir as string);
         if (isNaN(d.getTime())) continue;
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
         const entry = conversionMap.get(key) ?? {
-          nonIrTotal: 0,
+          nonIrTotal: totalNonIr,
           converted: 0,
           cases: [],
         };
-        const wasConverted = row.closure_by === "Convert to IR";
-        entry.nonIrTotal++;
-        if (wasConverted) entry.converted++;
+        entry.converted++;
         const rid = (row.record_id as string) || "";
         entry.cases.push({
           recordId: rid || "—",
           entityName: (row.taxpayer_name as string) || "—",
-          converted: wasConverted,
+          converted: true,
           href: rid
             ? `/tasks/investigation-cases?tab=non-ir&caseId=${encodeURIComponent(rid)}`
             : "/tasks/investigation-cases?tab=non-ir",
