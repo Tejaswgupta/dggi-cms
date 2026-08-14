@@ -365,6 +365,14 @@ export const exportRegisterToExcel = <T extends Record<string, any>>(
             return name ? `${arrest.record_id} — ${name}` : arrest.record_id;
           },
         }
+      : (col.type === "number" || AMOUNT_FIELDS.has(col.key)) && col.label.includes("₹L")
+      ? {
+          format: (value: string) => {
+            if (!value && value !== "0") return "";
+            const n = parseFloat(value);
+            return isNaN(n) ? "" : n / 100000;
+          },
+        }
       : {}),
   }));
 
