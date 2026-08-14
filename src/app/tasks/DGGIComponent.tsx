@@ -2718,7 +2718,7 @@ export function DGGIRecordDialog({
               {CLOSURE_NEEDS_REASON.has(draft.closure_by as string) && (
                 <div className="flex flex-col gap-1.5 col-span-2">
                   <label className="text-sm font-medium text-[#6b6b6b]">
-                    Reason for Closure
+                    Remarks and section for closure
                   </label>
                   <Input
                     value={(draft.closure_reason as string) ?? ""}
@@ -2950,7 +2950,7 @@ export function DGGIRecordDialog({
                           <label
                             className={`text-sm font-medium ${unlocked ? "text-[#6b6b6b]" : "text-[#9a9a96]"}`}
                           >
-                            Reason for Closure
+                            Remarks and section for closure
                           </label>
                           <Input
                             value={(draft.closure_reason as string) ?? ""}
