@@ -1,10 +1,10 @@
 "use client";
 
-import { addUserAction } from "@/lib/action/users";
+import { addUserAction, resetUserPasswordAction } from "@/lib/action/users";
 import { DGGI_GROUPS, DGGI_ROLE_LABELS, DGGI_ROLES, type DggiRole } from "@/lib/dggi-constants";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
-import { ChevronDown, Search, Trash2, UserPlus, Users, X } from "lucide-react";
+import { ChevronDown, KeyRound, Search, Trash2, UserPlus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -44,6 +44,8 @@ export default function UsersPage() {
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [confirmResetId, setConfirmResetId] = useState<string | null>(null);
 
   const loadCurrentUser = async () => {
     const supabase = clientConnectionWithSupabase();
@@ -247,6 +249,20 @@ export default function UsersPage() {
     }
   };
 
+  const resetPassword = async (userId: string) => {
+    setResettingId(userId);
+    try {
+      const result = await resetUserPasswordAction(userId);
+      if (!result.success) throw new Error(result.error);
+      toast.success(`Password reset — new password is ${result.password}`);
+      setConfirmResetId(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reset password");
+    } finally {
+      setResettingId(null);
+    }
+  };
+
   const filtered = users.filter(
     (u) =>
       u.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -377,6 +393,13 @@ export default function UsersPage() {
                               className="text-xs text-[#4A5FD4] hover:underline font-medium"
                             >
                               Edit
+                            </button>
+                            <button
+                              onClick={() => setConfirmResetId(user.id)}
+                              className="text-[#9a9a96] hover:text-[#4A5FD4] transition-colors"
+                              title="Reset password"
+                            >
+                              <KeyRound size={14} />
                             </button>
                             <button
                               onClick={() => setConfirmDeleteId(user.id)}
@@ -681,6 +704,44 @@ export default function UsersPage() {
                 className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-60"
               >
                 {deletingId === confirmDeleteId ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Confirmation Modal */}
+      {confirmResetId && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+            <div className="p-6">
+              <div className="w-10 h-10 rounded-full bg-[#EEF2FF] flex items-center justify-center mb-4">
+                <KeyRound size={18} className="text-[#4A5FD4]" />
+              </div>
+              <p className="text-sm font-semibold text-[#1a1a1a] mb-1">
+                Reset password?
+              </p>
+              <p className="text-sm text-[#6b6b6b]">
+                This will reset{" "}
+                <span className="font-medium text-[#1a1a1a]">
+                  {users.find((u) => u.id === confirmResetId)?.name}
+                </span>
+                &apos;s password to the default password.
+              </p>
+            </div>
+            <div className="px-6 pb-5 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmResetId(null)}
+                className="px-4 py-2 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => resetPassword(confirmResetId)}
+                disabled={resettingId === confirmResetId}
+                className="px-4 py-2 text-sm bg-[#4A5FD4] text-white rounded-lg hover:bg-[#3a4fc4] transition-colors font-medium disabled:opacity-60"
+              >
+                {resettingId === confirmResetId ? "Resetting..." : "Reset"}
               </button>
             </div>
           </div>

@@ -76,3 +76,51 @@ export async function addUserAction(params: {
     return { success: false, error: err.message || "Failed to add user" };
   }
 }
+
+export async function resetUserPasswordAction(
+  targetUserId: string,
+): Promise<{ success: boolean; password?: string; error?: string }> {
+  try {
+    const serverClient = await createSupabaseServerClient();
+    const {
+      data: { user: caller },
+    } = await serverClient.auth.getUser();
+    if (!caller) return { success: false, error: "Unauthorized" };
+
+    const { data: callerProfile } = await serverClient
+      .from("votum_users")
+      .select("dggi_role, workspace_id")
+      .eq("id", caller.id)
+      .single();
+
+    if (!["ADG", "DD_INT"].includes(callerProfile?.dggi_role ?? "")) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+
+    const admin = adminClient();
+
+    const { data: targetProfile } = await admin
+      .from("votum_users")
+      .select("workspace_id")
+      .eq("id", targetUserId)
+      .single();
+
+    if (
+      !targetProfile ||
+      targetProfile.workspace_id !== callerProfile?.workspace_id
+    ) {
+      return { success: false, error: "User not found" };
+    }
+
+    const { error: updateError } = await admin.auth.admin.updateUserById(
+      targetUserId,
+      { password: DEFAULT_PASSWORD },
+    );
+
+    if (updateError) return { success: false, error: updateError.message };
+
+    return { success: true, password: DEFAULT_PASSWORD };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to reset password" };
+  }
+}
