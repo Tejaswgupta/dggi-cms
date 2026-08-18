@@ -194,3 +194,16 @@ npx supabase db dump --db-url "$CLOUD" -f data.sql --use-copy --data-only
 
 non-ir dedupoe:
 claude --resume 2391a0bb-8b92-4fdd-8c24-de6427a294de
+
+        // {
+        //   "rule_id": "non_ir_initiation_deadline",
+        //   "label": "NON-IR initiation fields must be updated (10 days from creation)",
+        //   "legal_reference": "Int. Procedure – NON-IR Initiation",
+        //   "reference_field": "created_at",
+        //   "offset_days": 10,
+        //   "reminder_days_before": [10, 5, 3, 1],
+        //   "critical_days": 2,
+        //   "warning_days": 5,
+        //   "apply_only_if": { "field": "is_ir", "value": "false" },
+        //   "skip_if_not_null": ["intel_approved_date"]
+        // },

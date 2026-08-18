@@ -95,11 +95,12 @@
           "reminder_days_before": [14, 7, 1],
           "critical_days": 7,
           "warning_days": 14,
-          "skip_if": [
-            { "field": "bail_status", "value": "Bail Given" }
-          ],
+          "skip_if": [{ "field": "bail_status", "value": "Bail Given" }],
           "skip_if_not_in": [
-            { "field": "prosecution_complaint_status", "values": ["Not Filed", "Pending Sanction"] }
+            {
+              "field": "prosecution_complaint_status",
+              "values": ["Not Filed", "Pending Sanction"]
+            }
           ],
           "skip_if_not_null": ["date_of_filing"]
         },
@@ -113,7 +114,10 @@
           "critical_days": 14,
           "warning_days": 30,
           "skip_if_not_in": [
-            { "field": "prosecution_complaint_status", "values": ["Not Filed", "Pending Sanction"] }
+            {
+              "field": "prosecution_complaint_status",
+              "values": ["Not Filed", "Pending Sanction"]
+            }
           ],
           "skip_if_not_null": ["date_of_filing"],
           "apply_only_if": { "field": "bail_status", "value": "Bail Given" }
@@ -123,29 +127,6 @@
     {
       "source_table": "dggi_records",
       "deadlines": [
-        {
-          "rule_id": "action_taken_deadline",
-          "label": "Date of action taken (10 days from NON-IR creation)",
-          "legal_reference": "Int. Procedure – Action Taken",
-          "reference_field": "date_of_non_ir",
-          "offset_days": 10,
-          "reminder_days_before": [10, 5, 3, 1],
-          "critical_days": 2,
-          "warning_days": 5,
-          "skip_if_not_null": ["intelligence_action_date"]
-        },
-        {
-          "rule_id": "non_ir_initiation_deadline",
-          "label": "NON-IR initiation fields must be updated (10 days from creation)",
-          "legal_reference": "Int. Procedure – NON-IR Initiation",
-          "reference_field": "created_at",
-          "offset_days": 10,
-          "reminder_days_before": [10, 5, 3, 1],
-          "critical_days": 2,
-          "warning_days": 5,
-          "apply_only_if": { "field": "is_ir", "value": "false" },
-          "skip_if_not_null": ["intel_approved_date"]
-        },
         {
           "rule_id": "intel_approved_to_action_deadline",
           "label": "Intelligence Action must follow Approved Date (10 days)",
