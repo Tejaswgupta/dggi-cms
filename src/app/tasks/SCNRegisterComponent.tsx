@@ -562,11 +562,6 @@ const SCNRegisterComponent = () => {
       ]);
       const role = userRow?.dggi_role ?? "";
       setUserRole(role);
-      if (role === "AD" || role === "DD") {
-        setActiveTab("AD/DD Competency");
-      } else if (role === "JC" || role === "ADC" || role === "JD") {
-        setActiveTab("JC/ADC Competency");
-      }
       const groups = (groupRows ?? []).map(
         (g: { group_name: string }) => g.group_name,
       );
@@ -811,6 +806,14 @@ const SCNRegisterComponent = () => {
     "JC/ADC Competency": REGISTER_PREFIXES.SCN_ADD_JD,
   };
 
+  // Competency tier dictates the designation segment for AD/DD and JC/ADC
+  // notices regardless of the assigned officer's own dggi_role, since that
+  // field can still hold an SIO/IO-level user.
+  const COMPETENCY_DESIGNATION: Record<string, string> = {
+    "AD/DD Competency": "DD",
+    "JC/ADC Competency": "ADC",
+  };
+
   const generateSCNRecordId = async (
     draft: Partial<SCNRecord>,
   ): Promise<string> => {
@@ -828,7 +831,8 @@ const SCNRegisterComponent = () => {
     const grp = (draft.group ?? "").split(" ").pop() ?? "";
     const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
     const rawRole = sioUser?.dggi_role ?? "";
-    const designation = rawRole.startsWith("DD") ? "DD" : rawRole;
+    const normalizedRole = rawRole.startsWith("DD") ? "DD" : rawRole;
+    const designation = COMPETENCY_DESIGNATION[competency] ?? normalizedRole;
     const initials = sioUser ? getInitials(sioUser.name) : "";
     return `${seq}/Grp-${grp}/${designation}/${initials}`;
   };

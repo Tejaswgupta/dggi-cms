@@ -468,6 +468,48 @@ describe("SCN record ID format", () => {
   });
 });
 
+// ─── SCN designation resolution (regression: DD/ADD/JC-ADC must never show SIO) ─
+
+describe("SCN designation resolution by competency", () => {
+  // Mirrors the fixed resolution logic in generateSCNRecordId: the
+  // designation segment is driven by the record's competency tier, not by
+  // the raw dggi_role of whichever officer is picked in the SIO field.
+  const COMPETENCY_DESIGNATION: Record<string, string> = {
+    "AD/DD Competency": "DD",
+    "JC/ADC Competency": "ADC",
+  };
+
+  const resolveDesignation = (competency: string, rawRole: string) => {
+    const normalizedRole = rawRole.startsWith("DD") ? "DD" : rawRole;
+    return COMPETENCY_DESIGNATION[competency] ?? normalizedRole;
+  };
+
+  it("forces DD designation for AD/DD Competency even when the officer's role is SIO", () => {
+    expect(resolveDesignation("AD/DD Competency", "SIO")).toBe("DD");
+  });
+
+  it("forces DD designation for AD/DD Competency even when the officer's role is IO", () => {
+    expect(resolveDesignation("AD/DD Competency", "IO")).toBe("DD");
+  });
+
+  it("forces ADC designation for JC/ADC Competency even when the officer's role is SIO_INT", () => {
+    expect(resolveDesignation("JC/ADC Competency", "SIO_INT")).toBe("ADC");
+  });
+
+  it("keeps the officer's own role for SIO Competency", () => {
+    expect(resolveDesignation("SIO Competency", "SIO")).toBe("SIO");
+    expect(resolveDesignation("SIO Competency", "IO")).toBe("IO");
+  });
+
+  it("never resolves to a designation containing SIO for AD/DD or JC/ADC competency", () => {
+    const officerRoles = ["SIO", "IO", "SIO_INT", "DD_INT", "AD"];
+    for (const role of officerRoles) {
+      expect(resolveDesignation("AD/DD Competency", role)).not.toMatch(/SIO/);
+      expect(resolveDesignation("JC/ADC Competency", role)).not.toMatch(/SIO/);
+    }
+  });
+});
+
 // ─── SCN next_seq_val RPC integration ────────────────────────────────────────
 
 describe("SCN generateSCNRecordId — next_seq_val RPC", () => {
@@ -518,5 +560,109 @@ describe("SCN generateSCNRecordId — next_seq_val RPC", () => {
       p_prefix: "ADC-JC",
       p_fy: "26-27",
     });
+  });
+});
+
+// ─── SCN generateSCNRecordId — full end-to-end regression ────────────────────
+//
+// Base case taken from a real production record: "14/Grp-B/SIO/AK", filed
+// under "AD/DD Competency", officer Ajay Kumar (dggi_role "SIO"), Group B.
+// Under the old logic this produced ".../SIO/..." despite the AD/DD tier;
+// the fix must yield ".../DD/..." for the next record generated from the
+// same inputs.
+
+describe("SCN generateSCNRecordId — full end-to-end", () => {
+  const COMPETENCY_PREFIX: Record<string, string> = {
+    "AD/DD Competency": REGISTER_PREFIXES.SCN_AD_DD,
+    "SIO Competency": REGISTER_PREFIXES.SCN_SIO,
+    "JC/ADC Competency": REGISTER_PREFIXES.SCN_ADD_JD,
+  };
+  const COMPETENCY_DESIGNATION: Record<string, string> = {
+    "AD/DD Competency": "DD",
+    "JC/ADC Competency": "ADC",
+  };
+  const getInitials = (name: string): string =>
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("");
+
+  // Mirrors generateSCNRecordId in SCNRegisterComponent.tsx after the fix.
+  const generateSCNRecordId = async (
+    supabase: { rpc: (...args: unknown[]) => { data: unknown; error: unknown } },
+    workspaceId: string,
+    draft: { competency?: string; group?: string; date_of_scn?: string },
+    sioUser: { name: string; dggi_role: string } | undefined,
+  ): Promise<string> => {
+    const competency = draft.competency ?? "SIO Competency";
+    const prefix = COMPETENCY_PREFIX[competency] ?? REGISTER_PREFIXES.SCN_SIO;
+    const { data, error } = supabase.rpc("next_seq_val", {
+      p_workspace_id: workspaceId,
+      p_prefix: prefix,
+      p_fy: "26-27",
+    });
+    if (error) throw new Error("Failed to generate record ID");
+    const seq = String(data as number).padStart(2, "0");
+    const grp = (draft.group ?? "").split(" ").pop() ?? "";
+    const rawRole = sioUser?.dggi_role ?? "";
+    const normalizedRole = rawRole.startsWith("DD") ? "DD" : rawRole;
+    const designation = COMPETENCY_DESIGNATION[competency] ?? normalizedRole;
+    const initials = sioUser ? getInitials(sioUser.name) : "";
+    return `${seq}/Grp-${grp}/${designation}/${initials}`;
+  };
+
+  const makeSupabase = (seqVal: number) => ({
+    rpc: vi.fn().mockReturnValue({ data: seqVal, error: null }),
+  });
+
+  it("generates DD designation for an AD/DD Competency record, not SIO", async () => {
+    const supabase = makeSupabase(15);
+    const id = await generateSCNRecordId(
+      supabase,
+      "c973a08e-74a8-4aa4-b52a-850ef16adfb3",
+      { competency: "AD/DD Competency", group: "Group B" },
+      { name: "Ajay Kumar", dggi_role: "SIO" },
+    );
+    expect(id).toBe("15/Grp-B/DD/AK");
+    expect(id).not.toMatch(/SIO/);
+  });
+
+  it("requests the AD-DD sequence prefix, not the SIO prefix", async () => {
+    const supabase = makeSupabase(15);
+    await generateSCNRecordId(
+      supabase,
+      "c973a08e-74a8-4aa4-b52a-850ef16adfb3",
+      { competency: "AD/DD Competency", group: "Group B" },
+      { name: "Ajay Kumar", dggi_role: "SIO" },
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith("next_seq_val", {
+      p_workspace_id: "c973a08e-74a8-4aa4-b52a-850ef16adfb3",
+      p_prefix: "AD-DD",
+      p_fy: "26-27",
+    });
+  });
+
+  it("generates ADC designation for a JC/ADC Competency record even with an SIO officer", async () => {
+    const supabase = makeSupabase(26);
+    const id = await generateSCNRecordId(
+      supabase,
+      "c973a08e-74a8-4aa4-b52a-850ef16adfb3",
+      { competency: "JC/ADC Competency", group: "Group B" },
+      { name: "Ajay Kumar", dggi_role: "SIO" },
+    );
+    expect(id).toBe("26/Grp-B/ADC/AK");
+    expect(id).not.toMatch(/SIO/);
+  });
+
+  it("still uses the officer's own role for SIO Competency records", async () => {
+    const supabase = makeSupabase(5);
+    const id = await generateSCNRecordId(
+      supabase,
+      "c973a08e-74a8-4aa4-b52a-850ef16adfb3",
+      { competency: "SIO Competency", group: "Group A" },
+      { name: "Ajay Kumar", dggi_role: "SIO" },
+    );
+    expect(id).toBe("05/Grp-A/SIO/AK");
   });
 });
