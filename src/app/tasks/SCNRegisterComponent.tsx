@@ -761,10 +761,20 @@ const SCNRegisterComponent = () => {
       return;
     }
     setSavingRow(true);
+    let recordId: string;
+    try {
+      recordId = await generateSCNRecordId(dialogDraft);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Failed to generate SCN number.",
+      );
+      setSavingRow(false);
+      return;
+    }
     const payload = nullifyEmpty(
       {
         ...dialogDraft,
-        record_id: await generateSCNRecordId(dialogDraft),
+        record_id: recordId,
         workspace_id: workspaceId,
       },
       COLUMNS,
@@ -806,20 +816,74 @@ const SCNRegisterComponent = () => {
     "JC/ADC Competency": REGISTER_PREFIXES.SCN_ADD_JD,
   };
 
-  // Competency tier dictates the designation segment for AD/DD and JC/ADC
-  // notices regardless of the assigned officer's own dggi_role, since that
-  // field can still hold an SIO/IO-level user.
-  const COMPETENCY_DESIGNATION: Record<string, string> = {
-    "AD/DD Competency": "DD",
-    "JC/ADC Competency": "ADC",
+  // The designation segment carries the issuing authority's actual rank, so
+  // AD (Assistant Director) and DD (Deputy Director) stay distinct, as do ADC
+  // (Additional Director) and JD (Joint Director). Ranks outside the record's
+  // competency tier are rejected outright rather than coerced — an SCN number
+  // is an official identifier, so a hard failure beats a plausible-looking
+  // but incorrect one.
+  const COMPETENCY_DESIGNATIONS: Record<string, string[]> = {
+    "AD/DD Competency": ["AD", "DD"],
+    "JC/ADC Competency": ["ADC", "JD"],
+    "SIO Competency": ["SIO", "IO"],
+  };
+
+  const resolveDesignation = (competency: string, rawRole: string): string => {
+    // DD_INT / SIO_INT are the intelligence-wing variants of DD / SIO.
+    const role = rawRole.replace(/_INT$/, "");
+    const allowed = COMPETENCY_DESIGNATIONS[competency];
+    if (!allowed)
+      throw new Error(
+        `Unknown competency "${competency}" — cannot derive the SCN designation.`,
+      );
+    if (!allowed.includes(role))
+      throw new Error(
+        `The SCN Issuing Authority's designation (${rawRole || "not set"}) is not valid for ${competency}. Expected ${allowed.join(" or ")}.`,
+      );
+    return role;
   };
 
   const generateSCNRecordId = async (
     draft: Partial<SCNRecord>,
   ): Promise<string> => {
-    const competency = draft.competency ?? "SIO Competency";
-    const prefix = COMPETENCY_PREFIX[competency] ?? REGISTER_PREFIXES.SCN_SIO;
+    // Every segment is validated before the sequence is consumed: next_seq_val
+    // commits its increment immediately, so throwing afterwards would burn a
+    // number and leave a permanent gap in the register.
+    const competency = draft.competency ?? "";
+    const prefix = COMPETENCY_PREFIX[competency];
+    if (!prefix)
+      throw new Error(
+        `Competency is required to generate an SCN number${competency ? ` (unrecognised value "${competency}")` : ""}.`,
+      );
+
     const fy = draft.date_of_scn ? fyFromDate(draft.date_of_scn) : currentFY();
+    if (!fy)
+      throw new Error(
+        `Date of SCN "${draft.date_of_scn}" is not a valid date — cannot determine the financial year.`,
+      );
+
+    const grp = (draft.group ?? "").split(" ").pop() ?? "";
+    if (!grp) throw new Error("Group is required to generate an SCN number.");
+
+    const issuingUser = workspaceUsers.find(
+      (u) => u.id === draft.scn_issuing_authority,
+    );
+    if (!issuingUser)
+      throw new Error(
+        "SCN Issuing Authority is required to generate an SCN number.",
+      );
+
+    const designation = resolveDesignation(
+      competency,
+      issuingUser.dggi_role ?? "",
+    );
+
+    const initials = getInitials(issuingUser.name);
+    if (!initials)
+      throw new Error(
+        `Cannot derive initials from the SCN Issuing Authority's name ("${issuingUser.name}").`,
+      );
+
     const { data, error } = await supabase.rpc("next_seq_val", {
       p_workspace_id: workspaceId,
       p_prefix: prefix,
@@ -828,12 +892,6 @@ const SCNRegisterComponent = () => {
     if (error)
       throw new Error(`Failed to generate record ID: ${error.message}`);
     const seq = String(data as number).padStart(2, "0");
-    const grp = (draft.group ?? "").split(" ").pop() ?? "";
-    const sioUser = workspaceUsers.find((u) => u.id === draft.sio);
-    const rawRole = sioUser?.dggi_role ?? "";
-    const normalizedRole = rawRole.startsWith("DD") ? "DD" : rawRole;
-    const designation = COMPETENCY_DESIGNATION[competency] ?? normalizedRole;
-    const initials = sioUser ? getInitials(sioUser.name) : "";
     return `${seq}/Grp-${grp}/${designation}/${initials}`;
   };
 
