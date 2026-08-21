@@ -1,0 +1,17 @@
+[Unit]
+Description=Cloudflare Tunnel - aegis-app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=acer
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/local/bin/cloudflared tunnel run aegis-app
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target
