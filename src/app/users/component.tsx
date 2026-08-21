@@ -726,7 +726,9 @@ export default function UsersPage() {
                 <span className="font-medium text-[#1a1a1a]">
                   {users.find((u) => u.id === confirmResetId)?.name}
                 </span>
-                &apos;s password to the default password.
+                &apos;s password to the default password (
+                <span className="font-medium text-[#1a1a1a]">Dggi@1234</span>
+                ).
               </p>
             </div>
             <div className="px-6 pb-5 flex justify-end gap-2">
