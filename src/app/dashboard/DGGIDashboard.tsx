@@ -1615,6 +1615,10 @@ export default function DGGIDashboard() {
     criticalItems,
     warningItems,
     safeItems,
+    uniqueExpiredItems,
+    uniqueCriticalItems,
+    uniqueWarningItems,
+    uniqueSafeItems,
     pendencyBreakdown,
     uniqueCounts,
   } = useMemo(() => {
@@ -1651,6 +1655,7 @@ export default function DGGIDashboard() {
 
     const worstUrgency = new Map<string, Urgency>(); // key = caseKey(d)
     const worstTable = new Map<string, string>();    // key → sourceTable of first row
+    const worstItem = new Map<string, DeadlineItem>(); // key → representative row for that case
 
     for (const d of sorted) {
       switch (d.urgency) {
@@ -1671,6 +1676,32 @@ export default function DGGIDashboard() {
       if (!prev || URGENCY_RANK[d.urgency] < URGENCY_RANK[prev]) {
         worstUrgency.set(key, d.urgency);
         worstTable.set(key, d.sourceTable);
+        worstItem.set(key, d);
+      }
+    }
+
+    // One representative row per case (its worst-urgency deadline), bucketed by
+    // that urgency — what "Unique Cases" mode should show, so the Deadline
+    // Tracker table matches the count on the health tile that opened it.
+    const uniqueExpired: DeadlineItem[] = [];
+    const uniqueCritical: DeadlineItem[] = [];
+    const uniqueWarning: DeadlineItem[] = [];
+    const uniqueSafe: DeadlineItem[] = [];
+    for (const [key, urgency] of worstUrgency) {
+      const item = worstItem.get(key);
+      if (!item) continue;
+      switch (urgency) {
+        case "expired":
+          uniqueExpired.push(item);
+          break;
+        case "critical":
+          uniqueCritical.push(item);
+          break;
+        case "warning":
+          uniqueWarning.push(item);
+          break;
+        default:
+          uniqueSafe.push(item);
       }
     }
 
@@ -1695,6 +1726,10 @@ export default function DGGIDashboard() {
       criticalItems: critical,
       warningItems: warning,
       safeItems: safe,
+      uniqueExpiredItems: uniqueExpired,
+      uniqueCriticalItems: uniqueCritical,
+      uniqueWarningItems: uniqueWarning,
+      uniqueSafeItems: uniqueSafe,
       pendencyBreakdown: breakdown,
       uniqueCounts,
     };
@@ -1779,20 +1814,34 @@ export default function DGGIDashboard() {
 
   // All items sorted by urgency (expired → critical → warning → safe)
   const baseItems = useMemo(() => {
+    const [exp, crit, warn, safe] = uniqueMode
+      ? [uniqueExpiredItems, uniqueCriticalItems, uniqueWarningItems, uniqueSafeItems]
+      : [expiredItems, criticalItems, warningItems, safeItems];
     if (healthFilter) {
       switch (healthFilter) {
         case "expired":
-          return expiredItems;
+          return exp;
         case "critical":
-          return criticalItems;
+          return crit;
         case "warning":
-          return warningItems;
+          return warn;
         case "safe":
-          return safeItems;
+          return safe;
       }
     }
-    return [...expiredItems, ...criticalItems, ...warningItems, ...safeItems];
-  }, [healthFilter, expiredItems, criticalItems, warningItems, safeItems]);
+    return [...exp, ...crit, ...warn, ...safe];
+  }, [
+    healthFilter,
+    uniqueMode,
+    expiredItems,
+    criticalItems,
+    warningItems,
+    safeItems,
+    uniqueExpiredItems,
+    uniqueCriticalItems,
+    uniqueWarningItems,
+    uniqueSafeItems,
+  ]);
 
   // Unique registers present in baseItems, in display order
   const registerSubTabs = useMemo(() => {

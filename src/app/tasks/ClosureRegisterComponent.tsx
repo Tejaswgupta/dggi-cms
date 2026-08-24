@@ -532,7 +532,45 @@ const ClosureRegisterComponent = () => {
 
   const LEGACY_CUTOFF = "2026-08-01";
 
+  const goToConvertedIr = async (record: ClosureRecord) => {
+    const nonIrCaseId = record.source_record_id;
+    if (!nonIrCaseId) return;
+    const wid = await getWorkspaceId();
+    const { data: openIr } = await supabase
+      .from("dggi_records")
+      .select("record_id")
+      .eq("workspace_id", wid)
+      .eq("converted_from_non_ir", nonIrCaseId)
+      .maybeSingle();
+    if (openIr?.record_id) {
+      window.location.href = `/tasks/investigation-cases?tab=ir&caseId=${encodeURIComponent(openIr.record_id)}`;
+      return;
+    }
+    const { data: closedIr } = await supabase
+      .from(TABLE_NAME)
+      .select("source_record_id")
+      .eq("workspace_id", wid)
+      .eq("is_ir", true)
+      .eq("converted_from_non_ir", nonIrCaseId)
+      .maybeSingle();
+    if (closedIr?.source_record_id) {
+      window.location.href = `/tasks/closure-register?tab=ir&caseId=${encodeURIComponent(closedIr.source_record_id)}`;
+      return;
+    }
+    toast.info("Converted IR record not found.");
+  };
+
   const renderCell = (record: ClosureRecord, col: ColDef) => {
+    if (col.key === "closure_by" && record.closure_by === "Convert to IR") {
+      return (
+        <button
+          className="font-medium text-[#4A5FD4] underline underline-offset-2 hover:text-[#3B4EC5] text-left"
+          onClick={() => goToConvertedIr(record)}
+        >
+          {record.closure_by}
+        </button>
+      );
+    }
     if (col.key === "total_recovery") {
       if (record.total_recovery) return <span>{record.total_recovery}</span>;
       // Aug 1 2026 onwards: sum recovery_cash + recovery_itc
