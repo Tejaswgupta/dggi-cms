@@ -80,6 +80,7 @@ interface RapidRecord {
   linked_case_id: string | null;
   rapid_id: string;
   file_no_ref_id: string;
+  date_of_rapid: string;
   receipt_mode: string;
   received_against_entity: string;
   nature_gist: string;
@@ -121,6 +122,12 @@ const RAPID_COLS: RegisterColumn[] = [
     label: "F. No./Reference ID",
     type: "text",
     width: "180px",
+  },
+  {
+    key: "date_of_rapid",
+    label: "Date of RAPID",
+    type: "datepicker",
+    width: "150px",
   },
   { key: "receipt_mode", label: "Receipt Mode", type: "text", width: "140px" },
   {
@@ -205,6 +212,7 @@ const EMPTY_RAPID: Omit<RapidRecord, "id"> = {
   linked_case_id: null,
   rapid_id: "",
   file_no_ref_id: "",
+  date_of_rapid: "",
   receipt_mode: "",
   received_against_entity: "",
   nature_gist: "",

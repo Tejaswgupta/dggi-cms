@@ -9,8 +9,9 @@
 | `dggi_prosecution_arrest_records` | `id, record_id, workspace_id, date_of_arrest, arrested_person_name, entity_name, prosecution_complaint_status, bail_status, date_of_filing, group, sio` |
 | `dggi_prosecution_non_arrest_records` | `id, record_id, workspace_id, date_of_order, remarks, group, sio` |
 | `dggi_seizure_records` | `id, record_id, workspace_id, date_of_seizure, entity_name, seized_by:votum_users(name), scn_issued, scn_issue_date, extended_by_commissioner, group, sio` |
-| `dggi_intel_rapid_records` | `id, record_id, workspace_id, group_allocation_date, adg_putup_date, date_of_action_taken, ir_date, received_against_entity, assigned_group, sio` |
-| `dggi_str_records` | `id, record_id, workspace_id, group_allocation_date, adg_putup_date, date_of_action_taken, ir_date, received_against_entity, assigned_group, sio` |
+| `dggi_intel_rapid_records` | `id, record_id, workspace_id, created_at, date_of_rapid, group_allocation_date, date_of_action_taken, non_ir_date, received_against_entity, assigned_group, sio` |
+| `dggi_intel_other_source_records` | `id, record_id, workspace_id, created_at, date_of_receipt, date_of_action_taken, non_ir_date, entity_name, assigned_group, sio` |
+| `dggi_str_records` | `id, record_id, workspace_id, created_at, date_of_str, group_allocation_date, date_of_action_taken, non_ir_date, received_against_entity, assigned_group, sio` |
 | `dggi_records` | `id, record_id, workspace_id, created_at, intelligence_action_date, intel_approved_date, taxpayer_name, handling_io_sio:votum_users(name), is_ir, date_of_ir, date_of_non_ir, group` |
 | `dggi_dfl_records` | `id, record_id, workspace_id, date_of_request, report_received_date, entity_name, dfl_request_no, group, sio` |
 
@@ -25,24 +26,40 @@
 | Field | Value |
 |---|---|
 | Legal reference | Int. Procedure (30 days) |
-| Reference field | `group_allocation_date` |
+| Reference field | `date_of_rapid` |
 | Deadline | +30 days |
 | Reminders | 30d, 14d, 7d, 3d, 1d before |
 | Critical window | ≤ 5 days |
 | Warning window | ≤ 14 days |
-| Skip if not null | `adg_putup_date` |
+| Skip if not null | `group_allocation_date`, `non_ir_date` |
 
-#### intel_execution_deadline — Intelligence Execution deadline (10 days from group allocation)
+#### non_ir_creation_deadline — NON-IR/IR to be created (10 days from group allocation)
 
 | Field | Value |
 |---|---|
-| Legal reference | Int. Procedure – Execution |
+| Legal reference | Int. Procedure – NON-IR Creation |
 | Reference field | `group_allocation_date` |
 | Deadline | +10 days |
 | Reminders | 10d, 5d, 3d, 1d before |
 | Critical window | ≤ 2 days |
 | Warning window | ≤ 5 days |
-| Skip if not null | `date_of_action_taken` |
+| Skip if not null | `non_ir_date` |
+
+---
+
+### `dggi_intel_other_source_records` — Intelligence Monitoring (Other Sources)
+
+#### intel_adg_putup — ADG Put-up deadline (30 days)
+
+| Field | Value |
+|---|---|
+| Legal reference | Int. Procedure (30 days) |
+| Reference field | `date_of_receipt` |
+| Deadline | +30 days |
+| Reminders | 30d, 14d, 7d, 3d, 1d before |
+| Critical window | ≤ 5 days |
+| Warning window | ≤ 14 days |
+| Skip if not null | `date_of_action_taken`, `non_ir_date` |
 
 ---
 
@@ -53,24 +70,24 @@
 | Field | Value |
 |---|---|
 | Legal reference | Int. Procedure (30 days) |
-| Reference field | `group_allocation_date` |
+| Reference field | `date_of_str` |
 | Deadline | +30 days |
 | Reminders | 30d, 14d, 7d, 3d, 1d before |
 | Critical window | ≤ 5 days |
 | Warning window | ≤ 14 days |
-| Skip if not null | `adg_putup_date` |
+| Skip if not null | `group_allocation_date`, `non_ir_date` |
 
-#### intel_execution_deadline — Intelligence Execution deadline (10 days from group allocation)
+#### non_ir_creation_deadline — NON-IR/IR to be created (10 days from group allocation)
 
 | Field | Value |
 |---|---|
-| Legal reference | Int. Procedure – Execution |
+| Legal reference | Int. Procedure – NON-IR Creation |
 | Reference field | `group_allocation_date` |
 | Deadline | +10 days |
 | Reminders | 10d, 5d, 3d, 1d before |
 | Critical window | ≤ 2 days |
 | Warning window | ≤ 5 days |
-| Skip if not null | `date_of_action_taken` |
+| Skip if not null | `non_ir_date` |
 
 ---
 

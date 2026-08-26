@@ -84,6 +84,10 @@ const TABLE_RBAC_FIELDS: Record<
     groupField: "assigned_group",
     sioField: "sio",
   },
+  dggi_intel_other_source_records: {
+    groupField: "assigned_group",
+    sioField: "sio",
+  },
   dggi_str_records: { groupField: "assigned_group", sioField: "sio" },
   dggi_records: { groupField: "group", sioField: "handling_io_sio" },
 };
@@ -137,6 +141,7 @@ const TABLE_HREF: Record<string, string> = {
   dggi_prosecution_arrest_records: "/tasks/prosecution-register",
   dggi_prosecution_non_arrest_records: "/tasks/prosecution-register",
   dggi_intel_rapid_records: "/tasks/intelligence-allocation",
+  dggi_intel_other_source_records: "/tasks/intelligence-allocation",
   dggi_str_records: "/tasks/intelligence-allocation",
 };
 
@@ -160,6 +165,15 @@ const REGISTERS: RegisterMeta[] = [
     icon: Brain,
     table: "dggi_intel_rapid_records",
     accentColor: "#6D28D9",
+    category: "register",
+  },
+  {
+    href: "/tasks/intelligence-allocation",
+    label: "Intelligence Monitoring",
+    shortLabel: "Intel Mon.",
+    icon: Brain,
+    table: "dggi_intel_other_source_records",
+    accentColor: "#6366F1",
     category: "register",
   },
   {
@@ -306,7 +320,7 @@ interface DeadlineItem {
   legalRef: string;
   registerLabel: string;
   registerHref: string; // deep link to this specific record
-  tabHref: string;      // base register URL — used for tab grouping only
+  tabHref: string; // base register URL — used for tab grouping only
   sourceTable: string;
   recordId: string;
   // db row id — used for out-of-monitoring updates
@@ -1347,14 +1361,42 @@ export default function DGGIDashboard() {
           rbac,
         ),
         // Zone Intelligence: server-side count queries using domain date fields
-        countByDate("dggi_provisional_attachment_records", "date_of_attachment", fyStart),
-        countByDate("dggi_prosecution_arrest_records", "date_of_arrest", fyStart),
+        countByDate(
+          "dggi_provisional_attachment_records",
+          "date_of_attachment",
+          fyStart,
+        ),
+        countByDate(
+          "dggi_prosecution_arrest_records",
+          "date_of_arrest",
+          fyStart,
+        ),
         countInvestigations(fyStart),
-        countByDate("dggi_provisional_attachment_records", "date_of_attachment", currMonth.start, currMonth.end),
-        countByDate("dggi_prosecution_arrest_records", "date_of_arrest", currMonth.start, currMonth.end),
+        countByDate(
+          "dggi_provisional_attachment_records",
+          "date_of_attachment",
+          currMonth.start,
+          currMonth.end,
+        ),
+        countByDate(
+          "dggi_prosecution_arrest_records",
+          "date_of_arrest",
+          currMonth.start,
+          currMonth.end,
+        ),
         countInvestigations(currMonth.start, currMonth.end),
-        countByDate("dggi_provisional_attachment_records", "date_of_attachment", prevMonth.start, prevMonth.end),
-        countByDate("dggi_prosecution_arrest_records", "date_of_arrest", prevMonth.start, prevMonth.end),
+        countByDate(
+          "dggi_provisional_attachment_records",
+          "date_of_attachment",
+          prevMonth.start,
+          prevMonth.end,
+        ),
+        countByDate(
+          "dggi_prosecution_arrest_records",
+          "date_of_arrest",
+          prevMonth.start,
+          prevMonth.end,
+        ),
         countInvestigations(prevMonth.start, prevMonth.end),
         applyRbacFilter(
           supabase
@@ -1397,7 +1439,9 @@ export default function DGGIDashboard() {
         applyRbacFilter(
           supabase
             .from("dggi_records")
-            .select("date_of_ir, converted_from_non_ir, record_id, taxpayer_name")
+            .select(
+              "date_of_ir, converted_from_non_ir, record_id, taxpayer_name",
+            )
             .eq("workspace_id", wid)
             .eq("is_ir", true)
             .not("converted_from_non_ir", "is", null)
@@ -1654,7 +1698,7 @@ export default function DGGIDashboard() {
     }
 
     const worstUrgency = new Map<string, Urgency>(); // key = caseKey(d)
-    const worstTable = new Map<string, string>();    // key → sourceTable of first row
+    const worstTable = new Map<string, string>(); // key → sourceTable of first row
     const worstItem = new Map<string, DeadlineItem>(); // key → representative row for that case
 
     for (const d of sorted) {
@@ -1815,7 +1859,12 @@ export default function DGGIDashboard() {
   // All items sorted by urgency (expired → critical → warning → safe)
   const baseItems = useMemo(() => {
     const [exp, crit, warn, safe] = uniqueMode
-      ? [uniqueExpiredItems, uniqueCriticalItems, uniqueWarningItems, uniqueSafeItems]
+      ? [
+          uniqueExpiredItems,
+          uniqueCriticalItems,
+          uniqueWarningItems,
+          uniqueSafeItems,
+        ]
       : [expiredItems, criticalItems, warningItems, safeItems];
     if (healthFilter) {
       switch (healthFilter) {
@@ -2209,10 +2258,26 @@ export default function DGGIDashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-[#F3F2EF]">
             {(
               [
-                { urgency: "expired" as Urgency, count: expiredItems.length, uniqueCount: uniqueCounts.expired },
-                { urgency: "critical" as Urgency, count: criticalItems.length, uniqueCount: uniqueCounts.critical },
-                { urgency: "warning" as Urgency, count: warningItems.length, uniqueCount: uniqueCounts.warning },
-                { urgency: "safe" as Urgency, count: safeItems.length, uniqueCount: uniqueCounts.safe },
+                {
+                  urgency: "expired" as Urgency,
+                  count: expiredItems.length,
+                  uniqueCount: uniqueCounts.expired,
+                },
+                {
+                  urgency: "critical" as Urgency,
+                  count: criticalItems.length,
+                  uniqueCount: uniqueCounts.critical,
+                },
+                {
+                  urgency: "warning" as Urgency,
+                  count: warningItems.length,
+                  uniqueCount: uniqueCounts.warning,
+                },
+                {
+                  urgency: "safe" as Urgency,
+                  count: safeItems.length,
+                  uniqueCount: uniqueCounts.safe,
+                },
               ] as const
             ).map(({ urgency, count, uniqueCount }) => {
               const cfg = URGENCY_CFG[urgency];
@@ -2303,9 +2368,15 @@ export default function DGGIDashboard() {
               </div>
               <div className="lg:col-span-2">
                 <ComplianceGauge
-                  expired={uniqueMode ? uniqueCounts.expired : expiredItems.length}
-                  critical={uniqueMode ? uniqueCounts.critical : criticalItems.length}
-                  warning={uniqueMode ? uniqueCounts.warning : warningItems.length}
+                  expired={
+                    uniqueMode ? uniqueCounts.expired : expiredItems.length
+                  }
+                  critical={
+                    uniqueMode ? uniqueCounts.critical : criticalItems.length
+                  }
+                  warning={
+                    uniqueMode ? uniqueCounts.warning : warningItems.length
+                  }
                   safe={uniqueMode ? uniqueCounts.safe : safeItems.length}
                   loading={loading}
                 />
@@ -2450,66 +2521,6 @@ export default function DGGIDashboard() {
               </button>
             </div>
 
-            {/* ── Flowchart overview ── */}
-            <div className="px-6 pt-4 pb-0 border-b border-[#F3F2EF]">
-              <p className="text-[10px] font-bold text-[#9a9a96] uppercase tracking-[0.12em] mb-4">
-                Intelligence Allocation Flow
-              </p>
-              <div className="flex items-end pb-5 overflow-x-auto gap-0">
-                {/* Origin */}
-                <div className="flex flex-col items-center shrink-0">
-                  <span className="text-[9px] text-[#9a9a96] mb-2">&nbsp;</span>
-                  <div className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-[11px] font-semibold text-[#6D28D9] whitespace-nowrap">
-                    Int. Allocation
-                  </div>
-                </div>
-                {[
-                  {
-                    duration: "within 30 days",
-                    node: "Put up to Pr. ADG Sir",
-                    box: "bg-amber-50 border-amber-300 text-amber-700",
-                  },
-                  {
-                    duration: "within 10 days",
-                    node: "NON-IR/IR to be created",
-                    box: "bg-orange-50 border-orange-300 text-orange-700",
-                  },
-                  {
-                    duration: "within 1 month",
-                    node: "NON-IR to be closed",
-                    box: "bg-red-50 border-red-300 text-red-700",
-                  },
-                ].map((step, i) => (
-                  <div key={i} className="flex items-end shrink-0">
-                    {/* Connector */}
-                    <div className="flex flex-col items-center shrink-0 w-24">
-                      <span className="text-[9px] text-[#9a9a96] whitespace-nowrap mb-2">
-                        {step.duration}
-                      </span>
-                      <div className="flex items-center w-full">
-                        <div className="flex-1 h-px bg-[#D4D3CE]" />
-                        <ChevronRight
-                          size={10}
-                          className="text-[#C4C3BE] -ml-1 shrink-0"
-                        />
-                      </div>
-                    </div>
-                    {/* Node */}
-                    <div className="flex flex-col items-center shrink-0">
-                      <span className="text-[9px] text-transparent mb-2">
-                        &nbsp;
-                      </span>
-                      <span
-                        className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold whitespace-nowrap ${step.box}`}
-                      >
-                        {step.node}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Rules list — numbered detail */}
             <div className="overflow-y-auto flex-1 px-6 py-4 flex flex-col gap-3">
               {[
@@ -2517,58 +2528,79 @@ export default function DGGIDashboard() {
                   num: 1,
                   label: "ADG Put-up deadline (30 days)",
                   accent: "#6D28D9",
-                  ref: "from date of record creation (Intel Rapid / STR)",
+                  ref: "from Date of RAPID / Date of STR / Date of Receipt (Other Sources)",
                   milestones: ["16 days", "25 days", "30 days"],
                 },
                 {
                   num: 2,
-                  label: "NON-IR/IR to be created (10 days from group allocation)",
+                  label: "ADG's Approval → Group Allocation (5 days)",
+                  accent: "#6D28D9",
+                  ref: "from date of Pr. ADG's approval",
+                  milestones: ["3 days", "4 days", "5 days"],
+                },
+                {
+                  num: 3,
+                  label:
+                    "NON-IR Number Generation (10 days from group allocation)",
                   accent: "#6D28D9",
                   ref: "from date of group allocation (Intel Rapid / STR)",
                   milestones: ["5 days", "8 days", "10 days"],
                 },
                 {
-                  num: 3,
+                  num: 4,
+                  label: "2nd ADG Approval (10 days from NON-IR number)",
+                  accent: "#4A5FD4",
+                  ref: "from date of NON-IR number generation",
+                  milestones: ["5 days", "8 days", "10 days"],
+                },
+                {
+                  num: 5,
+                  label: "Date of Action (10 days from 2nd ADG approval)",
+                  accent: "#4A5FD4",
+                  ref: "from date of 2nd ADG approval",
+                  milestones: ["5 days", "8 days", "10 days"],
+                },
+                {
+                  num: 6,
+                  label: "IR must be created (30 days from date of action)",
+                  accent: "#4A5FD4",
+                  ref: "from Intelligence Action Date",
+                  milestones: ["16 days", "25 days", "30 days"],
+                },
+                {
+                  num: 7,
+                  label: "IR must be closed (9 months from IR date)",
+                  accent: "#7C3AED",
+                  ref: "from date of IR",
+                  milestones: ["243 days", "259 days", "273 days"],
+                },
+                {
+                  num: 8,
+                  label: "Provisional Attachment warning (1 year)",
+                  accent: "#EA580C",
+                  ref: "from date of provisional attachment — clears only on case closure, not a fixed date",
+                  milestones: ["300 days", "330 days", "365 days"],
+                },
+                {
+                  num: 9,
                   label: "SCN must be issued (9-month deadline)",
                   accent: "#EA580C",
                   ref: "from date of attachment (Sec 83(2) CGST)",
                   milestones: ["243 days", "259 days", "273 days"],
                 },
                 {
-                  num: 4,
+                  num: 10,
                   label: "Prosecution complaint filing (Bail not given)",
                   accent: "#9F1239",
                   ref: "from date of arrest (Sec 132(6) CGST — 60-day window)",
                   milestones: ["46 days", "53 days", "60 days"],
                 },
                 {
-                  num: 5,
+                  num: 11,
                   label: "Prosecution complaint filing (Bail given)",
                   accent: "#BE123C",
                   ref: "from date of arrest (Sec 132(6) CGST — 6-month window)",
                   milestones: ["150 days", "166 days", "180 days"],
-                },
-                {
-                  num: 6,
-                  label: "Intelligence Action must follow Approved Date (10 days)",
-                  accent: "#4A5FD4",
-                  ref: "from Intel Approved Date",
-                  milestones: ["5 days", "8 days", "10 days"],
-                },
-                {
-                  num: 7,
-                  label:
-                    "NON-IR must be closed / created / transferred (30 days from action)",
-                  accent: "#4A5FD4",
-                  ref: "from Intelligence Action Date",
-                  milestones: ["16 days", "25 days", "30 days"],
-                },
-                {
-                  num: 8,
-                  label: "IR must be closed (9 months from IR date)",
-                  accent: "#7C3AED",
-                  ref: "from date of IR",
-                  milestones: ["243 days", "259 days", "273 days"],
                 },
               ].map((item) => (
                 <div
