@@ -4,7 +4,6 @@
     "dggi_provisional_attachment_records": "id,record_id,workspace_id,attachment_batch_id,linked_case_id,date_of_attachment,person_name,group_sio:votum_users(name),scn_issued,date_of_scn_issuance,date_of_release,out_of_monitoring,group,sio",
     "dggi_prosecution_arrest_records": "id,record_id,workspace_id,date_of_arrest,arrested_person_name,entity_name,prosecution_complaint_status,bail_status,date_of_filing,group,sio",
     "dggi_prosecution_non_arrest_records": "id,record_id,workspace_id,date_of_order,remarks,group,sio",
-    "dggi_seizure_records": "id,record_id,workspace_id,linked_case_id,date_of_seizure,entity_name,seizure_details,scn_issued,scn_issue_date,extended_by_commissioner,latest_status,group,sio",
     "dggi_intel_rapid_records": "id,record_id,workspace_id,created_at,date_of_receipt,group_allocation_date,date_of_action_taken,non_ir_date,received_against_entity,assigned_group,sio",
     "dggi_intel_other_source_records": "id,record_id,workspace_id,created_at,date_of_receipt,date_of_action_taken,non_ir_date,entity_name,assigned_group,sio",
     "dggi_str_records": "id,record_id,workspace_id,created_at,date_of_receipt,group_allocation_date,date_of_action_taken,non_ir_date,received_against_entity,assigned_group,sio",

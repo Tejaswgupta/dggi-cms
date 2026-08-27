@@ -26,7 +26,6 @@ export const REGISTER_PREFIXES = {
   DFL: "DFL",
   REPORT_COMPLIANCE: "RPC",
   EVIDENCE_ROOM: "EVR",
-  SEIZURE: "SZR",
 } as const;
 
 // Columns whose empty-string values must become null before hitting Postgres.

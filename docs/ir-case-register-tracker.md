@@ -43,18 +43,18 @@ An icon button (e.g. `Layers` or `Link`) added to the Actions column of every **
 
 ## Registers Queried
 
-| Register | Supabase Table | Link Field | Completion Status Field |
-|---|---|---|---|
-| Arrest | `dggi_arrest_records` | `linked_case_id` | `prosecution_filed` (Yes / No / Pending) |
-| Provisional Attachment | `dggi_provisional_attachment_records` | `linked_case_id` | `oio_issued` (Yes / No) |
-| SCN | `dggi_scn_records` | `linked_case_id` | `adjudication_status` |
-| Prosecution — Arrest | `dggi_prosecution_arrest_records` | `linked_case_id` | `prosecution_complaint_status` |
-| Prosecution — Non-Arrest | `dggi_prosecution_non_arrest_records` | `linked_case_id` | `prosecution_complaint_status` |
-| Evidence Room | `dggi_evidence_room_records` | `linked_case_id` | _(no dedicated status)_ |
-| DFL | `dggi_dfl_records` | `linked_case_id` | _(no dedicated status)_ |
-| Alert / Circular | `dggi_alert_circular_records` | `linked_case_id` | _(no dedicated status)_ |
-| CPGRAM | `dggi_cpgram_records` | `linked_case_id` | _(no dedicated status)_ |
-| Informer Reward | `dggi_informer_reward_records` | `linked_case_id` | _(no dedicated status)_ |
+| Register                 | Supabase Table                        | Link Field       | Completion Status Field                  |
+| ------------------------ | ------------------------------------- | ---------------- | ---------------------------------------- |
+| Arrest                   | `dggi_arrest_records`                 | `linked_case_id` | `prosecution_filed` (Yes / No / Pending) |
+| Provisional Attachment   | `dggi_provisional_attachment_records` | `linked_case_id` | `oio_issued` (Yes / No)                  |
+| SCN                      | `dggi_scn_records`                    | `linked_case_id` | `adjudication_status`                    |
+| Prosecution — Arrest     | `dggi_prosecution_arrest_records`     | `linked_case_id` | `prosecution_complaint_status`           |
+| Prosecution — Non-Arrest | `dggi_prosecution_non_arrest_records` | `linked_case_id` | `prosecution_complaint_status`           |
+| Evidence Room            | `dggi_evidence_room_records`          | `linked_case_id` | _(no dedicated status)_                  |
+| DFL                      | `dggi_dfl_records`                    | `linked_case_id` | _(no dedicated status)_                  |
+| Alert / Circular         | `dggi_alert_circular_records`         | `linked_case_id` | _(no dedicated status)_                  |
+| CPGRAM                   | `dggi_cpgram_records`                 | `linked_case_id` | _(no dedicated status)_                  |
+| Informer Reward          | `dggi_informer_reward_records`        | `linked_case_id` | _(no dedicated status)_                  |
 
 ---
 
@@ -77,18 +77,58 @@ The intent is to make it immediately visible that any open register items (e.g. 
 On drawer open, fire one `Promise.all` across all 10 register tables, each filtered by `linked_case_id = caseRecord.record_id`. No caching — always fresh on open.
 
 ```ts
-const [arrests, attachments, scns, prosArrest, prosNonArrest,
-       evidence, dfl, alerts, cpgram, informer] = await Promise.all([
-  supabase.from("dggi_arrest_records").select("record_id,arrested_name,date_of_arrest,prosecution_filed,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_provisional_attachment_records").select("record_id,person_name,date_of_attachment,oio_issued,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_scn_records").select("record_id,noticee_name,date_of_scn,adjudication_status,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_prosecution_arrest_records").select("record_id,arrested_person_name,prosecution_complaint_status,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_prosecution_non_arrest_records").select("record_id,arrested_person_name,prosecution_complaint_status,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_evidence_room_records").select("record_id,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_dfl_records").select("record_id,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_alert_circular_records").select("record_id,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_cpgram_records").select("record_id,group").eq("linked_case_id", recordId),
-  supabase.from("dggi_informer_reward_records").select("record_id,group").eq("linked_case_id", recordId),
+const [
+  arrests,
+  attachments,
+  scns,
+  prosArrest,
+  prosNonArrest,
+  evidence,
+  dfl,
+  alerts,
+  cpgram,
+  informer,
+] = await Promise.all([
+  supabase
+    .from("dggi_arrest_records")
+    .select("record_id,arrested_name,date_of_arrest,prosecution_filed,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_provisional_attachment_records")
+    .select("record_id,person_name,date_of_attachment,oio_issued,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_scn_records")
+    .select("record_id,noticee_name,date_of_scn,adjudication_status,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_prosecution_arrest_records")
+    .select("record_id,arrested_person_name,prosecution_complaint_status,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_prosecution_non_arrest_records")
+    .select("record_id,arrested_person_name,prosecution_complaint_status,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_evidence_room_records")
+    .select("record_id,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_dfl_records")
+    .select("record_id,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_alert_circular_records")
+    .select("record_id,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_cpgram_records")
+    .select("record_id,group")
+    .eq("linked_case_id", recordId),
+  supabase
+    .from("dggi_informer_reward_records")
+    .select("record_id,group")
+    .eq("linked_case_id", recordId),
 ]);
 ```
 
@@ -97,12 +137,14 @@ const [arrests, attachments, scns, prosArrest, prosNonArrest,
 ## Implementation Plan
 
 ### 1. New component: `CaseRegisterDrawer.tsx`
+
 - `src/app/tasks/CaseRegisterDrawer.tsx`
 - Props: `caseRecord: DGGIRecord | null`, `open: boolean`, `onOpenChange: (open: boolean) => void`
 - Internally manages `loading`, `drawerData` state
 - Uses `Sheet` (shadcn) for the slide-over
 
 ### 2. Modify `DGGIComponent.tsx`
+
 - Add `drawerCase` state: `useState<DGGIRecord | null>(null)`
 - Add `Layers` icon button to the Actions column — only rendered when `record.is_ir === true`
 - Render `<CaseRegisterDrawer caseRecord={drawerCase} open={!!drawerCase} onOpenChange={...} />`
@@ -116,4 +158,4 @@ const [arrests, attachments, scns, prosArrest, prosNonArrest,
 - Editing register records from within the drawer (read-only)
 - NON-IR cases (drawer is IR-only)
 - DGGIComponent's NON-IR tab
-- `SeizureRegisterComponent`, `STRRegisterComponent`, `ModusOperandiRegisterComponent` — these do not have a `linked_case_id` field linking to IR cases
+- `STRRegisterComponent`, `ModusOperandiRegisterComponent` — these do not have a `linked_case_id` field linking to IR cases

@@ -15,13 +15,13 @@
  * copies, no bucket-firing, no dggi_notifications rows for deadlines.
  */
 
-import { createClient } from "@supabase/supabase-js";
-import { NextRequest, NextResponse } from "next/server";
 import rulesJson from "@/app/dashboard/deadline-rules.json";
 import {
   ALL_TABLE_CONFIGS,
   computeDeadlinesForRecords,
 } from "@/lib/dggi-deadline-engine";
+import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -36,7 +36,9 @@ function isAuthorized(req: NextRequest): boolean {
 
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
@@ -56,16 +58,52 @@ interface RecipientConfig {
 }
 
 const TABLE_RECIPIENTS: Record<string, RecipientConfig> = {
-  dggi_scn_records:                    { sioFields: ["sio"],             groupField: "group",          officerFields: ["adjudication_formation"] },
-  dggi_provisional_attachment_records: { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
-  dggi_prosecution_arrest_records:     { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
-  dggi_prosecution_non_arrest_records: { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
-  dggi_seizure_records:                { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
-  dggi_intel_rapid_records:            { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },
-  dggi_intel_other_source_records:     { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },
-  dggi_str_records:                    { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },
-  dggi_records:                        { sioFields: ["handling_io_sio"], groupField: "group",          officerFields: ["handling_io_sio"], nameField: "sio_name" },
-  dggi_dfl_records:                    { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
+  dggi_scn_records: {
+    sioFields: ["sio"],
+    groupField: "group",
+    officerFields: ["adjudication_formation"],
+  },
+  dggi_provisional_attachment_records: {
+    sioFields: ["sio"],
+    groupField: "group",
+    officerFields: ["sio"],
+  },
+  dggi_prosecution_arrest_records: {
+    sioFields: ["sio"],
+    groupField: "group",
+    officerFields: ["sio"],
+  },
+  dggi_prosecution_non_arrest_records: {
+    sioFields: ["sio"],
+    groupField: "group",
+    officerFields: ["sio"],
+  },
+  dggi_intel_rapid_records: {
+    sioFields: ["sio"],
+    groupField: "assigned_group",
+    officerFields: ["assigned_group"],
+  },
+  dggi_intel_other_source_records: {
+    sioFields: ["sio"],
+    groupField: "assigned_group",
+    officerFields: ["assigned_group"],
+  },
+  dggi_str_records: {
+    sioFields: ["sio"],
+    groupField: "assigned_group",
+    officerFields: ["assigned_group"],
+  },
+  dggi_records: {
+    sioFields: ["handling_io_sio"],
+    groupField: "group",
+    officerFields: ["handling_io_sio"],
+    nameField: "sio_name",
+  },
+  dggi_dfl_records: {
+    sioFields: ["sio"],
+    groupField: "group",
+    officerFields: ["sio"],
+  },
 };
 
 // First non-empty value across the given candidate columns.
@@ -82,8 +120,14 @@ function firstVal(
 }
 
 const ENTITY_FIELDS: string[] = [
-  "noticee_name", "entity_name", "person_name", "taxpayer_name",
-  "arrested_person_name", "received_against_entity", "linked_case_id", "record_id",
+  "noticee_name",
+  "entity_name",
+  "person_name",
+  "taxpayer_name",
+  "arrested_person_name",
+  "received_against_entity",
+  "linked_case_id",
+  "record_id",
 ];
 
 function getEntityName(rec: Record<string, unknown>): string {
@@ -141,12 +185,18 @@ export async function POST(req: NextRequest) {
     // 1. Fetch all records. `deleted_at` is appended so soft-deleted rows can be
     //    filtered out below — every register table carries this column.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: records, error: fetchErr } = await supabase
+    const { data: records, error: fetchErr } = (await supabase
       .from(config.source_table)
-      .select(`${rawColumns(selectCols)},deleted_at`) as { data: Record<string, any>[] | null; error: { message: string } | null };
+      .select(`${rawColumns(selectCols)},deleted_at`)) as {
+      data: Record<string, any>[] | null;
+      error: { message: string } | null;
+    };
 
     if (fetchErr) {
-      console.error(`[deadline-alerts] fetch error ${config.source_table}:`, fetchErr.message);
+      console.error(
+        `[deadline-alerts] fetch error ${config.source_table}:`,
+        fetchErr.message,
+      );
       continue;
     }
     if (!records?.length) continue;
@@ -171,11 +221,13 @@ export async function POST(req: NextRequest) {
     // 3. Batch-resolve officer names for all unique officer user IDs in this table
     const rf = TABLE_RECIPIENTS[config.source_table];
     const officerUserIds = rf
-      ? [...new Set(
-          records
-            .map((r) => firstVal(r, rf.officerFields))
-            .filter((v): v is string => !!v),
-        )]
+      ? [
+          ...new Set(
+            records
+              .map((r) => firstVal(r, rf.officerFields))
+              .filter((v): v is string => !!v),
+          ),
+        ]
       : [];
 
     const officerNames = new Map<string, string>();
@@ -210,13 +262,15 @@ export async function POST(req: NextRequest) {
         label: d.label,
         legal_reference: d.legal_reference,
         skipped: d.skipped,
-        sio_user_id:      (rf ? firstVal(rec, rf.sioFields) : null),
-        group_name:       (rec && rf ? (rec[rf.groupField] ?? null) : null) as string | null,
-        entity_name:      rec ? getEntityName(rec) : null,
-        linked_case_id:   (rec?.linked_case_id as string | undefined) ?? null,
-        officer_name:     officerName,
-        critical_days:    d.critical_days,
-        warning_days:     d.warning_days,
+        sio_user_id: rf ? firstVal(rec, rf.sioFields) : null,
+        group_name: (rec && rf ? (rec[rf.groupField] ?? null) : null) as
+          | string
+          | null,
+        entity_name: rec ? getEntityName(rec) : null,
+        linked_case_id: (rec?.linked_case_id as string | undefined) ?? null,
+        officer_name: officerName,
+        critical_days: d.critical_days,
+        warning_days: d.warning_days,
         max_reminder_days: Math.max(...d.reminder_days_before, 0),
         updated_at: new Date().toISOString(),
       };
@@ -234,7 +288,10 @@ export async function POST(req: NextRequest) {
       .delete()
       .eq("source_table", config.source_table);
     if (delErr) {
-      console.error(`[deadline-alerts] cleanup error ${config.source_table}:`, delErr.message);
+      console.error(
+        `[deadline-alerts] cleanup error ${config.source_table}:`,
+        delErr.message,
+      );
     }
 
     if (upsertRows.length) {
@@ -243,12 +300,22 @@ export async function POST(req: NextRequest) {
         .insert(upsertRows);
 
       if (upsertErr) {
-        console.error(`[deadline-alerts] insert error ${config.source_table}:`, upsertErr.message);
+        console.error(
+          `[deadline-alerts] insert error ${config.source_table}:`,
+          upsertErr.message,
+        );
       }
     }
 
-    summary[config.source_table] = { records: records.length, upserted: upsertRows.length };
+    summary[config.source_table] = {
+      records: records.length,
+      upserted: upsertRows.length,
+    };
   }
 
-  return NextResponse.json({ ok: true, today: today.toISOString().slice(0, 10), summary });
+  return NextResponse.json({
+    ok: true,
+    today: today.toISOString().slice(0, 10),
+    summary,
+  });
 }

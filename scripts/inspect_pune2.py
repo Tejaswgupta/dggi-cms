@@ -55,7 +55,6 @@ tables = {
     "dggi_scn_records": "group",
     "dggi_records": "group",
     "dggi_dfl_records": "group",
-    "dggi_seizure_records": "group",
     "dggi_intel_rapid_records": "assigned_group",
     "dggi_str_records": "assigned_group",
 }
