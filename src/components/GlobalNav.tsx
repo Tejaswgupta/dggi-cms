@@ -15,6 +15,7 @@ import {
   FileSearch,
   LayoutDashboard,
   LogOut,
+  Package,
   Paperclip,
   Scale,
   Settings,
@@ -75,6 +76,7 @@ const REGISTER_ITEMS: SidebarItem[] = [
     icon: Scale,
   },
   { href: "/tasks/closure-register", label: "Closure Register", icon: Archive },
+  { href: "/tasks/seizure-register", label: "Seizure Register", icon: Package },
   // { href: "/tasks/alert-circular", label: "Alert Circular", icon: Bell },
   // {
   //   href: "/tasks/modus-operandi",

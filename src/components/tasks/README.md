@@ -180,7 +180,6 @@ pg_dump \
  --table "public.dggi_records" \
  --table "public.dggi_report_compliance_records" \
  --table "public.dggi_scn_records" \
- --table "public.dggi_seizure_records" \
  --table "public.dggi_str_records" \
  --table "public.dggi_user_group_assignments" \
  -f dggi_complete.sql

@@ -3,8 +3,21 @@
 import { Button } from "@/components/ui/button";
 import { getWorkspaceId } from "@/lib/action/workspace";
 import clientConnectionWithSupabase from "@/lib/supabase/client";
-import { differenceInCalendarDays, format, formatDistanceToNow, parseISO } from "date-fns";
-import { Bell, CalendarClock, Check, CheckCheck, ExternalLink, MessageSquare, Share2 } from "lucide-react";
+import {
+  differenceInCalendarDays,
+  format,
+  formatDistanceToNow,
+  parseISO,
+} from "date-fns";
+import {
+  Bell,
+  CalendarClock,
+  Check,
+  CheckCheck,
+  ExternalLink,
+  MessageSquare,
+  Share2,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -64,7 +77,6 @@ const TABLE_HREF: Record<string, string> = {
   dggi_provisional_attachment_records: "/tasks/provisional-attachment",
   dggi_prosecution_arrest_records: "/tasks/prosecution-register",
   dggi_prosecution_non_arrest_records: "/tasks/prosecution-register",
-  dggi_seizure_records: "/tasks/seizure-register",
   dggi_intel_rapid_records: "/tasks/intelligence-allocation",
   dggi_intel_other_source_records: "/tasks/intelligence-allocation",
   dggi_str_records: "/tasks/intelligence-allocation",
@@ -101,9 +113,16 @@ const URGENCY_PILL: Record<Urgency, string> = {
 function DeadlineTag({ deadline_date }: { deadline_date: string }) {
   const days = liveDaysUntil(deadline_date);
   const urgency = urgencyOf(days);
-  const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Due today" : `${days}d left`;
+  const label =
+    days < 0
+      ? `${Math.abs(days)}d overdue`
+      : days === 0
+        ? "Due today"
+        : `${days}d left`;
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${URGENCY_PILL[urgency]}`}>
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-semibold ${URGENCY_PILL[urgency]}`}
+    >
       {label}
     </span>
   );
@@ -118,7 +137,8 @@ function NotificationRow({
 }) {
   const isComment = n.kind === "adg_comment";
   const isAllocation = n.kind === "allocation";
-  const isUnread = n.kind === "deadline" ? false : !(n as CommentNotif | AllocationNotif).read;
+  const isUnread =
+    n.kind === "deadline" ? false : !(n as CommentNotif | AllocationNotif).read;
   const href = notifHref(n);
 
   return (
@@ -128,12 +148,18 @@ function NotificationRow({
       }`}
     >
       <div className="mt-2.5 shrink-0">
-        <span className={`block h-2 w-2 rounded-full ${isUnread ? "bg-[#4A5FD4]" : "bg-transparent"}`} />
+        <span
+          className={`block h-2 w-2 rounded-full ${isUnread ? "bg-[#4A5FD4]" : "bg-transparent"}`}
+        />
       </div>
 
       <div
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          isComment ? "bg-[#EEF2FF]" : isAllocation ? "bg-[#F0FDF4]" : "bg-[#FFF7ED]"
+          isComment
+            ? "bg-[#EEF2FF]"
+            : isAllocation
+              ? "bg-[#F0FDF4]"
+              : "bg-[#FFF7ED]"
         }`}
       >
         {isComment ? (
@@ -146,7 +172,9 @@ function NotificationRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className={`text-base leading-snug ${isUnread ? "text-[#1a1a1a] font-medium" : "text-[#3a3a3a]"}`}>
+        <p
+          className={`text-base leading-snug ${isUnread ? "text-[#1a1a1a] font-medium" : "text-[#3a3a3a]"}`}
+        >
           {n.label}
         </p>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -162,13 +190,22 @@ function NotificationRow({
             className="text-xs text-[#9a9a96]"
             title={
               n.kind === "deadline"
-                ? format(parseISO((n as DeadlineNotif).deadline_date), "dd MMM yyyy")
-                : format(parseISO((n as CommentNotif | AllocationNotif).created_at), "dd MMM yyyy, HH:mm")
+                ? format(
+                    parseISO((n as DeadlineNotif).deadline_date),
+                    "dd MMM yyyy",
+                  )
+                : format(
+                    parseISO((n as CommentNotif | AllocationNotif).created_at),
+                    "dd MMM yyyy, HH:mm",
+                  )
             }
           >
             {n.kind === "deadline"
               ? `Due ${format(parseISO((n as DeadlineNotif).deadline_date), "dd MMM yyyy")}`
-              : formatDistanceToNow(parseISO((n as CommentNotif | AllocationNotif).created_at), { addSuffix: true })}
+              : formatDistanceToNow(
+                  parseISO((n as CommentNotif | AllocationNotif).created_at),
+                  { addSuffix: true },
+                )}
           </span>
         </div>
       </div>
@@ -176,7 +213,9 @@ function NotificationRow({
       <div className="flex items-center gap-1 shrink-0 mt-1">
         <Link
           href={href}
-          onClick={() => (isComment || isAllocation) && isUnread && onMarkRead(n.id)}
+          onClick={() =>
+            (isComment || isAllocation) && isUnread && onMarkRead(n.id)
+          }
           className="flex h-7 w-7 items-center justify-center rounded-lg text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
           title="Open"
         >
@@ -216,10 +255,16 @@ export default function NotificationsComponent() {
       // Fetch user's role and group memberships
       const [{ data: profileRow }, { data: groupRows }] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
-        supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
+        supabase
+          .from("dggi_user_group_assignments")
+          .select("group_name")
+          .eq("user_id", uid),
       ]);
-      const role = (profileRow as { dggi_role: string } | null)?.dggi_role ?? "";
-      const groups = (groupRows ?? []).map((g: { group_name: string }) => g.group_name);
+      const role =
+        (profileRow as { dggi_role: string } | null)?.dggi_role ?? "";
+      const groups = (groupRows ?? []).map(
+        (g: { group_name: string }) => g.group_name,
+      );
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -230,7 +275,9 @@ export default function NotificationsComponent() {
       // ADG comment notifications — per-user rows in dggi_notifications
       const commentQuery = supabase
         .from("dggi_notifications")
-        .select("id,record_id,label,legal_reference,created_at,read,source_table")
+        .select(
+          "id,record_id,label,legal_reference,created_at,read,source_table",
+        )
         .eq("workspace_id", wid)
         .eq("user_id", uid)
         .eq("rule_id", "adg_comment")
@@ -239,7 +286,9 @@ export default function NotificationsComponent() {
 
       const allocationQuery = supabase
         .from("dggi_notifications")
-        .select("id,record_id,label,legal_reference,created_at,read,source_table")
+        .select(
+          "id,record_id,label,legal_reference,created_at,read,source_table",
+        )
         .eq("workspace_id", wid)
         .eq("user_id", uid)
         .eq("rule_id", "allocation")
@@ -251,48 +300,87 @@ export default function NotificationsComponent() {
       const cutoffStr = cutoffDate.toISOString().slice(0, 10);
       const isSIO = role === "SIO";
 
-      const [commentRes, allocationRes, bySioRes, byGroupRes] = await Promise.all([
-        commentQuery,
-        allocationQuery,
-        supabase
-          .from("dggi_computed_deadlines")
-          .select("id,record_id,label,legal_reference,deadline_date,source_table")
-          .eq("workspace_id", wid)
-          .eq("skipped", false)
-          .lte("deadline_date", cutoffStr)
-          .eq("sio_user_id", uid),
-        !isSIO && groups.length
-          ? supabase
-              .from("dggi_computed_deadlines")
-              .select("id,record_id,label,legal_reference,deadline_date,source_table")
-              .eq("workspace_id", wid)
-              .eq("skipped", false)
-              .lte("deadline_date", cutoffStr)
-              .in("group_name", groups)
-          : Promise.resolve({ data: [] as Record<string, string>[] | null }),
-      ]);
+      const [commentRes, allocationRes, bySioRes, byGroupRes] =
+        await Promise.all([
+          commentQuery,
+          allocationQuery,
+          supabase
+            .from("dggi_computed_deadlines")
+            .select(
+              "id,record_id,label,legal_reference,deadline_date,source_table",
+            )
+            .eq("workspace_id", wid)
+            .eq("skipped", false)
+            .lte("deadline_date", cutoffStr)
+            .eq("sio_user_id", uid),
+          !isSIO && groups.length
+            ? supabase
+                .from("dggi_computed_deadlines")
+                .select(
+                  "id,record_id,label,legal_reference,deadline_date,source_table",
+                )
+                .eq("workspace_id", wid)
+                .eq("skipped", false)
+                .lte("deadline_date", cutoffStr)
+                .in("group_name", groups)
+            : Promise.resolve({ data: [] as Record<string, string>[] | null }),
+        ]);
 
-      type NotifRow = { id: string; record_id: string; label: string; legal_reference: string | null; created_at: string; read: boolean; source_table: string };
+      type NotifRow = {
+        id: string;
+        record_id: string;
+        label: string;
+        legal_reference: string | null;
+        created_at: string;
+        read: boolean;
+        source_table: string;
+      };
       setComments(
-        ((commentRes.data ?? []) as NotifRow[]).map((r) => ({ kind: "adg_comment" as const, ...r })),
+        ((commentRes.data ?? []) as NotifRow[]).map((r) => ({
+          kind: "adg_comment" as const,
+          ...r,
+        })),
       );
       setAllocations(
-        ((allocationRes.data ?? []) as NotifRow[]).map((r) => ({ kind: "allocation" as const, ...r })),
+        ((allocationRes.data ?? []) as NotifRow[]).map((r) => ({
+          kind: "allocation" as const,
+          ...r,
+        })),
       );
 
       // Merge SIO + group deadline rows, dedup by id
       const seen = new Set<string>();
       const merged: DeadlineNotif[] = [];
-      for (const row of [...(bySioRes.data ?? []), ...((byGroupRes as { data: unknown[] | null }).data ?? [])]) {
-        const r = row as { id: string; record_id: string; label: string; legal_reference: string | null; deadline_date: string; source_table: string };
+      for (const row of [
+        ...(bySioRes.data ?? []),
+        ...((byGroupRes as { data: unknown[] | null }).data ?? []),
+      ]) {
+        const r = row as {
+          id: string;
+          record_id: string;
+          label: string;
+          legal_reference: string | null;
+          deadline_date: string;
+          source_table: string;
+        };
         if (seen.has(r.id)) continue;
         seen.add(r.id);
-        merged.push({ kind: "deadline", id: r.id, record_id: r.record_id, label: r.label, legal_reference: r.legal_reference, deadline_date: r.deadline_date, source_table: r.source_table });
+        merged.push({
+          kind: "deadline",
+          id: r.id,
+          record_id: r.record_id,
+          label: r.label,
+          legal_reference: r.legal_reference,
+          deadline_date: r.deadline_date,
+          source_table: r.source_table,
+        });
       }
       // Sort: expired → critical → warning, then by deadline_date asc
       merged.sort((a, b) => {
-        const da = liveDaysUntil(a.deadline_date), db = liveDaysUntil(b.deadline_date);
-        const ua = urgencyOf(da), ub = urgencyOf(db);
+        const da = liveDaysUntil(a.deadline_date),
+          db = liveDaysUntil(b.deadline_date);
+        const ua = urgencyOf(da),
+          ub = urgencyOf(db);
         const rank = { expired: 0, critical: 1, warning: 2 };
         if (rank[ua] !== rank[ub]) return rank[ua] - rank[ub];
         return da - db;
@@ -304,9 +392,16 @@ export default function NotificationsComponent() {
   }, []);
 
   const markRead = async (id: string) => {
-    setComments((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    setAllocations((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    await supabase.from("dggi_notifications").update({ read: true }).eq("id", id);
+    setComments((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+    setAllocations((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+    await supabase
+      .from("dggi_notifications")
+      .update({ read: true })
+      .eq("id", id);
   };
 
   const markAllRead = async () => {
@@ -318,7 +413,10 @@ export default function NotificationsComponent() {
     setMarkingAll(true);
     setComments((prev) => prev.map((n) => ({ ...n, read: true })));
     setAllocations((prev) => prev.map((n) => ({ ...n, read: true })));
-    await supabase.from("dggi_notifications").update({ read: true }).in("id", unreadIds);
+    await supabase
+      .from("dggi_notifications")
+      .update({ read: true })
+      .in("id", unreadIds);
     setMarkingAll(false);
   };
 
@@ -335,18 +433,19 @@ export default function NotificationsComponent() {
     allocation: unreadAllocations,
   };
 
-  const allNotifs: Notif[] = [
-    ...comments,
-    ...allocations,
-    ...deadlines,
-  ].sort((a, b) => {
-    const getTs = (n: Notif) =>
-      n.kind === "deadline" ? n.deadline_date : n.created_at;
-    return getTs(b).localeCompare(getTs(a));
-  });
+  const allNotifs: Notif[] = [...comments, ...allocations, ...deadlines].sort(
+    (a, b) => {
+      const getTs = (n: Notif) =>
+        n.kind === "deadline" ? n.deadline_date : n.created_at;
+      return getTs(b).localeCompare(getTs(a));
+    },
+  );
 
   const filtered = allNotifs.filter((n) => {
-    if (tab === "unread") return n.kind !== "deadline" && !(n as CommentNotif | AllocationNotif).read;
+    if (tab === "unread")
+      return (
+        n.kind !== "deadline" && !(n as CommentNotif | AllocationNotif).read
+      );
     if (tab === "adg_comment") return n.kind === "adg_comment";
     if (tab === "deadline") return n.kind === "deadline";
     if (tab === "allocation") return n.kind === "allocation";
@@ -372,7 +471,9 @@ export default function NotificationsComponent() {
                 Notifications
               </h1>
               <p className="text-base text-[#9a9a96] mt-0.5">
-                {(unreadTotal + unreadDeadlines) > 0 ? `${unreadTotal + unreadDeadlines} requiring attention` : "All caught up"}
+                {unreadTotal + unreadDeadlines > 0
+                  ? `${unreadTotal + unreadDeadlines} requiring attention`
+                  : "All caught up"}
               </p>
             </div>
             {(unreadComments > 0 || unreadAllocations > 0) && (
@@ -423,7 +524,9 @@ export default function NotificationsComponent() {
               <p className="text-base text-[#9a9a96]">No notifications here</p>
             </div>
           ) : (
-            filtered.map((n) => <NotificationRow key={n.id} n={n} onMarkRead={markRead} />)
+            filtered.map((n) => (
+              <NotificationRow key={n.id} n={n} onMarkRead={markRead} />
+            ))
           )}
         </div>
       </div>

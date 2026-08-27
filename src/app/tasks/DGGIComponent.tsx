@@ -1249,7 +1249,7 @@ interface STRRecord {
   id: string;
   record_id: string;
   str_reference_no: string;
-  date_of_str: string;
+  date_of_receipt: string;
   entity_name: string;
   gstin: string;
   amount_involved: string;
@@ -1317,7 +1317,7 @@ function CreateFromIntelDialog({
       const { data } = await supabase
         .from("dggi_str_records")
         .select(
-          "id, record_id, str_reference_no, date_of_str, entity_name, gstin, amount_involved, nature_of_offence, sio_group, status",
+          "id, record_id, str_reference_no, date_of_receipt, entity_name, gstin, amount_involved, nature_of_offence, sio_group, status",
         )
         .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false });
@@ -1367,7 +1367,7 @@ function CreateFromIntelDialog({
     taxpayer_name: r.entity_name ?? "",
     gstins: r.gstin ?? "",
     intel_source: "STR",
-    date_of_receipt: r.date_of_str ?? today(),
+    date_of_receipt: r.date_of_receipt ?? today(),
     issue_involved: r.nature_of_offence ?? "",
     group: (GROUPS.includes(r.sio_group as GroupName)
       ? r.sio_group
@@ -1417,7 +1417,7 @@ function CreateFromIntelDialog({
       field: "nature_of_offence" as keyof STRRecord,
     },
     { label: "SIO Group", field: "sio_group" as keyof STRRecord },
-    { label: "Date of STR", field: "date_of_str" as keyof STRRecord },
+    { label: "Date of STR", field: "date_of_receipt" as keyof STRRecord },
   ];
 
   const checklist = sourceType === "rapid" ? CHECKLIST_RAPID : CHECKLIST_STR;

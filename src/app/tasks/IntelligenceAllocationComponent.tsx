@@ -80,7 +80,7 @@ interface RapidRecord {
   linked_case_id: string | null;
   rapid_id: string;
   file_no_ref_id: string;
-  date_of_rapid: string;
+  date_of_receipt: string;
   receipt_mode: string;
   received_against_entity: string;
   nature_gist: string;
@@ -124,7 +124,7 @@ const RAPID_COLS: RegisterColumn[] = [
     width: "180px",
   },
   {
-    key: "date_of_rapid",
+    key: "date_of_receipt",
     label: "Date of RAPID",
     type: "datepicker",
     width: "150px",
@@ -212,7 +212,7 @@ const EMPTY_RAPID: Omit<RapidRecord, "id"> = {
   linked_case_id: null,
   rapid_id: "",
   file_no_ref_id: "",
-  date_of_rapid: "",
+  date_of_receipt: "",
   receipt_mode: "",
   received_against_entity: "",
   nature_gist: "",
@@ -392,7 +392,7 @@ interface STRRecord {
   linked_case_id: string;
   str_reference_no: string;
   file_no_ref_id: string;
-  date_of_str: string;
+  date_of_receipt: string;
   receipt_mode: string;
   received_against_entity: string;
   nature_gist: string;
@@ -452,7 +452,7 @@ const STR_COLS: RegisterColumn[] = [
     width: "180px",
   },
   {
-    key: "date_of_str",
+    key: "date_of_receipt",
     label: "Date of STR",
     type: "datepicker",
     width: "150px",
@@ -569,7 +569,7 @@ const EMPTY_STR: Omit<STRRecord, "id"> = {
   linked_case_id: "",
   str_reference_no: "",
   file_no_ref_id: "",
-  date_of_str: "",
+  date_of_receipt: "",
   receipt_mode: "",
   received_against_entity: "",
   nature_gist: "",

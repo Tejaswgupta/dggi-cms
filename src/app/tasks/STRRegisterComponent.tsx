@@ -54,7 +54,7 @@ interface STRRecord {
   record_id: string;
   linked_case_id: string;
   str_reference_no: string;
-  date_of_str: string;
+  date_of_receipt: string;
   entity_name: string;
   gstin: string;
   amount_involved: string;
@@ -99,7 +99,7 @@ const COLUMNS: RegisterColumn[] = [
     width: "180px",
   },
   {
-    key: "date_of_str",
+    key: "date_of_receipt",
     label: "Date of STR",
     type: "datepicker",
     width: "150px",
@@ -142,7 +142,7 @@ const EMPTY_RECORD: Omit<STRRecord, "id"> = {
   record_id: "",
   linked_case_id: "",
   str_reference_no: "",
-  date_of_str: "",
+  date_of_receipt: "",
   entity_name: "",
   gstin: "",
   amount_involved: "",

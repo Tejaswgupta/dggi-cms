@@ -2509,7 +2509,7 @@ export default function DGGIDashboard() {
                     Deadline Rules
                   </h2>
                   <p className="text-[11px] text-[#9a9a96]">
-                    Statutory and procedural deadlines tracked on this dashboard
+                    Procedural deadlines tracked on this dashboard
                   </p>
                 </div>
               </div>
@@ -2525,87 +2525,86 @@ export default function DGGIDashboard() {
             <div className="overflow-y-auto flex-1 px-6 py-4 flex flex-col gap-3">
               {[
                 {
-                  num: 1,
-                  label: "ADG Put-up deadline (30 days)",
+                  num: "1a",
+                  label:
+                    "Intelligence Allocation Deadline (30 days from date of receipt)",
                   accent: "#6D28D9",
-                  ref: "from Date of RAPID / Date of STR / Date of Receipt (Other Sources)",
+                  ref: "from Date of Receipt (RAPID / STR / Other Sources)",
                   milestones: ["16 days", "25 days", "30 days"],
                 },
                 {
-                  num: 2,
-                  label: "ADG's Approval → Group Allocation (5 days)",
+                  num: "1b",
+                  label:
+                    "NON-IR Number Generation (10 days from date of allocation)",
                   accent: "#6D28D9",
-                  ref: "from date of Pr. ADG's approval",
-                  milestones: ["3 days", "4 days", "5 days"],
+                  ref: "from date of allocation (Intel Rapid / STR)",
+                  milestones: ["5 days", "8 days", "10 days"],
+                },
+                {
+                  num: "2a",
+                  label:
+                    "NON-IR Approval Date by Pr. ADG (10 days from NON-IR creation date)",
+                  accent: "#2563EB",
+                  ref: "from NON-IR creation date",
+                  milestones: ["5 days", "8 days", "10 days"],
+                },
+                {
+                  num: "2b",
+                  label: "Date of Action (10 days from NON-IR Approval)",
+                  accent: "#2563EB",
+                  ref: "from date of NON-IR Approval",
+                  milestones: ["5 days", "8 days", "10 days"],
+                },
+                {
+                  num: "2c",
+                  label: "IR Must be created (10 days from Date of Action)",
+                  accent: "#2563EB",
+                  ref: "from Intelligence Action Date",
+                  milestones: ["5 days", "8 days", "10 days"],
                 },
                 {
                   num: 3,
-                  label:
-                    "NON-IR Number Generation (10 days from group allocation)",
-                  accent: "#6D28D9",
-                  ref: "from date of group allocation (Intel Rapid / STR)",
-                  milestones: ["5 days", "8 days", "10 days"],
-                },
-                {
-                  num: 4,
-                  label: "2nd ADG Approval (10 days from NON-IR number)",
-                  accent: "#4A5FD4",
-                  ref: "from date of NON-IR number generation",
-                  milestones: ["5 days", "8 days", "10 days"],
-                },
-                {
-                  num: 5,
-                  label: "Date of Action (10 days from 2nd ADG approval)",
-                  accent: "#4A5FD4",
-                  ref: "from date of 2nd ADG approval",
-                  milestones: ["5 days", "8 days", "10 days"],
-                },
-                {
-                  num: 6,
-                  label: "IR must be created (30 days from date of action)",
-                  accent: "#4A5FD4",
-                  ref: "from Intelligence Action Date",
-                  milestones: ["16 days", "25 days", "30 days"],
-                },
-                {
-                  num: 7,
                   label: "IR must be closed (9 months from IR date)",
-                  accent: "#7C3AED",
+                  accent: "#059669",
                   ref: "from date of IR",
                   milestones: ["243 days", "259 days", "273 days"],
                 },
                 {
-                  num: 8,
+                  num: 4,
                   label: "Provisional Attachment warning (1 year)",
                   accent: "#EA580C",
                   ref: "from date of provisional attachment — clears only on case closure, not a fixed date",
                   milestones: ["300 days", "330 days", "365 days"],
                 },
                 {
-                  num: 9,
+                  num: 5,
                   label: "SCN must be issued (9-month deadline)",
-                  accent: "#EA580C",
+                  accent: "#CA8A04",
                   ref: "from date of attachment (Sec 83(2) CGST)",
                   milestones: ["243 days", "259 days", "273 days"],
                 },
                 {
-                  num: 10,
+                  num: 6,
                   label: "Prosecution complaint filing (Bail not given)",
                   accent: "#9F1239",
                   ref: "from date of arrest (Sec 132(6) CGST — 60-day window)",
                   milestones: ["46 days", "53 days", "60 days"],
                 },
                 {
-                  num: 11,
+                  num: 7,
                   label: "Prosecution complaint filing (Bail given)",
-                  accent: "#BE123C",
+                  accent: "#DB2777",
                   ref: "from date of arrest (Sec 132(6) CGST — 6-month window)",
                   milestones: ["150 days", "166 days", "180 days"],
                 },
               ].map((item) => (
                 <div
                   key={item.num}
-                  className="flex items-start gap-3 py-2.5 px-3 rounded-lg bg-[#FAFAF8] border border-[#F0EFE9]"
+                  className="flex items-start gap-3 py-2.5 px-3 rounded-lg border"
+                  style={{
+                    backgroundColor: `${item.accent}0D`,
+                    borderColor: `${item.accent}33`,
+                  }}
                 >
                   <span className="w-5 h-5 rounded-full bg-white border border-[#EDEDEA] flex items-center justify-center text-[10px] font-bold text-[#6b6b6b] shrink-0 mt-0.5">
                     {item.num}

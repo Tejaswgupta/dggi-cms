@@ -60,7 +60,7 @@ const TABLE_RECIPIENTS: Record<string, RecipientConfig> = {
   dggi_provisional_attachment_records: { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
   dggi_prosecution_arrest_records:     { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
   dggi_prosecution_non_arrest_records: { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
-  dggi_seizure_records:                { sioFields: ["sio"],             groupField: "group",          officerFields: ["seized_by"] },
+  dggi_seizure_records:                { sioFields: ["sio"],             groupField: "group",          officerFields: ["sio"] },
   dggi_intel_rapid_records:            { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },
   dggi_intel_other_source_records:     { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },
   dggi_str_records:                    { sioFields: ["sio"],             groupField: "assigned_group", officerFields: ["assigned_group"] },

@@ -21,28 +21,28 @@ function daysBetween(a: string, b: string): number {
 }
 
 describe("Intelligence Monitoring ADG put-up deadline — reference dates", () => {
-  it("Rapid uses date_of_rapid, not created_at", () => {
+  it("Rapid uses date_of_receipt, not created_at", () => {
     const config = configFor("dggi_intel_rapid_records");
     const row = {
       id: "r-1",
       record_id: "RAPID/001",
       workspace_id: "ws-1",
       created_at: "2026-01-01",
-      date_of_rapid: "2026-06-20",
+      date_of_receipt: "2026-06-20",
     };
     const [d] = computeDeadlinesForRecords([row], config, TODAY);
     expect(d.reference_date).not.toBe("2026-01-01"); // not created_at
     expect(daysBetween(d.reference_date, d.deadline_date)).toBe(30);
   });
 
-  it("STR uses date_of_str, not created_at", () => {
+  it("STR uses date_of_receipt, not created_at", () => {
     const config = configFor("dggi_str_records");
     const row = {
       id: "s-1",
       record_id: "STR/001",
       workspace_id: "ws-1",
       created_at: "2026-01-01",
-      date_of_str: "2026-06-20",
+      date_of_receipt: "2026-06-20",
     };
     const [d] = computeDeadlinesForRecords([row], config, TODAY);
     expect(d.reference_date).not.toBe("2026-01-01"); // not created_at
@@ -68,7 +68,7 @@ describe("Intelligence Monitoring ADG put-up deadline — reference dates", () =
       id: "r-2",
       record_id: "RAPID/002",
       workspace_id: "ws-1",
-      date_of_rapid: "2026-01-01",
+      date_of_receipt: "2026-01-01",
       non_ir_date: "2026-01-15",
     };
     const [d] = computeDeadlinesForRecords([row], configFor("dggi_intel_rapid_records"), TODAY);
