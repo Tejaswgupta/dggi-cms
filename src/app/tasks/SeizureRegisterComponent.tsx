@@ -54,6 +54,7 @@ interface SeizureRecord {
   seizure_details: string;
   date_of_seizure: string;
   scn_issued: string;
+  date_of_scn_issuance: string;
   latest_status: string;
   pr_adg_comments?: string;
   sio: string;
@@ -70,6 +71,7 @@ const COLUMNS: RegisterColumn[] = [
   { key: "seizure_details", label: "Seizure Details (Quantity, Amt etc)", type: "text", width: "280px" },
   { key: "date_of_seizure", label: "Seizure Date", type: "datepicker", width: "140px" },
   { key: "scn_issued", label: "Whether SCN Issued", type: "select", options: ["Yes", "No"], width: "150px" },
+  { key: "date_of_scn_issuance", label: "Date of SCN", type: "datepicker", width: "140px", showWhen: { field: "scn_issued", values: ["Yes"] } },
   { key: "latest_status", label: "Latest Status", type: "text", width: "220px" },
   { key: "pr_adg_comments", label: "Pr.ADG Comments", type: "adgcomments", width: "200px" },
   { key: "sio", label: "SIO", type: "usercombobox", width: "160px" },
@@ -85,6 +87,7 @@ const EMPTY_RECORD: Omit<SeizureRecord, "id"> = {
   seizure_details: "",
   date_of_seizure: "",
   scn_issued: "No",
+  date_of_scn_issuance: "",
   latest_status: "",
   pr_adg_comments: "",
   sio: "",

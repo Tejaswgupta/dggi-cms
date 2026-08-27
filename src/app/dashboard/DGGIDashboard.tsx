@@ -2526,7 +2526,8 @@ export default function DGGIDashboard() {
               {[
                 {
                   num: "1a",
-                  label: "Intelligence Closure/Allocation to Group Deadline",
+                  label:
+                    "Intelligence Closure/Allocation to Group Deadline (By Int Section)",
                   accent: "#6D28D9",
                   ref: "30 days from Date of Receipt (RAPID / STR / Other Sources)",
                   milestones: ["16 days", "25 days", "30 days"],
@@ -2542,7 +2543,7 @@ export default function DGGIDashboard() {
                   num: "2a",
                   label: "NON-IR Approval Date by Pr. ADG",
                   accent: "#2563EB",
-                  ref: "10 days from NON-IR no generation date",
+                  ref: "10 days from NON-IR number generation date",
                   milestones: ["5 days", "8 days", "10 days"],
                 },
                 {
