@@ -19,6 +19,7 @@ export const DGGI_ROLES = [
   "SIO_INT",
   "SIO",
   "IO",
+  "DD_REPORTS",
 ] as const;
 
 export type DggiRole = (typeof DGGI_ROLES)[number];
@@ -33,6 +34,7 @@ export const DGGI_ROLE_LABELS: Record<DggiRole, string> = {
   SIO_INT: "Senior Intelligence Officer (Intelligence)",
   SIO: "Senior Intelligence Officer",
   IO: "Intelligence Officer",
+  DD_REPORTS: "Deputy Director (Reports)",
 };
 
 // ── Issue Involved (nature of offence) ─────────────────────────────────────

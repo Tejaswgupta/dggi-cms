@@ -29,6 +29,8 @@ import { useEffect, useState } from "react";
 const USERS_MGMT_ROLES = ["ADG", "DD_INT"];
 const OFFICER_ACTIVITY_ROLES = ["ADG"];
 const NOTIF_ROLES = ["SIO", "DD", "DD_INT", "IO"];
+const MPR_ROLES = ["ADG", "DD_REPORTS"];
+const SIO_INT_ONLY_HREF = "/tasks/intelligence-allocation";
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -179,11 +181,13 @@ export default function GlobalNav() {
     });
   }, []);
 
+  const isSioInt = dggiRole === "SIO_INT";
   const canManageUsers = USERS_MGMT_ROLES.includes(dggiRole ?? "");
   const canViewOfficerActivity = OFFICER_ACTIVITY_ROLES.includes(
     dggiRole ?? "",
   );
   const showNotifications = NOTIF_ROLES.includes(dggiRole ?? "");
+  const canViewMpr = MPR_ROLES.includes(dggiRole ?? "");
 
   const visibleDashboardItems = DASHBOARD_ITEMS.filter((item) => {
     if (item.href === "/users") return canManageUsers;
@@ -199,14 +203,24 @@ export default function GlobalNav() {
       : []),
   ];
 
-  const visibleNavSections = NAV_SECTIONS.map((section) => {
-    if (section.label === "Dashboard")
-      return { ...section, items: visibleDashboardItems };
-    if (section.label === "Investigation")
-      return { ...section, items: visibleInvestigationItems };
-    if (section.label === "Registers") return section;
-    return section;
-  });
+  const visibleNavSections = isSioInt
+    ? [
+        {
+          label: "Registers",
+          items: REGISTER_ITEMS.filter(
+            (item) => item.href === SIO_INT_ONLY_HREF,
+          ),
+        },
+      ]
+    : NAV_SECTIONS.map((section) => {
+        if (section.label === "Dashboard")
+          return { ...section, items: visibleDashboardItems };
+        if (section.label === "Investigation")
+          return { ...section, items: visibleInvestigationItems };
+        if (section.label === "Monitoring & Compliance")
+          return { ...section, items: canViewMpr ? section.items : [] };
+        return section;
+      });
 
   const handleSignOut = async () => {
     await signOut();
@@ -235,7 +249,9 @@ export default function GlobalNav() {
         </span>
       </Link>
       <div className="flex-1">
-        {visibleNavSections.map((section) => (
+        {visibleNavSections
+          .filter((section) => section.items.length > 0)
+          .map((section) => (
           <div key={section.label} className="mb-4">
             <p className="px-3 pb-2 text-xs font-semibold text-[#9a9a96] uppercase tracking-wider">
               {section.label}
