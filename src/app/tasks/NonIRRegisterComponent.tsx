@@ -553,6 +553,8 @@ const NonIRRegisterComponent = () => {
     return <span>{value || "—"}</span>;
   };
 
+  const isAdmin = userRole === "ADG" || userRole === "DD_INT";
+
   const renderRow = (record: NonIRRegisterRecord) => (
     <TableRow
       key={record.id}
@@ -574,32 +576,33 @@ const NonIRRegisterComponent = () => {
       ))}
       <TableCell className="px-3 py-2">
         <div className="flex items-center gap-1">
-          {isDeleted(record) ? (
-            <button
-              onClick={() => restoreRecordRow(record.id)}
-              title="Restore"
-              className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#F3F2EF] hover:text-[#4A5FD4] transition-all"
-            >
-              <RotateCcw size={13} />
-            </button>
-          ) : (
-            <>
+          {isAdmin &&
+            (isDeleted(record) ? (
               <button
-                onClick={() => openEdit(record)}
-                title="Edit"
-                className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
+                onClick={() => restoreRecordRow(record.id)}
+                title="Restore"
+                className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#F3F2EF] hover:text-[#4A5FD4] transition-all"
               >
-                <Pencil size={13} />
+                <RotateCcw size={13} />
               </button>
-              <button
-                onClick={() => deleteRecord(record.id)}
-                title="Delete"
-                className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-red-50 hover:text-red-500 transition-all"
-              >
-                <Trash2 size={13} />
-              </button>
-            </>
-          )}
+            ) : (
+              <>
+                <button
+                  onClick={() => openEdit(record)}
+                  title="Edit"
+                  className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => deleteRecord(record.id)}
+                  title="Delete"
+                  className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-red-50 hover:text-red-500 transition-all"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </>
+            ))}
         </div>
       </TableCell>
     </TableRow>
