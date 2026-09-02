@@ -29,7 +29,7 @@ export async function GET() {
   // Fetch votum_users for this workspace
   const { data: workspaceUsers, error: usersErr } = await admin
     .from("votum_users")
-    .select("id, name, email, dggi_role, designation")
+    .select("id, name, email, dggi_role, designation, last_activity_at")
     .eq("workspace_id", profile.workspace_id)
     .order("name");
 
@@ -37,31 +37,33 @@ export async function GET() {
     return NextResponse.json({ error: usersErr.message }, { status: 500 });
   }
 
-  // Fetch auth.users for last_sign_in_at
-  const userIds = (workspaceUsers ?? []).map((u) => u.id);
-  const { data: authUsersPage, error: authErr } = await admin.auth.admin.listUsers({
-    perPage: 1000,
-  });
-
-  if (authErr) {
-    return NextResponse.json({ error: authErr.message }, { status: 500 });
-  }
-
-  const authMap = new Map<string, string | null>();
-  for (const au of authUsersPage.users) {
-    authMap.set(au.id, au.last_sign_in_at ?? null);
-  }
-
-  const result = (workspaceUsers ?? [])
-    .filter((u) => userIds.includes(u.id))
-    .map((u) => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      dggi_role: u.dggi_role,
-      designation: u.designation,
-      last_sign_in_at: authMap.get(u.id) ?? null,
-    }));
+  const result = (workspaceUsers ?? []).map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    dggi_role: u.dggi_role,
+    designation: u.designation,
+    last_activity_at: u.last_activity_at,
+  }));
 
   return NextResponse.json({ users: result });
+}
+
+export async function POST() {
+  const userClient = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { error } = await adminClient()
+    .from("votum_users")
+    .update({ last_activity_at: new Date().toISOString() })
+    .eq("id", user.id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return new NextResponse(null, { status: 204 });
 }

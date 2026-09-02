@@ -113,6 +113,10 @@ export default function GlobalNav() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    void fetch("/api/dggi/officer-activity", { method: "POST" }).catch(() => {});
+  }, [pathname]);
+
+  useEffect(() => {
     const supabase = clientConnectionWithSupabase();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;

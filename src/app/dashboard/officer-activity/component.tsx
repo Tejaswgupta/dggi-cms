@@ -19,7 +19,7 @@ interface OfficerRow {
   email: string;
   dggi_role: string | null;
   designation: string | null;
-  last_sign_in_at: string | null;
+  last_activity_at: string | null;
 }
 
 type StatusFilter = "all" | "active" | "inactive" | "never";
@@ -35,7 +35,7 @@ function statusBadge(days: number | null) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-[#F3F2EF] px-2.5 py-0.5 text-xs font-medium text-[#6b6b6b]">
         <UserX size={11} />
-        Never signed in
+        Never visited
       </span>
     );
   }
@@ -85,21 +85,6 @@ export default function OfficerActivityComponent() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [isAdg, setIsAdg] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    const supabase = clientConnectionWithSupabase();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { setIsAdg(false); setLoading(false); return; }
-      const { data } = await supabase
-        .from("votum_users")
-        .select("dggi_role")
-        .eq("id", user.id)
-        .single();
-      if (data?.dggi_role !== "ADG") { setIsAdg(false); setLoading(false); return; }
-      setIsAdg(true);
-      loadData();
-    });
-  }, []);
-
   const loadData = async () => {
     setLoading(true);
     setError(null);
@@ -118,6 +103,21 @@ export default function OfficerActivityComponent() {
     }
   };
 
+  useEffect(() => {
+    const supabase = clientConnectionWithSupabase();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setIsAdg(false); setLoading(false); return; }
+      const { data } = await supabase
+        .from("votum_users")
+        .select("dggi_role")
+        .eq("id", user.id)
+        .single();
+      if (data?.dggi_role !== "ADG") { setIsAdg(false); setLoading(false); return; }
+      setIsAdg(true);
+      loadData();
+    });
+  }, []);
+
   if (isAdg === false) {
     return (
       <div className="flex h-full items-center justify-center p-12">
@@ -132,7 +132,7 @@ export default function OfficerActivityComponent() {
   const uniqueRoles = [...new Set(officers.map((o) => o.dggi_role ?? "Unknown"))].sort();
 
   const filtered = officers.filter((o) => {
-    const days = daysSince(o.last_sign_in_at);
+    const days = daysSince(o.last_activity_at);
 
     const matchesSearch =
       !search ||
@@ -153,13 +153,13 @@ export default function OfficerActivityComponent() {
 
   // Summary stats
   const total = officers.length;
-  const neverSigned = officers.filter((o) => !o.last_sign_in_at).length;
+  const neverVisited = officers.filter((o) => !o.last_activity_at).length;
   const active = officers.filter((o) => {
-    const d = daysSince(o.last_sign_in_at);
+    const d = daysSince(o.last_activity_at);
     return d !== null && d <= 7;
   }).length;
   const inactive = officers.filter((o) => {
-    const d = daysSince(o.last_sign_in_at);
+    const d = daysSince(o.last_activity_at);
     return d !== null && d > 7;
   }).length;
 
@@ -181,7 +181,7 @@ export default function OfficerActivityComponent() {
             Refresh
           </button>
         </div>
-        <p className="text-xs text-[#9a9a96]">Application login activity for all officers in your workspace</p>
+        <p className="text-xs text-[#9a9a96]">Application page activity for all officers in your workspace</p>
       </div>
 
       {/* Summary tiles */}
@@ -190,7 +190,7 @@ export default function OfficerActivityComponent() {
           { label: "Total Officers", value: total, color: "text-[#1a1a1a]", bg: "bg-[#F3F2EF]" },
           { label: "Active (≤7 days)", value: active, color: "text-[#065F46]", bg: "bg-[#ECFDF5]" },
           { label: "Inactive (>7 days)", value: inactive, color: "text-[#92400E]", bg: "bg-[#FEF9C3]" },
-          { label: "Never Signed In", value: neverSigned, color: "text-[#991B1B]", bg: "bg-[#FEF2F2]" },
+          { label: "Never Visited", value: neverVisited, color: "text-[#991B1B]", bg: "bg-[#FEF2F2]" },
         ].map((t) => (
           <div key={t.label} className={`${t.bg} rounded-xl px-4 py-3`}>
             <p className="text-xs text-[#6b6b6b] mb-1">{t.label}</p>
@@ -260,7 +260,7 @@ export default function OfficerActivityComponent() {
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#9a9a96] uppercase tracking-wider border-b border-[#EDEDEA] w-8">#</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#9a9a96] uppercase tracking-wider border-b border-[#EDEDEA]">Officer</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#9a9a96] uppercase tracking-wider border-b border-[#EDEDEA]">Role</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#9a9a96] uppercase tracking-wider border-b border-[#EDEDEA]">Last Signed In</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#9a9a96] uppercase tracking-wider border-b border-[#EDEDEA]">Last Activity</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-[#9a9a96] uppercase tracking-wider border-b border-[#EDEDEA]">Status</th>
                 </tr>
               </thead>
@@ -273,7 +273,7 @@ export default function OfficerActivityComponent() {
                   </tr>
                 ) : (
                   filtered.map((o, idx) => {
-                    const days = daysSince(o.last_sign_in_at);
+                    const days = daysSince(o.last_activity_at);
                     const rowBg = days === null
                       ? "bg-[#FFFBEB]"
                       : days > 30
@@ -292,7 +292,7 @@ export default function OfficerActivityComponent() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs text-[#6b6b6b] whitespace-nowrap">
-                          {formatDate(o.last_sign_in_at)}
+                          {formatDate(o.last_activity_at)}
                         </td>
                         <td className="px-4 py-3">
                           {statusBadge(days)}
