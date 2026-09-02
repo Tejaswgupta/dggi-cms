@@ -47,6 +47,8 @@ const MONTH_NAMES = [
   "December",
 ];
 
+const DUE_DAY = 10;
+
 interface MprRecord {
   id: string;
   workspace_id: string;
@@ -120,6 +122,8 @@ const MPRComponent = () => {
     const key = rowKey(reportType);
     const existing = statusMap[key];
     const newFiled = !existing?.filed;
+    const filedDate =
+      existing?.filed_date ?? new Date().toISOString().slice(0, 10);
     setSaving(key);
 
     if (existing) {
@@ -127,7 +131,7 @@ const MPRComponent = () => {
         .from("dggi_mpr_records")
         .update({
           filed: newFiled,
-          filed_date: newFiled ? new Date().toISOString().slice(0, 10) : null,
+          filed_date: newFiled ? filedDate : null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
@@ -140,7 +144,7 @@ const MPRComponent = () => {
           [key]: {
             ...existing,
             filed: newFiled,
-            filed_date: newFiled ? new Date().toISOString().slice(0, 10) : null,
+            filed_date: newFiled ? filedDate : null,
           },
         }));
       }
@@ -163,6 +167,41 @@ const MPRComponent = () => {
       } else {
         setStatusMap((prev) => ({ ...prev, [key]: data }));
       }
+    }
+    setSaving(null);
+  };
+
+  const updateFiledDate = async (reportType: string, filedDate: string) => {
+    const key = rowKey(reportType);
+    const existing = statusMap[key];
+    setSaving(key);
+
+    const { data, error } = existing
+      ? await supabase
+          .from("dggi_mpr_records")
+          .update({
+            filed_date: filedDate || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+          .select()
+          .single()
+      : await supabase
+          .from("dggi_mpr_records")
+          .insert({
+            workspace_id: workspaceId,
+            year,
+            month,
+            report_type: reportType,
+            filed_date: filedDate || null,
+          })
+          .select()
+          .single();
+
+    if (error) {
+      toast.error("Failed to update filed date: " + error.message);
+    } else {
+      setStatusMap((prev) => ({ ...prev, [key]: data }));
     }
     setSaving(null);
   };
@@ -190,6 +229,9 @@ const MPRComponent = () => {
       const rec = statusMap[rowKey(r)];
       return {
         Report: r,
+        "Due Date": `${String(DUE_DAY).padStart(2, "0")}/${String(
+          month,
+        ).padStart(2, "0")}/${year}`,
         Filed: rec?.filed ? "YES" : "NO",
         "Filed Date": rec?.filed_date ?? "",
         "Filed By": rec?.filed_by ?? "",
@@ -322,6 +364,9 @@ const MPRComponent = () => {
                     Status
                   </th>
                   <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[140px]">
+                    Due Date
+                  </th>
+                  <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[140px]">
                     Filed Date
                   </th>
                   <th className="text-center px-3 py-3 font-semibold text-[#6b6b6b] w-[100px]">
@@ -359,16 +404,21 @@ const MPRComponent = () => {
                         )}
                       </td>
                       <td className="px-3 py-3 text-center text-[#6b6b6b]">
-                        {rec?.filed_date
-                          ? new Date(rec.filed_date).toLocaleDateString(
-                              "en-IN",
-                              {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              },
-                            )
-                          : "—"}
+                        {String(DUE_DAY).padStart(2, "0")}/
+                        {String(month).padStart(2, "0")}/{year}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <input
+                          type="date"
+                          className="h-8 w-[135px] rounded-lg border border-[#EDEDEA] px-2 text-sm text-[#6b6b6b]"
+                          defaultValue={rec?.filed_date ?? ""}
+                          key={rec?.filed_date ?? "empty"}
+                          onBlur={(event) =>
+                            event.target.value !== (rec?.filed_date ?? "") &&
+                            updateFiledDate(reportType, event.target.value)
+                          }
+                          disabled={isSaving}
+                        />
                       </td>
                       <td className="px-3 py-3 text-center">
                         <Button
