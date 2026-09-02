@@ -36,6 +36,7 @@ import {
   isDeleted,
   restoreRecord,
   softDeleteRecord,
+  nullifyEmpty,
 } from "./register-utils";
 import { CaseIdCombobox, type DGGICaseOption } from "./CaseIdCombobox";
 import { useGroupFilteredSioUsers } from "@/hooks/useGroupFilteredSioUsers";
@@ -173,7 +174,7 @@ const SeizureRegisterComponent = () => {
   const saveEdit = async () => {
     if (!dialogDraft.id) return;
     setSavingRow(true);
-    const updatePayload: any = { ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null };
+    const updatePayload: any = nullifyEmpty({ ...dialogDraft, sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null }, COLUMNS);
     if (userRole !== "ADG") delete updatePayload.pr_adg_comments;
     else if (updatePayload.pr_adg_comments !== undefined) {
       updatePayload.pr_adg_comments = parseAdgComments(updatePayload.pr_adg_comments);
@@ -238,12 +239,12 @@ const SeizureRegisterComponent = () => {
   const saveNew = async () => {
     if (!workspaceId) return;
     setSavingRow(true);
-    const payload: any = {
+    const payload: any = nullifyEmpty({
       ...dialogDraft,
       record_id: await generateWorkspaceRecordId(supabase, TABLE_NAME, RECORD_PREFIX, workspaceId),
       workspace_id: workspaceId,
       sio_name: workspaceUsers.find((u) => u.id === (dialogDraft.sio ?? ""))?.name || null,
-    };
+    }, COLUMNS);
     if (userRole !== "ADG") delete payload.pr_adg_comments;
     else if (payload.pr_adg_comments) {
       payload.pr_adg_comments = parseAdgComments(payload.pr_adg_comments);
