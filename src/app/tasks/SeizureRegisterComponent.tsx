@@ -373,14 +373,41 @@ const SeizureRegisterComponent = () => {
         title={dialogMode === "add" ? "Add Seizure Record" : "Edit Seizure Record"}
         columns={COLUMNS}
         draft={dialogDraft as Record<string, string>}
-        onDraftChange={(k, v) => setDialogDraft((prev) => ({ ...prev, [k]: v }))}
+        onDraftChange={(k, v) => {
+          setDialogDraft((prev) => {
+            const next = { ...prev, [k]: v };
+            // Auto-fill from linked case
+            if (k === "linked_case_id" && v) {
+              const caseData = caseOptions.find((c) => c.record_id === v);
+              if (caseData) {
+                if (!next.entity_name) next.entity_name = caseData.taxpayer_name || "";
+                if (!next.sio) next.sio = caseData.handling_io_sio || "";
+                if (!next.group) next.group = caseData.group || "";
+              }
+            }
+            return next;
+          });
+        }}
         onSave={dialogMode === "add" ? saveNew : saveEdit}
         saving={savingRow}
         caseOptions={caseOptions}
         workspaceId={workspaceId}
-        onCasesDiscovered={(found) =>
-          setCaseOptions((prev) => mergeCaseOptions(prev, found))
-        }
+        onCasesDiscovered={(found) => {
+          setCaseOptions((prev) => mergeCaseOptions(prev, found));
+          // Auto-fill from discovered case if it matches current draft
+          if (dialogDraft.linked_case_id) {
+            const match = found.find((c) => c.record_id === dialogDraft.linked_case_id);
+            if (match) {
+              setDialogDraft((prev) => {
+                const next = { ...prev };
+                if (!next.entity_name) next.entity_name = match.taxpayer_name || "";
+                if (!next.sio) next.sio = match.handling_io_sio || "";
+                if (!next.group) next.group = match.group || "";
+                return next;
+              });
+            }
+          }
+        }}
         users={sioUsers}
         userRole={userRole}
       />
