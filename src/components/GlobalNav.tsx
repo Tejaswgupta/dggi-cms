@@ -28,9 +28,10 @@ import { useEffect, useState } from "react";
 
 const USERS_MGMT_ROLES = ["ADG", "DD_INT"];
 const OFFICER_ACTIVITY_ROLES = ["ADG"];
-const NOTIF_ROLES = ["SIO", "DD", "DD_INT", "IO"];
-const MPR_ROLES = ["ADG", "DD_REPORTS"];
+const NOTIF_ROLES = ["SIO", "DD", "DD_INT", "IO", "DD_REPORTS"];
+const MPR_ROLES = ["ADG", "DD_INT", "DD_REPORTS"];
 const SIO_INT_ONLY_HREF = "/tasks/intelligence-allocation";
+const INT_HIDDEN_ROLES = ["DD_REPORTS"];
 
 type SidebarItem = { href: string; label: string; icon: LucideIcon };
 
@@ -221,6 +222,13 @@ export default function GlobalNav() {
           return { ...section, items: visibleDashboardItems };
         if (section.label === "Investigation")
           return { ...section, items: visibleInvestigationItems };
+        if (section.label === "Registers")
+          return {
+            ...section,
+            items: INT_HIDDEN_ROLES.includes(dggiRole ?? "")
+              ? REGISTER_ITEMS.filter((item) => item.href !== SIO_INT_ONLY_HREF)
+              : section.items,
+          };
         if (section.label === "Monitoring & Compliance")
           return { ...section, items: canViewMpr ? section.items : [] };
         return section;
