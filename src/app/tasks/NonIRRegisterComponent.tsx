@@ -588,13 +588,6 @@ const NonIRRegisterComponent = () => {
             ) : (
               <>
                 <button
-                  onClick={() => openEdit(record)}
-                  title="Edit"
-                  className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-[#EEF2FF] hover:text-[#4A5FD4] transition-all"
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
                   onClick={() => deleteRecord(record.id)}
                   title="Delete"
                   className="rounded-lg p-1.5 text-[#9a9a96] hover:bg-red-50 hover:text-red-500 transition-all"
