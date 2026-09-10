@@ -304,7 +304,7 @@ const NonIRRegisterComponent = () => {
       .eq("workspace_id", wid)
       .eq("is_ir", false);
 
-    if (role && role !== "ADG" && role !== "DD_INT") {
+    if (role && role !== "ADG" && role !== "DD_INT" && role !== "DD_REPORTS") {
       if (role === "IO" || role === "SIO") {
         query = query.eq("handling_io_sio", uid ?? "__none__");
       } else if (groups && groups.length > 0) {

@@ -355,7 +355,7 @@ const ClosureRegisterComponent = () => {
       );
 
       let query = supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid);
-      if (role !== "ADG" && role !== "DD_INT") {
+      if (role !== "ADG" && role !== "DD_INT" && role !== "DD_REPORTS") {
         if (role === "IO" || role === "SIO") {
           query = query.eq("handling_io_sio", uid!);
         } else if (groups.length > 0) {

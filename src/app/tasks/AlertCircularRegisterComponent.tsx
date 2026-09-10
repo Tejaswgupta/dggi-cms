@@ -247,7 +247,7 @@ const AlertCircularRegisterComponent = () => {
       );
 
       let query = supabase.from(TABLE_NAME).select("*").eq("workspace_id", wid);
-      if (role !== "ADG" && role !== "DD_INT") {
+      if (role !== "ADG" && role !== "DD_INT" && role !== "DD_REPORTS") {
         if (role === "IO" || role === "SIO") {
           query = query.eq("sio", uid!);
         } else if (groups.length > 0) {

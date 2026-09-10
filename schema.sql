@@ -2933,7 +2933,7 @@ BEGIN
       FROM dggi_provisional_attachment_records
       WHERE workspace_id = %2$L
         AND (
-          %3$L IN ('ADG', 'DD_INT')
+          %3$L IN ('ADG', 'DD_INT', 'DD_REPORTS')
           OR (
             %3$L IN ('IO', 'SIO')
             AND sio = %4$L::uuid
@@ -2943,7 +2943,7 @@ BEGIN
             AND "group" = ANY(%5$L::text[])
           )
           OR (
-            %3$L NOT IN ('ADG','DD_INT','IO','SIO','ADC','JD','DD','AD')
+            %3$L NOT IN ('ADG','DD_INT','DD_REPORTS','IO','SIO','ADC','JD','DD','AD')
             AND "group" = '__none__'
           )
         )

@@ -171,7 +171,7 @@ const ProsecutionRegisterComponent = () => {
 
       let arrestQuery = supabase.from("dggi_prosecution_arrest_records").select("*").eq("workspace_id", wid);
       let nonArrestQuery = supabase.from("dggi_prosecution_non_arrest_records").select("*").eq("workspace_id", wid);
-      if (role !== "ADG" && role !== "DD_INT") {
+      if (role !== "ADG" && role !== "DD_INT" && role !== "DD_REPORTS") {
         if (role === "IO" || role === "SIO") {
           arrestQuery = arrestQuery.eq("sio", uid!);
           nonArrestQuery = nonArrestQuery.eq("sio", uid!);

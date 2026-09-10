@@ -588,7 +588,7 @@ const SCNRegisterComponent = () => {
       .from("dggi_scn_records")
       .select("*")
       .eq("workspace_id", wid);
-    if (role && role !== "ADG" && role !== "DD_INT") {
+    if (role && role !== "ADG" && role !== "DD_INT" && role !== "DD_REPORTS") {
       if (role === "IO" || role === "SIO") {
         query = query.eq("sio", uid ?? "__none__");
       } else if (groups && groups.length > 0) {
