@@ -28,6 +28,8 @@ export interface DeadlineRule {
   /** Skip when field value is not in the given list (i.e. any non-empty value outside this list closes the deadline). */
   skip_if_not_in?: { field: string; values: string[] }[];
   apply_only_if?: { field: string; value: string };
+  /** Skip when this row's field value is present in the caller-supplied crossTableSkip set (e.g. a closed linked case). */
+  cross_table_skip_field?: string;
 }
 
 export interface TableDeadlineConfig {
@@ -75,6 +77,7 @@ export function computeDeadlinesForRecords(
   records: AnyRecord[],
   config: TableDeadlineConfig,
   today: Date = new Date(),
+  crossTableSkip?: Set<string>,
 ): ComputedDeadline[] {
   const todayNorm = new Date(today);
   todayNorm.setHours(0, 0, 0, 0);
@@ -134,6 +137,13 @@ export function computeDeadlinesForRecords(
           const v = record[s.field];
           return v && !s.values.includes(v);
         })) skipped = true;
+      }
+      if (
+        !skipped &&
+        rule.cross_table_skip_field &&
+        crossTableSkip?.has(String(record[rule.cross_table_skip_field]))
+      ) {
+        skipped = true;
       }
 
       const deadlineDate = new Date(refDate);

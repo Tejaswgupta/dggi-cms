@@ -116,3 +116,55 @@ describe("dedup_field — provisional attachment", () => {
     expect(new Set(batchIds).size).toBe(2);
   });
 });
+
+const LAPSE_WARNING_CONFIG: TableDeadlineConfig = {
+  source_table: "dggi_provisional_attachment_records",
+  deadlines: [
+    {
+      rule_id: "provisional_attachment_lapse_warning",
+      label: "Provisional Attachment warning (1 year, clears at case closure)",
+      legal_reference: "Sec 83(1) CGST – 1 year lapse",
+      reference_field: "date_of_attachment",
+      offset_days: 365,
+      reminder_days_before: [65, 35, 7],
+      critical_days: 35,
+      warning_days: 65,
+      cross_table_skip_field: "linked_case_id",
+    },
+  ],
+};
+
+describe("cross_table_skip_field — provisional attachment lapse warning", () => {
+  const row = {
+    id: "row-1",
+    record_id: "PAR/010/25-26-1",
+    workspace_id: "ws-1",
+    linked_case_id: "163/GST/2025-26",
+    date_of_attachment: "2026-01-01",
+  };
+
+  it("skips when linked_case_id is in the caller-supplied closed set", () => {
+    const [d] = computeDeadlinesForRecords(
+      [row],
+      LAPSE_WARNING_CONFIG,
+      TODAY,
+      new Set(["163/GST/2025-26"]),
+    );
+    expect(d.skipped).toBe(true);
+  });
+
+  it("fires normally when linked_case_id is not in the closed set", () => {
+    const [d] = computeDeadlinesForRecords(
+      [row],
+      LAPSE_WARNING_CONFIG,
+      TODAY,
+      new Set(["some-other-case"]),
+    );
+    expect(d.skipped).toBe(false);
+  });
+
+  it("fires normally when no closed set is supplied at all", () => {
+    const [d] = computeDeadlinesForRecords([row], LAPSE_WARNING_CONFIG, TODAY);
+    expect(d.skipped).toBe(false);
+  });
+});

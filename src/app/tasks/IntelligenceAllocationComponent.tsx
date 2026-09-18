@@ -248,6 +248,7 @@ interface OtherSourceRecord {
   action_taken: string;
   assigned_group: string;
   transferred_to: string;
+  group_allocation_date: string;
   date_of_action_taken: string;
   remarks: string;
   non_ir_no: string;
@@ -375,6 +376,7 @@ const EMPTY_OTHER: Omit<OtherSourceRecord, "id"> = {
   action_taken: "",
   assigned_group: "",
   transferred_to: "",
+  group_allocation_date: "",
   date_of_action_taken: "",
   remarks: "",
   non_ir_no: "",
@@ -1977,6 +1979,8 @@ const IntelligenceAllocationComponent = () => {
             if (k === "action_taken" && v) {
               const today = new Date().toISOString().split("T")[0];
               next.date_of_action_taken = today;
+              if (v === "Allocated") next.group_allocation_date = today;
+              else next.group_allocation_date = "";
             }
             if (k === "assigned_group") next.sio = "";
             return next;

@@ -2558,7 +2558,7 @@ export default function DGGIDashboard() {
                   label: "IR Must be created",
                   accent: "#2563EB",
                   ref: "30 days from Intelligence Action Date",
-                  milestones: ["5 days", "8 days", "10 days"],
+                  milestones: ["16 days", "25 days", "30 days"],
                 },
                 {
                   num: 3,

@@ -176,6 +176,19 @@ export async function POST(req: NextRequest) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // Closed dggi_records, keyed by record_id (what other tables' linked_case_id
+  // columns store) — lets rules skip when their linked case is already closed,
+  // even though the rule's own row has no closure field of its own.
+  const { data: closedCases } = await supabase
+    .from("dggi_records")
+    .select("record_id")
+    .not("closure_by", "is", null);
+  const closedCaseIds = new Set(
+    (closedCases ?? [])
+      .map((r) => r.record_id as string | null)
+      .filter((v): v is string => !!v && v.trim() !== ""),
+  );
+
   const summary: Record<string, { records: number; upserted: number }> = {};
 
   for (const config of configs) {
@@ -216,7 +229,12 @@ export async function POST(req: NextRequest) {
     // 2. Compute deadlines. Even an empty result must proceed to the wipe below
     //    so a table that lost all its applicable deadlines (e.g. every record
     //    closed) gets its stale rows cleared instead of stranded.
-    const computed = computeDeadlinesForRecords(openRecords, config, today);
+    const computed = computeDeadlinesForRecords(
+      openRecords,
+      config,
+      today,
+      closedCaseIds,
+    );
 
     // 3. Batch-resolve officer names for all unique officer user IDs in this table
     const rf = TABLE_RECIPIENTS[config.source_table];
