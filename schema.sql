@@ -2948,7 +2948,10 @@ BEGIN
           )
         )
         AND (%6$L = '' OR (
-              person_name   ILIKE '%%' || %6$L || '%%'
+              record_id     ILIKE '%%' || %6$L || '%%'
+           OR attachment_batch_id ILIKE '%%' || %6$L || '%%'
+           OR linked_case_id ILIKE '%%' || %6$L || '%%'
+           OR person_name   ILIKE '%%' || %6$L || '%%'
            OR gstin_pan     ILIKE '%%' || %6$L || '%%'
            OR entity_gstin  ILIKE '%%' || %6$L || '%%'
            OR issue_involved ILIKE '%%' || %6$L || '%%'

@@ -1186,9 +1186,8 @@ const ProvisionalAttachmentComponent = () => {
       return;
     }
 
-    // Step 2: fetch all records for the case-groups on this page.
-    // batch_key is now linked_case_id (real) or record id (fallback for unlinked).
-    const realCaseIds = pageBatches
+    // Step 2: fetch all properties for the attachment batches on this page.
+    const batchIds = pageBatches
       .filter((b) => !b.isFallback)
       .map((b) => b.batchId);
     const fallbackIds = pageBatches
@@ -1196,13 +1195,13 @@ const ProvisionalAttachmentComponent = () => {
       .map((b) => b.batchId);
 
     const queries: Promise<{ data: any[] | null; error: any }>[] = [];
-    if (realCaseIds.length > 0) {
+    if (batchIds.length > 0) {
       queries.push(
         supabase
           .from("dggi_provisional_attachment_records")
           .select("*")
           .eq("workspace_id", wid)
-          .in("linked_case_id", realCaseIds)
+          .in("attachment_batch_id", batchIds)
           .order(sortField, { ascending: currentSortDir === "asc" }) as any,
       );
     }
@@ -1227,11 +1226,11 @@ const ProvisionalAttachmentComponent = () => {
 
     const data = results.flatMap((r) => r.data ?? []);
 
-    // Reassemble in the RPC's case-group order; DB sort governs order within each group
+    // Reassemble in the RPC's batch order; DB sort governs order within each batch.
     const batchOrder = new Map(pageBatches.map((b, i) => [b.batchId, i]));
     const sorted = data.slice().sort((a, b) => {
-      const ao = batchOrder.get(a.linked_case_id || a.id) ?? 999;
-      const bo = batchOrder.get(b.linked_case_id || b.id) ?? 999;
+      const ao = batchOrder.get(a.attachment_batch_id || a.id) ?? 999;
+      const bo = batchOrder.get(b.attachment_batch_id || b.id) ?? 999;
       return ao - bo;
     });
 
@@ -1539,7 +1538,7 @@ const ProvisionalAttachmentComponent = () => {
   }[] = [];
   const batchIndex = new Map<string, number>();
   for (const r of tableRecords) {
-    const bid = r.linked_case_id || `__solo__${r.id}`;
+    const bid = r.attachment_batch_id || `__solo__${r.id}`;
     if (!batchIndex.has(bid)) {
       batchIndex.set(bid, batches.length);
       batches.push({ batchId: bid, properties: [] });
