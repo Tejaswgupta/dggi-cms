@@ -137,4 +137,11 @@ allocated centrally — you cannot pick or edit the ID.
 2. Find the greyed-out/strikethrough row (search still finds it)
 3. Click **Restore**
 
+**Remove a user and reassign their cases**
+
+1. As `ADG` or `DD_INT`, go to **Users** and click **Remove user**.
+2. Review the assigned case and DGGI register counts. If any are assigned, choose a replacement `SIO` and one of their groups.
+3. Click **Transfer and remove**. Cases and assigned register records move to the replacement before the user is removed. If the transfer fails, the user and assignments stay in place.
+4. If there are no assigned cases or records, click **Remove**; no replacement is needed.
+
 ---
