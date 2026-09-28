@@ -3618,6 +3618,7 @@ const DGGIComponent = () => {
       .select("*", { count: "exact" })
       .eq("workspace_id", wid)
       .is("closure_by", null)
+      .is("deleted_at", null)
       .eq("is_ir", isIr);
     q = applyRoleFilters(q, role, groups, uid, f.handlingIo);
     q = applyListFilters(q, f, groupFilterVal);
@@ -3683,6 +3684,7 @@ const DGGIComponent = () => {
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", wid)
       .is("closure_by", null)
+      .is("deleted_at", null)
       .eq("is_ir", true);
     irQ = applyRoleFilters(irQ, role, groups, uid, f.handlingIo);
     irQ = applyListFilters(irQ, f, groupFilterVal);
@@ -3692,6 +3694,7 @@ const DGGIComponent = () => {
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", wid)
       .is("closure_by", null)
+      .is("deleted_at", null)
       .eq("is_ir", false);
     nonIrQ = applyRoleFilters(nonIrQ, role, groups, uid, f.handlingIo);
     nonIrQ = applyListFilters(nonIrQ, f, groupFilterVal);
@@ -3703,6 +3706,7 @@ const DGGIComponent = () => {
         .select("id", { count: "exact", head: true })
         .eq("workspace_id", wid)
         .is("closure_by", null)
+        .is("deleted_at", null)
         .eq("is_ir", isIr)
         .eq("group", name)
         // Exclude abeyance, but keep null-status rows (SQL `<>` drops nulls).

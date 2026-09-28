@@ -28,6 +28,12 @@ interface AddUserForm {
   dggi_role: string;
 }
 
+interface RemovalImpact {
+  dggi_cases: number;
+  dggi_registers: number;
+  cases: number;
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<UserWithGroups[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +50,10 @@ export default function UsersPage() {
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [removalImpact, setRemovalImpact] = useState<RemovalImpact | null>(null);
+  const [removalError, setRemovalError] = useState("");
+  const [replacementId, setReplacementId] = useState("");
+  const [replacementGroup, setReplacementGroup] = useState("");
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [confirmResetId, setConfirmResetId] = useState<string | null>(null);
 
@@ -102,7 +112,34 @@ export default function UsersPage() {
     loadCurrentUser();
   }, []);
 
+  useEffect(() => {
+    if (!confirmDeleteId) return;
+
+    let cancelled = false;
+    clientConnectionWithSupabase()
+      .rpc("remove_user_with_case_transfer", {
+        p_user_id: confirmDeleteId,
+        p_preview: true,
+      })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setRemovalError(error.message);
+        else setRemovalImpact(data as unknown as RemovalImpact);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmDeleteId]);
+
   const canManage = ["ADG", "DD_INT"].includes(currentDggiRole ?? "");
+
+  const openRemove = (userId: string) => {
+    setRemovalImpact(null);
+    setRemovalError("");
+    setReplacementId("");
+    setReplacementGroup("");
+    setConfirmDeleteId(userId);
+  };
 
   const openEdit = (user: UserWithGroups) => {
     setEditingUser({ ...user, groups: [...user.groups] });
@@ -221,23 +258,16 @@ export default function UsersPage() {
   };
 
   const deleteUser = async (userId: string) => {
+    if (!removalImpact) return;
     setDeletingId(userId);
     try {
       const supabase = clientConnectionWithSupabase();
-
-      const { error: groupError } = await supabase
-        .from("dggi_user_group_assignments")
-        .delete()
-        .eq("user_id", userId);
-
-      if (groupError) throw groupError;
-
-      const { error: userError } = await supabase
-        .from("votum_users")
-        .delete()
-        .eq("id", userId);
-
-      if (userError) throw userError;
+      const { error } = await supabase.rpc("remove_user_with_case_transfer", {
+        p_user_id: userId,
+        p_replacement_id: replacementId || null,
+        p_group: replacementGroup || null,
+      });
+      if (error) throw error;
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
       setConfirmDeleteId(null);
@@ -268,6 +298,18 @@ export default function UsersPage() {
       u.name?.toLowerCase().includes(search.toLowerCase()) ||
       u.email?.toLowerCase().includes(search.toLowerCase()),
   );
+  const assignedCaseCount = removalImpact
+    ? removalImpact.dggi_cases + removalImpact.dggi_registers + removalImpact.cases
+    : 0;
+  const replacement = users.find((u) => u.id === replacementId);
+  const replacementGroups = replacement?.groups ?? [];
+  const canRemove =
+    removalImpact !== null &&
+    (assignedCaseCount === 0 ||
+      (replacement &&
+        (removalImpact.dggi_cases + removalImpact.dggi_registers === 0 ||
+          (replacement.dggi_role === "SIO" &&
+            replacementGroups.includes(replacementGroup)))));
 
   return (
     <div className="flex flex-col h-full bg-[#FAFAF8]">
@@ -402,7 +444,7 @@ export default function UsersPage() {
                               <KeyRound size={14} />
                             </button>
                             <button
-                              onClick={() => setConfirmDeleteId(user.id)}
+                              onClick={() => openRemove(user.id)}
                               className="text-[#9a9a96] hover:text-red-500 transition-colors"
                               title="Remove user"
                             >
@@ -675,12 +717,12 @@ export default function UsersPage() {
       {/* Delete Confirmation Modal */}
       {confirmDeleteId && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="remove-user-title" className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
             <div className="p-6">
               <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-4">
                 <Trash2 size={18} className="text-red-500" />
               </div>
-              <p className="text-sm font-semibold text-[#1a1a1a] mb-1">
+              <p id="remove-user-title" className="text-sm font-semibold text-[#1a1a1a] mb-1">
                 Remove user?
               </p>
               <p className="text-sm text-[#6b6b6b]">
@@ -690,20 +732,72 @@ export default function UsersPage() {
                 </span>{" "}
                 and all their group assignments. This cannot be undone.
               </p>
+              {removalError ? (
+                <p role="alert" className="mt-4 text-sm text-red-600">{removalError}</p>
+              ) : !removalImpact ? (
+                <p className="mt-4 text-sm text-[#6b6b6b]">Checking assigned cases…</p>
+              ) : assignedCaseCount > 0 ? (
+                <div className="mt-4 space-y-3">
+                  <p className="text-sm text-[#1a1a1a]">
+                    {removalImpact.dggi_cases} DGGI case{removalImpact.dggi_cases !== 1 ? "s" : ""}
+                    {", "}{removalImpact.dggi_registers} DGGI register record{removalImpact.dggi_registers !== 1 ? "s" : ""}
+                    {", and "}{removalImpact.cases} other case{removalImpact.cases !== 1 ? "s" : ""}
+                    {" must be transferred before removal."}
+                  </p>
+                  <div>
+                    <label htmlFor="replacement-user" className="block text-sm font-medium mb-1">Transfer cases to</label>
+                    <select
+                      id="replacement-user"
+                      value={replacementId}
+                      onChange={(e) => {
+                        setReplacementId(e.target.value);
+                        setReplacementGroup("");
+                      }}
+                      className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg bg-white"
+                    >
+                      <option value="">Select a user</option>
+                      {users
+                        .filter((u) =>
+                          u.id !== confirmDeleteId &&
+                          (removalImpact.dggi_cases + removalImpact.dggi_registers === 0 ||
+                            (u.dggi_role === "SIO" && u.groups.length > 0)),
+                        )
+                        .map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  {removalImpact.dggi_cases + removalImpact.dggi_registers > 0 && replacementId && (
+                    <div>
+                      <label htmlFor="replacement-group" className="block text-sm font-medium mb-1">New group</label>
+                      <select
+                        id="replacement-group"
+                        value={replacementGroup}
+                        onChange={(e) => setReplacementGroup(e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-[#EDEDEA] rounded-lg bg-white"
+                      >
+                        <option value="">Select a group</option>
+                        {replacementGroups.map((g) => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-4 text-sm text-[#6b6b6b]">No assigned cases to transfer.</p>
+              )}
             </div>
             <div className="px-6 pb-5 flex justify-end gap-2">
               <button
                 onClick={() => setConfirmDeleteId(null)}
+                disabled={deletingId === confirmDeleteId}
                 className="px-4 py-2 text-sm text-[#6b6b6b] hover:text-[#1a1a1a] transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => deleteUser(confirmDeleteId)}
-                disabled={deletingId === confirmDeleteId}
+                disabled={deletingId === confirmDeleteId || !canRemove}
                 className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium disabled:opacity-60"
               >
-                {deletingId === confirmDeleteId ? "Removing..." : "Remove"}
+                {deletingId === confirmDeleteId ? "Removing..." : assignedCaseCount > 0 ? "Transfer and remove" : "Remove"}
               </button>
             </div>
           </div>

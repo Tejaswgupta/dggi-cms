@@ -118,6 +118,7 @@ function applyRbacFilter(
   rbac: UserRbac,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any {
+  query = query.is("deleted_at", null);
   const { role, groups, uid } = rbac;
   if (role === "ADG" || role === "DD_INT") return query;
   const fields = TABLE_RBAC_FIELDS[table] ?? METRIC_TABLE_RBAC[table];
@@ -130,6 +131,55 @@ function applyRbacFilter(
     return query.in(fields.groupField, groups);
   }
   return query.eq(fields.groupField, "__none__");
+}
+
+export async function filterLiveDeadlineRows(
+  rows: ComputedDeadlineRow[],
+  supabase: ReturnType<typeof clientConnectionWithSupabase>,
+): Promise<ComputedDeadlineRow[]> {
+  const liveKeys = new Set<string>();
+  await Promise.all(
+    [...new Set(rows.map((row) => row.source_table))].map(async (table) => {
+      const ids = [
+        ...new Set(
+          rows
+            .filter((row) => row.source_table === table)
+            .map((row) => row.row_id),
+        ),
+      ];
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await supabase
+          .from(table)
+          .select("id")
+          .in("id", ids.slice(i, i + 100))
+          .is("deleted_at", null);
+        if (error) throw error;
+        for (const row of data ?? []) liveKeys.add(`${table}:${row.id}`);
+      }
+    }),
+  );
+  const linkedIds = [
+    ...new Set(
+      rows
+        .map((row) => row.linked_case_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  const deletedCaseIds = new Set<string>();
+  for (let i = 0; i < linkedIds.length; i += 100) {
+    const { data, error } = await supabase
+      .from("dggi_records")
+      .select("record_id")
+      .in("record_id", linkedIds.slice(i, i + 100))
+      .not("deleted_at", "is", null);
+    if (error) throw error;
+    for (const row of data ?? []) deletedCaseIds.add(row.record_id);
+  }
+  return rows.filter(
+    (row) =>
+      liveKeys.has(`${row.source_table}:${row.row_id}`) &&
+      !deletedCaseIds.has(row.linked_case_id ?? ""),
+  );
 }
 
 // ─── Table → register href (for "open case" links) ──────────────────────────
@@ -1141,7 +1191,7 @@ export default function DGGIDashboard() {
   const [regFilter, setRegFilter] = useState<string>("all");
   const [healthFilter, setHealthFilter] = useState<Urgency | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "graph">("table");
-  const [uniqueMode, setUniqueMode] = useState(false);
+  const [uniqueMode, setUniqueMode] = useState(true);
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [showRulesDialog, setShowRulesDialog] = useState(false);
   const [unreadCommentCount, setUnreadCommentCount] = useState(0);
@@ -1462,7 +1512,10 @@ export default function DGGIDashboard() {
       ]);
 
       setComputedDeadlineRows(
-        (deadlineRes.data ?? []) as ComputedDeadlineRow[],
+        await filterLiveDeadlineRows(
+          (deadlineRes.data ?? []) as ComputedDeadlineRow[],
+          supabase,
+        ),
       );
 
       const countsMap: Record<string, number> = {};
