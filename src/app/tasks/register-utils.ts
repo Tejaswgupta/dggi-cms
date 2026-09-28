@@ -375,6 +375,11 @@ export const exportRegisterToExcel = <T extends Record<string, any>>(
         }
       : {}),
   }));
+  excelColumns.push({
+    key: "deleted_at" as keyof T,
+    label: "Deletion Status",
+    format: (_value, row) => isDeleted(row) ? "Deleted" : "Active",
+  });
 
   exportToExcel(records, excelColumns, {
     filename: `${registerName}_Register`,

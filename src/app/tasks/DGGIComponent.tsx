@@ -3612,14 +3612,15 @@ const DGGIComponent = () => {
     role?: string,
     groups?: string[],
     uid?: string,
+    includeDeleted = false,
   ) => {
     let q = supabase
       .from("dggi_records")
       .select("*", { count: "exact" })
       .eq("workspace_id", wid)
       .is("closure_by", null)
-      .is("deleted_at", null)
       .eq("is_ir", isIr);
+    if (!includeDeleted) q = q.is("deleted_at", null);
     q = applyRoleFilters(q, role, groups, uid, f.handlingIo);
     q = applyListFilters(q, f, groupFilterVal);
 
@@ -4526,7 +4527,7 @@ const DGGIComponent = () => {
     if (!workspaceId) return;
     setExporting(true);
     try {
-      // Export the full filtered set, not just the current page.
+      // Export the full filtered set, including deleted cases.
       const { data, error } = await buildRecordQuery(
         workspaceId,
         topFilter === "ir",
@@ -4537,6 +4538,7 @@ const DGGIComponent = () => {
         userRole,
         userGroups,
         currentUserId,
+        true,
       );
       if (error) {
         toast.error("Export failed: " + error.message);
