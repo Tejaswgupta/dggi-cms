@@ -992,6 +992,7 @@ const ProvisionalAttachmentComponent = () => {
 
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get("filter") || searchParams.get("highlight") || "";
+  const exactRowId = useRef(searchParams.get("rowId") || "");
 
   const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS, search: initialSearch });
   const debouncedSearch = useDebounce(filters.search, 400);
@@ -1120,6 +1121,7 @@ const ProvisionalAttachmentComponent = () => {
     overrideSortDir?: "asc" | "desc",
   ) => {
     const fetchId = ++fetchIdRef.current;
+    const targetRowId = exactRowId.current;
     const currentSortCol = overrideSortCol !== undefined ? overrideSortCol : sortCol;
     const currentSortDir = overrideSortDir !== undefined ? overrideSortDir : sortDir;
     const sortField = currentSortCol ?? "created_at";
@@ -1133,7 +1135,7 @@ const ProvisionalAttachmentComponent = () => {
         p_role: role,
         p_groups: groups,
         p_uid: uid,
-        p_search: flt.search ?? "",
+        p_search: targetRowId ? `@${targetRowId}` : flt.search ?? "",
         p_date_from: flt.dateFrom ?? "",
         p_date_to: flt.dateTo ?? "",
         p_sort_col: sortField,
@@ -1224,7 +1226,8 @@ const ProvisionalAttachmentComponent = () => {
       return;
     }
 
-    const data = results.flatMap((r) => r.data ?? []);
+    const data = results.flatMap((r) => r.data ?? [])
+      .filter((r) => !targetRowId || r.id === targetRowId);
 
     // Reassemble in the RPC's batch order; DB sort governs order within each batch.
     const batchOrder = new Map(pageBatches.map((b, i) => [b.batchId, i]));
@@ -1467,6 +1470,7 @@ const ProvisionalAttachmentComponent = () => {
   };
 
   const setFilter = <K extends keyof Filters>(key: K, val: Filters[K]) => {
+    if (key === "search") exactRowId.current = "";
     setPage(1);
     setFilters((prev) => ({ ...prev, [key]: val }));
   };
@@ -2051,6 +2055,7 @@ const ProvisionalAttachmentComponent = () => {
             {activeFilterCount > 0 && (
               <button
                 onClick={() => {
+                  exactRowId.current = "";
                   setFilters({ ...EMPTY_FILTERS });
                   setPage(1);
                 }}
@@ -2127,6 +2132,7 @@ const ProvisionalAttachmentComponent = () => {
                         <button
                           className="text-[#4A5FD4] underline"
                           onClick={() => {
+                            exactRowId.current = "";
                             setFilters({ ...EMPTY_FILTERS });
                             setPage(1);
                           }}

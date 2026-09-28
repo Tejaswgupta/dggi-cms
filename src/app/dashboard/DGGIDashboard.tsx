@@ -497,6 +497,8 @@ function dbRowToDeadlineItem(
     } else if (row.source_table === "dggi_prosecution_non_arrest_records") {
       tabHref = `${baseHref}?tab=non-arrest`;
       registerHref = `${baseHref}?filter=${encodeURIComponent(rid)}&tab=non-arrest`;
+    } else if (row.source_table === "dggi_provisional_attachment_records") {
+      registerHref = `${baseHref}?filter=${encodeURIComponent(rid)}&rowId=${encodeURIComponent(row.row_id)}`;
     } else {
       tabHref = baseHref;
       registerHref = `${baseHref}?filter=${encodeURIComponent(rid)}`;

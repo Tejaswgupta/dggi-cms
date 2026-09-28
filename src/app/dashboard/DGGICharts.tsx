@@ -525,7 +525,7 @@ export function DeadlineHeatmap({
                       </div>
                       {item.recordId && item.registerHref && (
                         <Link
-                          href={`${item.registerHref}?filter=${encodeURIComponent(item.recordId)}`}
+                          href={item.registerHref}
                           className="text-[10.5px] font-mono text-[#4A5FD4] hover:underline w-fit"
                           onClick={() => setSelectedDay(null)}
                         >

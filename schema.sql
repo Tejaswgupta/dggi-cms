@@ -2947,7 +2947,9 @@ BEGIN
             AND "group" = '__none__'
           )
         )
-        AND (%6$L = '' OR (
+        AND (
+          (left(%6$L, 1) = '@' AND id::text = substring(%6$L FROM 2))
+          OR (left(%6$L, 1) <> '@' AND (%6$L = '' OR (
               record_id     ILIKE '%%' || %6$L || '%%'
            OR attachment_batch_id ILIKE '%%' || %6$L || '%%'
            OR linked_case_id ILIKE '%%' || %6$L || '%%'
@@ -2956,7 +2958,7 @@ BEGIN
            OR entity_gstin  ILIKE '%%' || %6$L || '%%'
            OR issue_involved ILIKE '%%' || %6$L || '%%'
            OR group_sio     ILIKE '%%' || %6$L || '%%'
-        ))
+          )))
         AND (%7$L = '' OR date_of_attachment::text >= %7$L)
         AND (%8$L = '' OR date_of_attachment::text <= %8$L)
     ),
