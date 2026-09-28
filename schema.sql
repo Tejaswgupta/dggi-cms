@@ -2958,7 +2958,7 @@ BEGIN
            OR entity_gstin  ILIKE '%%' || %6$L || '%%'
            OR issue_involved ILIKE '%%' || %6$L || '%%'
            OR group_sio     ILIKE '%%' || %6$L || '%%'
-          )))
+          ))))
         AND (%7$L = '' OR date_of_attachment::text >= %7$L)
         AND (%8$L = '' OR date_of_attachment::text <= %8$L)
     ),
