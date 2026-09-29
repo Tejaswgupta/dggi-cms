@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Tooltip as RadixTooltip,
   TooltipContent as RadixTooltipContent,
   TooltipProvider as RadixTooltipProvider,
@@ -76,6 +81,49 @@ interface ExposureItem {
   totalDeadlines?: number;
 }
 
+function ChartHelp({ label, content }: { label: string; content: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={`How ${label} is calculated`}
+          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#C4C3BE] text-[10px] font-semibold text-[#6b6b6b] hover:border-[#4A5FD4] hover:text-[#4A5FD4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#4A5FD4]"
+        >
+          ?
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        className="w-72 max-w-[calc(100vw-2rem)] text-xs leading-snug normal-case tracking-normal"
+      >
+        {content}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+const CHART_HELP = {
+  compliance:
+    "On-track and warning deadlines (or cases in Unique Cases mode) divided by all deadlines or cases, then multiplied by 100. The deadline rules set each warning and critical window. With none to count, the score is 100%. The zone is Safe at 75%+, Warning at 50–74%, and Critical below 50%.",
+  heatmap:
+    "Each day shows how many tracked deadlines fall on that date this month. Its colour shows the most urgent deadline on that day: overdue, critical, warning, then on track.",
+  zone:
+    "Counts attachments, arrests, and investigations since the start of the current financial year. Investigations include incident reports (IR) and non-IR cases, with conversions counted once. Month-on-month change is this month's count minus last month's; the bar shows this month's share of the yearly total.",
+  detection:
+    "For each month this financial year, adds the detection amount, cash recovered, and input tax credit (ITC) recovered from incident reports dated that month. The figures above the chart add up all the displayed months.",
+  issue:
+    "Counts incident report (IR) and non-IR cases started this financial year that have an issue recorded. Each case adds one to its issue type; unfamiliar issue names go under Others. A slice's percentage is its count divided by all counted cases.",
+  exposure:
+    "For each officer, counts overdue, critical, and warning deadlines. Unassigned also includes on-track items. All deadlines counts each deadline; Unique cases groups linked deadlines by case and uses that case's most urgent deadline.",
+  pendency:
+    "Each card shows the register's total records. Overdue, critical, and warning count cases by their most urgent deadline. The bar shows (total minus overdue minus critical) divided by total; an empty register shows 100%.",
+  conversion:
+    "Each month's rate is non-incident-report cases converted to incident reports that month divided by the same all-time pool of non-incident-report cases, then multiplied by 100. Avg rate is the average of the displayed monthly rates. The Total converted fraction adds the monthly counts and denominators shown.",
+  workload:
+    "Counts all tracked deadlines for each assigned officer, split into overdue, critical, warning, and on track. Blank officer names appear as Unassigned. Shows the eight officers with the most deadlines.",
+} as const;
+
 // ─── ComplianceGauge ─────────────────────────────────────────────────────────
 // Semicircle meter showing compliance health score.
 
@@ -117,8 +165,9 @@ export function ComplianceGauge({
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           Compliance Health Score
+          <ChartHelp label="Compliance Health Score" content={CHART_HELP.compliance} />
         </h3>
         <span
           className={`text-[9.5px] font-semibold px-1.5 py-0.5 rounded-full ${
@@ -340,8 +389,9 @@ export function DeadlineHeatmap({
   return (
     <>
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-4">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           Deadline Heat Map
+          <ChartHelp label="Deadline Heat Map" content={CHART_HELP.heatmap} />
         </h3>
         <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-2">
           {format(new Date(year, month), "MMMM yyyy")} · click a day to see
@@ -611,8 +661,9 @@ export function ZoneIntelligencePanel({
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col gap-4">
-        <p className="text-[10px] font-semibold tracking-widest text-[#9a9a96] uppercase">
+        <p className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest text-[#9a9a96] uppercase">
           Zone Intelligence
+          <ChartHelp label="Zone Intelligence" content={CHART_HELP.zone} />
         </p>
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -629,8 +680,9 @@ export function ZoneIntelligencePanel({
 
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col gap-4">
-      <p className="text-[10px] font-semibold tracking-widest text-[#9a9a96] uppercase">
+      <p className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest text-[#9a9a96] uppercase">
         Zone Intelligence
+        <ChartHelp label="Zone Intelligence" content={CHART_HELP.zone} />
       </p>
 
       <div className="grid grid-cols-2 gap-3">
@@ -751,8 +803,9 @@ export function DetectionRecoveryChart({
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           Detection vs Recovery
+          <ChartHelp label="Detection vs Recovery" content={CHART_HELP.detection} />
         </h3>
         <div className="h-[200px] bg-[#F3F2EF] rounded-xl animate-pulse mt-4" />
       </div>
@@ -842,8 +895,9 @@ export function DetectionRecoveryChart({
 
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
-      <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
         Detection vs Recovery
+        <ChartHelp label="Detection vs Recovery" content={CHART_HELP.detection} />
       </h3>
       <div className="flex items-center gap-3 mt-1 mb-3 flex-wrap">
         <span className="text-[10.5px] text-[#9a9a96]">
@@ -933,8 +987,9 @@ export function IssueInvolvedChart({
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           Issue Involved (Current FY)
+          <ChartHelp label="Issue Involved" content={CHART_HELP.issue} />
         </h3>
         <div className="h-[200px] bg-[#F3F2EF] rounded-xl animate-pulse mt-4" />
       </div>
@@ -971,8 +1026,9 @@ export function IssueInvolvedChart({
 
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
-      <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
         Issue (Current FY)
+        <ChartHelp label="Issue Involved" content={CHART_HELP.issue} />
       </h3>
       <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-3">
         {total} case{total !== 1 ? "s" : ""} by issue type
@@ -1145,8 +1201,9 @@ export function OfficerExposureChart({
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           Officer Exposure
+          <ChartHelp label="Officer Exposure" content={CHART_HELP.exposure} />
         </h3>
         <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
           Action items by assigned unit
@@ -1168,8 +1225,9 @@ export function OfficerExposureChart({
     <>
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+          <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
             Officer Exposure
+            <ChartHelp label="Officer Exposure" content={CHART_HELP.exposure} />
           </h3>
           <button
             type="button"
@@ -1426,8 +1484,9 @@ export function RegisterPendencyCards({
 }) {
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-      <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
         Open Items by Register
+        <ChartHelp label="Open Items by Register" content={CHART_HELP.pendency} />
       </h3>
       <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
         Pending · Overdue · Critical across all registers
@@ -1557,8 +1616,9 @@ export function NonIrConversionChart({
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           NON-IR → IR Conversion Rate
+          <ChartHelp label="NON-IR to IR Conversion Rate" content={CHART_HELP.conversion} />
         </h3>
         <div className="h-[200px] bg-[#F3F2EF] rounded-xl animate-pulse mt-4" />
       </div>
@@ -1641,8 +1701,9 @@ export function NonIrConversionChart({
   return (
     <>
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           NON-IR → IR Conversion Rate
+          <ChartHelp label="NON-IR to IR Conversion Rate" content={CHART_HELP.conversion} />
         </h3>
         <p className="text-[10.5px] text-[#9a9a96] mt-0.5">
           Click a bar to see the cases raised that month
@@ -1796,8 +1857,9 @@ export function OfficerWorkloadChart({
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-[#EDEDEA] p-5">
-        <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+        <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
           Officer Workload
+          <ChartHelp label="Officer Workload" content={CHART_HELP.workload} />
         </h3>
         <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-4">
           All deadline items by assigned officer
@@ -1890,8 +1952,9 @@ export function OfficerWorkloadChart({
 
   return (
     <div className="bg-white rounded-xl border border-[#EDEDEA] p-5 flex flex-col">
-      <h3 className="text-[13px] font-semibold text-[#1a1a1a]">
+      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-[#1a1a1a]">
         Officer Workload
+        <ChartHelp label="Officer Workload" content={CHART_HELP.workload} />
       </h3>
       <p className="text-[10.5px] text-[#9a9a96] mt-0.5 mb-3">
         {items.length} total deadline item{items.length !== 1 ? "s" : ""} by

@@ -331,6 +331,19 @@ const REGISTERS: RegisterMeta[] = [
 const INVESTIGATIONS_TABLE = "dggi_records";
 const REGISTER_BY_TABLE = new Map(REGISTERS.map((r) => [r.table, r]));
 
+export function countableConvertedIr<T extends { converted_from_non_ir?: string | null }>(
+  rows: T[],
+  nonIrCountedThisFy: Set<string>,
+): T[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const source = row.converted_from_non_ir;
+    if (!source || nonIrCountedThisFy.has(source) || seen.has(source)) return false;
+    seen.add(source);
+    return true;
+  });
+}
+
 function getCurrentFYStart(): string {
   const now = new Date();
   const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
@@ -1313,8 +1326,8 @@ export default function DGGIDashboard() {
         return q.then((r: { count: number | null }) => r.count ?? 0);
       }
 
-      // A converted IR continues its NON-IR investigation, so count it only
-      // at the original NON-IR start date.
+      // Count direct IR and NON-IR openings here. Prior-FY NON-IR conversions
+      // are added after the converted IR rows have been matched to their source.
       async function countInvestigations(gte: string, lt?: string) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         function buildQ(dateCol: string, isIr: boolean): any {
@@ -1494,12 +1507,12 @@ export default function DGGIDashboard() {
           supabase
             .from("dggi_records")
             .select(
-              "date_of_ir, converted_from_non_ir, record_id, taxpayer_name",
+              "date_of_ir, converted_from_non_ir, record_id, taxpayer_name, issue_involved",
             )
             .eq("workspace_id", wid)
             .eq("is_ir", true)
             .not("converted_from_non_ir", "is", null)
-            .gte("date_of_ir", fyStart),
+            .gte("date_of_ir", prevMonth.start < fyStart ? prevMonth.start : fyStart),
           "dggi_records",
           rbac,
         ),
@@ -1526,16 +1539,52 @@ export default function DGGIDashboard() {
       for (const { table, count } of countResults) countsMap[table] = count;
       setRegisterCounts(countsMap);
       setInvestigationCount(invRes.count ?? 0);
+      const conversionCandidates = (nonIrRecordsRes.data ?? []) as AnyRecord[];
+      const sourceIds = [
+        ...new Set(conversionCandidates.map((row) => row.converted_from_non_ir as string).filter(Boolean)),
+      ];
+      const nonIrCountedThisFy = new Set<string>();
+      const prevFyStart = prevMonth.start < fyStart
+        ? `${Number(fyStart.slice(0, 4)) - 1}-04-01`
+        : fyStart;
+      const nonIrCountedPrevFy = new Set<string>();
+      for (let i = 0; i < sourceIds.length; i += 100) {
+        const { data, error } = await applyRbacFilter(
+          supabase
+            .from(INVESTIGATIONS_TABLE)
+            .select("record_id,date_of_non_ir")
+            .eq("workspace_id", wid)
+            .eq("is_ir", false)
+            .in("record_id", sourceIds.slice(i, i + 100)),
+          INVESTIGATIONS_TABLE,
+          rbac,
+        );
+        if (error) throw error;
+        for (const row of data ?? []) {
+          if (row.date_of_non_ir >= fyStart) nonIrCountedThisFy.add(row.record_id);
+          if (row.date_of_non_ir >= prevFyStart) nonIrCountedPrevFy.add(row.record_id);
+        }
+      }
+      const nonIrRows = conversionCandidates.filter((row) => row.date_of_ir >= fyStart);
+      const newConversions = countableConvertedIr(nonIrRows, nonIrCountedThisFy);
+      const prevMonthConversions = countableConvertedIr(
+        conversionCandidates.filter(
+          (row) => row.date_of_ir >= prevMonth.start && row.date_of_ir < prevMonth.end,
+        ),
+        nonIrCountedPrevFy,
+      );
       setZoneIntelCounts({
         fyProv: fyProvCount,
         fyArr: fyArrCount,
-        fyInv: fyInvCount,
+        fyInv: fyInvCount + newConversions.length,
         currProv: currProvCount,
         currArr: currArrCount,
-        currInv: currInvCount,
+        currInv: currInvCount + newConversions.filter(
+          (row) => row.date_of_ir >= currMonth.start && row.date_of_ir < currMonth.end,
+        ).length,
         prevProv: prevProvCount,
         prevArr: prevArrCount,
-        prevInv: prevInvCount,
+        prevInv: prevInvCount + prevMonthConversions.length,
       });
 
       // Detection vs Recovery by group
@@ -1575,6 +1624,7 @@ export default function DGGIDashboard() {
       const caseRows = [
         ...((irIssueRecordsRes.data ?? []) as AnyRecord[]),
         ...((nonIrIssueRecordsRes.data ?? []) as AnyRecord[]),
+        ...newConversions.filter((row) => row.issue_involved),
       ];
       const issueMap = new Map<string, number>();
       for (const row of caseRows) {
@@ -1588,7 +1638,6 @@ export default function DGGIDashboard() {
       );
 
       // NON-IR → IR conversion by month (grouped by actual conversion date)
-      const nonIrRows = (nonIrRecordsRes.data ?? []) as AnyRecord[];
       const totalNonIr = (nonIrTotalRes as { count: number | null }).count ?? 0;
       const conversionMap = new Map<
         string,

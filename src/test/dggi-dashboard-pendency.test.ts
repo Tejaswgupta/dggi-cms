@@ -1,4 +1,4 @@
-import { filterLiveDeadlineRows } from "@/app/dashboard/DGGIDashboard";
+import { countableConvertedIr, filterLiveDeadlineRows } from "@/app/dashboard/DGGIDashboard";
 import { expect, it, vi } from "vitest";
 
 it("keeps only live source rows in dashboard pendency", async () => {
@@ -48,4 +48,14 @@ it("keeps only live source rows in dashboard pendency", async () => {
   const result = await filterLiveDeadlineRows(rows, { from } as never);
 
   expect(result).toEqual([rows[0], rows[2], rows[4]]);
+});
+
+it("counts a conversion this FY only when its NON-IR source was not already counted", () => {
+  const rows = [
+    { record_id: "new-1", converted_from_non_ir: "prior-fy" },
+    { record_id: "new-2", converted_from_non_ir: "this-fy" },
+    { record_id: "duplicate", converted_from_non_ir: "prior-fy" },
+  ];
+
+  expect(countableConvertedIr(rows, new Set(["this-fy"]))).toEqual([rows[0]]);
 });
