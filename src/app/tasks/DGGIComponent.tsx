@@ -2168,7 +2168,6 @@ const SCN_COLUMNS: RegisterColumn[] = [
 
 function RegisterSummaryTile({
   title,
-  count,
   icon,
   onAdd,
   records,
@@ -2177,7 +2176,6 @@ function RegisterSummaryTile({
   onRestore,
 }: {
   title: string;
-  count: number;
   icon: React.ReactNode;
   onAdd: () => void;
   records?: Array<{
@@ -2191,12 +2189,13 @@ function RegisterSummaryTile({
   onRestore?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const count = records?.filter((r) => !isDeleted(r)).length ?? 0;
   return (
     <div className="rounded-xl border border-[#EDEDEA] bg-white overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between gap-3">
         <button
           className="flex items-center gap-3 flex-1 text-left"
-          onClick={() => count > 0 && setExpanded((v) => !v)}
+          onClick={() => records?.length && setExpanded((v) => !v)}
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#EEF2FF] text-[#4A5FD4]">
             {icon}
@@ -2207,7 +2206,7 @@ function RegisterSummaryTile({
               {count} linked record{count !== 1 ? "s" : ""}
             </div>
           </div>
-          {count > 0 && (
+          {!!records?.length && (
             <span className="ml-1 text-[#9a9a96]">
               {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             </span>
@@ -2748,7 +2747,6 @@ export function DGGIRecordDialog({
             <div className="px-4 py-3 space-y-2">
               <RegisterSummaryTile
                 title="Arrest Register"
-                count={arrestRecords.length}
                 icon={<Layers size={14} />}
                 onAdd={onAddArrest ?? (() => {})}
                 records={arrestRecords}
@@ -2758,7 +2756,6 @@ export function DGGIRecordDialog({
               />
               <RegisterSummaryTile
                 title="Provisional Attachment"
-                count={provisionalRecords.length}
                 icon={<Layers size={14} />}
                 onAdd={onAddProvisional ?? (() => {})}
                 records={provisionalRecords}
@@ -2768,7 +2765,6 @@ export function DGGIRecordDialog({
               />
               <RegisterSummaryTile
                 title="SCN Register"
-                count={scnRecords.length}
                 icon={<Layers size={14} />}
                 onAdd={onAddSCN ?? (() => {})}
                 records={scnRecords}
@@ -2859,7 +2855,6 @@ export function DGGIRecordDialog({
                       <>
                         <RegisterSummaryTile
                           title="Arrest Register"
-                          count={arrestRecords.length}
                           icon={<Layers size={14} />}
                           onAdd={onAddArrest ?? (() => {})}
                           records={arrestRecords}
@@ -2869,7 +2864,6 @@ export function DGGIRecordDialog({
                         />
                         <RegisterSummaryTile
                           title="Provisional Attachment"
-                          count={provisionalRecords.length}
                           icon={<Layers size={14} />}
                           onAdd={onAddProvisional ?? (() => {})}
                           records={provisionalRecords}
@@ -3073,6 +3067,7 @@ function BulkTransferDialog({
       .eq("workspace_id", workspaceId)
       .eq("handling_io_sio", fromUserId)
       .is("closure_by", null)
+      .is("deleted_at", null)
       .then(({ count }) => {
         if (!cancelled) {
           setAffectedCount(count ?? 0);
@@ -4096,6 +4091,8 @@ const DGGIComponent = () => {
         ),
       );
       toast.error("Restore failed: " + error.message);
+    } else {
+      reloadPage();
     }
   };
 
@@ -4123,6 +4120,7 @@ const DGGIComponent = () => {
       toast.error("Delete failed: " + error.message);
       return;
     }
+    reloadPage();
     toast.info(
       ({ closeToast }) => (
         <div className="flex items-center justify-between gap-3 w-full">
@@ -4158,7 +4156,8 @@ const DGGIComponent = () => {
       .select("record_id")
       .eq("workspace_id", workspaceId)
       .eq("handling_io_sio", fromUserId)
-      .is("closure_by", null);
+      .is("closure_by", null)
+      .is("deleted_at", null);
     if (affectedErr) {
       toast.error("Transfer failed — could not load affected cases: " + affectedErr.message);
       setTransferring(false);
@@ -4184,7 +4183,8 @@ const DGGIComponent = () => {
         })
         .eq("handling_io_sio", fromUserId)
         .eq("workspace_id", workspaceId)
-        .is("closure_by", null),
+        .is("closure_by", null)
+        .is("deleted_at", null),
       affectedRecordIds.length > 0
         ? supabase
             .from("dggi_scn_records")

@@ -241,7 +241,7 @@ const IncidentReportComponent = () => {
       const [userRow, groupRows, fyRows] = await Promise.all([
         supabase.from("votum_users").select("dggi_role").eq("id", uid).single(),
         supabase.from("dggi_user_group_assignments").select("group_name").eq("user_id", uid),
-        supabase.from("dggi_records").select("date_of_ir").eq("workspace_id", wid).eq("is_ir", true).not("date_of_ir", "is", null),
+        supabase.from("dggi_records").select("date_of_ir").eq("workspace_id", wid).eq("is_ir", true).is("deleted_at", null).not("date_of_ir", "is", null),
       ]);
       const role = userRow.data?.dggi_role ?? "";
       const groups = (groupRows.data ?? []).map((g: { group_name: string }) => g.group_name);
@@ -339,6 +339,7 @@ const IncidentReportComponent = () => {
         .select("date_of_ir")
         .eq("workspace_id", workspaceId)
         .eq("is_ir", true)
+        .is("deleted_at", null)
         .not("date_of_ir", "is", null);
       if (fyRows) {
         const fys = Array.from(new Set(
@@ -434,6 +435,7 @@ const IncidentReportComponent = () => {
           : String(av).localeCompare(String(bv));
       return sortDir === "asc" ? cmp : -cmp;
     });
+  const activeCount = tableRecords.filter((r) => !isDeleted(r)).length;
 
   // ── Grouped buckets ────────────────────────────────────────────────────────
 
@@ -462,6 +464,9 @@ const IncidentReportComponent = () => {
               rows,
             }));
         })();
+  const activeGroupCount = groupedBuckets.filter(({ rows }) =>
+    rows.some((r) => !isDeleted(r)),
+  ).length;
 
   const toggleGroupCollapse = (key: string) => {
     setCollapsedGroups((prev) => {
@@ -580,8 +585,8 @@ const IncidentReportComponent = () => {
                 IR Register
               </h1>
               <p className="text-base text-[#9a9a96]">
-                {tableRecords.length} record
-                {tableRecords.length !== 1 ? "s" : ""}
+                {activeCount} record
+                {activeCount !== 1 ? "s" : ""}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -823,8 +828,8 @@ const IncidentReportComponent = () => {
                   Collapse all
                 </button>
                 <span className="ml-2 text-base text-[#9a9a96]">
-                  {groupedBuckets.length} group
-                  {groupedBuckets.length !== 1 ? "s" : ""}
+                  {activeGroupCount} group
+                  {activeGroupCount !== 1 ? "s" : ""}
                 </span>
               </div>
             )}
@@ -926,7 +931,7 @@ const IncidentReportComponent = () => {
                                   {label}
                                 </span>
                                 <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#4A5FD4] px-1.5 text-xs text-white font-medium">
-                                  {rows.length}
+                                  {rows.filter((r) => !isDeleted(r)).length}
                                 </span>
                               </div>
                             </TableCell>
