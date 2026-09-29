@@ -1313,8 +1313,8 @@ export default function DGGIDashboard() {
         return q.then((r: { count: number | null }) => r.count ?? 0);
       }
 
-      // Investigations = IR cases (date_of_ir) + NON-IR cases (date_of_non_ir)
-      // is_ir filter prevents double-counting cases that have both dates set
+      // A converted IR continues its NON-IR investigation, so count it only
+      // at the original NON-IR start date.
       async function countInvestigations(gte: string, lt?: string) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         function buildQ(dateCol: string, isIr: boolean): any {
@@ -1328,6 +1328,7 @@ export default function DGGIDashboard() {
             INVESTIGATIONS_TABLE,
             rbac,
           );
+          if (isIr) q = q.is("converted_from_non_ir", null);
           if (lt) q = q.lt(dateCol, lt);
           return q.then((r: { count: number | null }) => r.count ?? 0);
         }
@@ -1460,13 +1461,14 @@ export default function DGGIDashboard() {
           "dggi_records",
           rbac,
         ),
-        // IR records with issue_involved, current FY
+        // Standalone IR investigations with issue_involved, current FY
         applyRbacFilter(
           supabase
             .from("dggi_records")
             .select("issue_involved")
             .eq("workspace_id", wid)
             .eq("is_ir", true)
+            .is("converted_from_non_ir", null)
             .not("issue_involved", "is", null)
             .neq("issue_involved", "")
             .gte("date_of_ir", fyStart),
