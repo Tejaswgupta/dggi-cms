@@ -14,9 +14,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp "$SCRIPT_DIR/dggi-cms.service" /etc/systemd/system/dggi-cms.service
 cp "$SCRIPT_DIR/cloudflare-tunnel.service" /etc/systemd/system/cloudflare-tunnel.service
 
+cp "$SCRIPT_DIR/supabase-backup.service" "$SCRIPT_DIR/supabase-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now dggi-cms.service
 systemctl enable --now cloudflare-tunnel.service
+systemctl enable --now supabase-backup.timer
 
 echo "Done. Check status with:"
 echo "  systemctl status dggi-cms.service"

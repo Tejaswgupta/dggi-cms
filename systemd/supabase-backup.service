@@ -1,0 +1,10 @@
+[Unit]
+Description=Supabase Postgres backup to Google Drive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=acer
+WorkingDirectory=/home/acer/dggi-cms
+ExecStart=/bin/bash /home/acer/dggi-cms/scripts/backup-supabase.sh
