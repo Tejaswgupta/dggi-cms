@@ -6,5 +6,6 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=acer
+SupplementaryGroups=docker
 WorkingDirectory=/home/acer/dggi-cms
 ExecStart=/bin/bash /home/acer/dggi-cms/scripts/backup-supabase.sh
