@@ -191,6 +191,21 @@
 | Apply only if    | `is_ir` = `"false"`        |
 | Skip if not null | `date_of_non_ir`           |
 
+#### non_ir_conversion_deadline — NON-IR must be converted to IR or closed (30 days from NON-IR)
+
+| Field           | Value                              |
+| --------------- | ---------------------------------- |
+| Legal reference | Int. Procedure – NON-IR Conversion |
+| Reference field | `date_of_non_ir`                   |
+| Deadline        | +30 days                           |
+| Reminders       | 30d, 14d, 7d, 3d before            |
+| Critical window | ≤ 5 days                           |
+| Warning window  | ≤ 14 days                          |
+| Apply only if   | `is_ir` = `"false"`                |
+
+No skip field: converting sets `closure_by = "Convert to IR"`, and the job already
+drops every `dggi_records` row with a non-empty `closure_by` before computing.
+
 ---
 
 ### `dggi_prosecution_non_arrest_records` — Prosecution (Non-Arrest)

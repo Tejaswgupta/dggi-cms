@@ -189,6 +189,17 @@
           "skip_if_not_null": ["date_of_non_ir"]
         },
         {
+          "rule_id": "non_ir_conversion_deadline",
+          "label": "NON-IR must be converted to IR or closed (30 days from NON-IR)",
+          "legal_reference": "Int. Procedure – NON-IR Conversion",
+          "reference_field": "date_of_non_ir",
+          "offset_days": 30,
+          "reminder_days_before": [30, 14, 7, 3],
+          "critical_days": 5,
+          "warning_days": 14,
+          "apply_only_if": { "field": "is_ir", "value": "false" }
+        },
+        {
           "rule_id": "ir_closure_deadline",
           "label": "IR must be closed (9 months from IR date)",
           "legal_reference": "Int. Procedure – IR Closure",

@@ -1,0 +1,10 @@
+[Unit]
+Description=Recompute DGGI deadline alerts
+After=dggi-cms.service
+Wants=dggi-cms.service
+
+[Service]
+Type=oneshot
+User=acer
+WorkingDirectory=/home/acer/dggi-cms
+ExecStart=/bin/bash /home/acer/dggi-cms/scripts/recompute-deadlines.sh

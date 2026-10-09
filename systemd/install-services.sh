@@ -15,10 +15,12 @@ cp "$SCRIPT_DIR/dggi-cms.service" /etc/systemd/system/dggi-cms.service
 cp "$SCRIPT_DIR/cloudflare-tunnel.service" /etc/systemd/system/cloudflare-tunnel.service
 
 cp "$SCRIPT_DIR/supabase-backup.service" "$SCRIPT_DIR/supabase-backup.timer" /etc/systemd/system/
+cp "$SCRIPT_DIR/dggi-deadlines.service" "$SCRIPT_DIR/dggi-deadlines.timer" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now dggi-cms.service
 systemctl enable --now cloudflare-tunnel.service
 systemctl enable --now supabase-backup.timer
+systemctl enable --now dggi-deadlines.timer
 
 echo "Done. Check status with:"
 echo "  systemctl status dggi-cms.service"
