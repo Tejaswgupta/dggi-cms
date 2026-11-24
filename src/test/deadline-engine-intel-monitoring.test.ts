@@ -63,6 +63,16 @@ describe("Intelligence Monitoring ADG put-up deadline — reference dates", () =
     expect(daysBetween(d.reference_date, d.deadline_date)).toBe(30);
   });
 
+  it.each(["dggi_intel_rapid_records", "dggi_str_records"])(
+    "%s resolves a put-up after action without group allocation",
+    (table) => {
+      const pending = { id: "1", workspace_id: "ws-1", date_of_receipt: "2026-01-01" };
+      const acted = { ...pending, id: "2", date_of_action_taken: "2026-01-15" };
+      const deadlines = computeDeadlinesForRecords([pending, acted], configFor(table), TODAY);
+      expect(deadlines.map((d) => d.skipped)).toEqual([false, true]);
+    },
+  );
+
   it("skip_if_not_null keys match real columns (non_ir_date, not the stale date_of_non_ir)", () => {
     const row = {
       id: "r-2",

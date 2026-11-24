@@ -30,7 +30,7 @@
 | Reminders        | 30d, 14d, 7d, 3d, 1d before            |
 | Critical window  | ≤ 5 days                               |
 | Warning window   | ≤ 14 days                              |
-| Skip if not null | `group_allocation_date`, `non_ir_date` |
+| Skip if not null | `date_of_action_taken`, `group_allocation_date`, `non_ir_date` |
 
 #### non_ir_creation_deadline — NON-IR/IR to be created (10 days from group allocation)
 
@@ -74,7 +74,7 @@
 | Reminders        | 30d, 14d, 7d, 3d, 1d before            |
 | Critical window  | ≤ 5 days                               |
 | Warning window   | ≤ 14 days                              |
-| Skip if not null | `group_allocation_date`, `non_ir_date` |
+| Skip if not null | `date_of_action_taken`, `group_allocation_date`, `non_ir_date` |
 
 #### non_ir_creation_deadline — NON-IR/IR to be created (10 days from group allocation)
 
